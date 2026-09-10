@@ -23,6 +23,7 @@ float PIXEL_DENSITY = 1.0f;
 // GridDrawables use to pick the 256x64 label texture over the 128x32 one, so
 // captions stay sharp at this size.
 float CONTENT_SCALE = 1.5f;
+int SCREEN_NAIL_MAX_EDGE = 1024;
 std::string ASSET_ROOT = "assets";
 
 Drawable findDrawable(const std::string &name, bool allowHigherDensity) {

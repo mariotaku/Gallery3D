@@ -106,8 +106,9 @@ Bitmap MediaItemTexture::load(RenderView *view) {
         }
         return cropped;
     }
-    // Screennail, used once an item fills the screen.
-    return Bitmap::load(mItem->mFilePath, FileTexture::MAX_RESOLUTION);
+    // Screennail, used once an item fills the screen, so it is sized to the
+    // window rather than to the original's handset era cap.
+    return Bitmap::load(mItem->mFilePath, App::SCREEN_NAIL_MAX_EDGE);
 }
 
 // ---------------------------------------------------------------------------

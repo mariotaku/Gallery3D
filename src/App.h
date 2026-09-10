@@ -20,6 +20,13 @@ extern float PIXEL_DENSITY;
 // whole wall at once. --scale overrides it.
 extern float CONTENT_SCALE;
 
+// Longest edge a fullscreen photo is decoded to. The original capped this at
+// 1024 because that was generous for a handset; here the window is usually
+// wider than that, so a photo would be upscaled before it was even zoomed.
+// main() sets it from the window, and the texture is padded to a power of two
+// on top, so raising it past 1024 costs the next power of two either way.
+extern int SCREEN_NAIL_MAX_EDGE;
+
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;
 

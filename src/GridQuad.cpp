@@ -87,10 +87,19 @@ void GridQuad::recomputeQuad() {
     float yOffset = 0.0f;
     float u = mU;
     float v = mV;
-    set(0, 0, -widthBy2 + xOffset, -heightBy2 + yOffset, 0.0f, u, v, false, 0);
-    set(1, 0, widthBy2 + xOffset, -heightBy2 + yOffset, 0.0f, 0.0f, v, false, 0);
-    set(0, 1, -widthBy2 + xOffset, heightBy2 + yOffset, 0.0f, u, 0.0f, false, 0);
-    set(1, 1, widthBy2 + xOffset, heightBy2 + yOffset, 0.0f, 0.0f, 0.0f, false, 0);
+    // Both coordinate sets, not just the base one. The original left the
+    // overlay set alone here because its fixed function path fed the content
+    // pass from the base set. This port's single texture shader reads
+    // attribute 1, which is bound from the overlay set, so writing only the
+    // base set left the photo sampling whatever extents the quad was created
+    // with. That was invisible while a screennail happened to fill its padded
+    // texture exactly, and showed up as padding around the photo the moment one
+    // did not. Only the fullscreen quads ever reach here, and they have no
+    // overlay art, so the two sets carrying the same coordinates is correct.
+    set(0, 0, -widthBy2 + xOffset, -heightBy2 + yOffset, 0.0f, u, v, true, 0);
+    set(1, 0, widthBy2 + xOffset, -heightBy2 + yOffset, 0.0f, 0.0f, v, true, 0);
+    set(0, 1, -widthBy2 + xOffset, heightBy2 + yOffset, 0.0f, u, 0.0f, true, 0);
+    set(1, 1, widthBy2 + xOffset, heightBy2 + yOffset, 0.0f, 0.0f, 0.0f, true, 0);
     mQuadChanged = true;
 }
 

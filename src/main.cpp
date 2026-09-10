@@ -252,6 +252,15 @@ int main(int argc, char **argv) {
     SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
     renderView.onSurfaceChanged(pixelWidth, pixelHeight);
 
+    // A fullscreen photo is drawn about as wide as the window, so decode it to
+    // at least that. Below the old 1024 there is nothing to gain, and the cap
+    // keeps a very large window from turning every photo into a 4096 texture.
+    {
+        int longEdge = (pixelWidth > pixelHeight) ? pixelWidth : pixelHeight;
+        App::SCREEN_NAIL_MAX_EDGE = std::min(2048, std::max(1024, longEdge));
+        SDL_Log("Screennail max edge %d", App::SCREEN_NAIL_MAX_EDGE);
+    }
+
     gridLayer.setDataSource(&dataSource);
     SDL_Log("Scanning %s", photoDirectory.c_str());
 
