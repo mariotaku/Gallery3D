@@ -1,18 +1,21 @@
 // Entry point, replacing com.cooliris.media.Gallery.
 //
-// Usage: gallery3d [photo directory] [--scale N]
-// Defaults to the user's Pictures folder.
+// Usage: gallery3d [photo directory] [--also directory] [--scale N]
+// Defaults to the user's Pictures folder. --also shows a second directory
+// alongside the first, through ConcatenatedDataSource.
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
 #include <cstdlib>
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "App.h"
 #include "Canvas.h"
+#include "ConcatenatedDataSource.h"
 #include "GridLayer.h"
 #include "GridLayoutInterface.h"
 #include "Input.h"
@@ -107,6 +110,8 @@ bool saveFramebuffer(int width, int height, const std::string &path) {
 
 int main(int argc, char **argv) {
     std::string photoDirectory;
+    // A second library, shown after the first. Two sources behind one feed.
+    std::string alsoDirectory;
     std::string screenshotPath;
     int screenshotFrames = 240;
     // Opens the given album part way through, so the grid view can be captured
@@ -163,6 +168,8 @@ int main(int argc, char **argv) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 scrubAt = (float)std::atof(argv[++i]);
             }
+        } else if (arg == "--also" && i + 1 < argc) {
+            alsoDirectory = argv[++i];
         } else if (arg == "--scale" && i + 1 < argc) {
             float scale = (float)std::atof(argv[++i]);
             if (scale > 0.0f) {
@@ -248,6 +255,16 @@ int main(int argc, char **argv) {
     GridLayer gridLayer((int)(96.0f * App::PIXEL_DENSITY), (int)(72.0f * App::PIXEL_DENSITY), &layoutInterface,
                         &renderView);
     LocalDataSource dataSource(photoDirectory);
+    // Held out here so they outlive the feed. Only used when --also was given.
+    std::unique_ptr<LocalDataSource> alsoSource;
+    std::unique_ptr<ConcatenatedDataSource> combinedSource;
+    DataSource *feedSource = &dataSource;
+    if (!alsoDirectory.empty()) {
+        alsoSource = std::make_unique<LocalDataSource>(alsoDirectory);
+        combinedSource = std::make_unique<ConcatenatedDataSource>(&dataSource, alsoSource.get());
+        feedSource = combinedSource.get();
+        SDL_Log("Also showing %s", alsoDirectory.c_str());
+    }
 
     renderView.setRootLayer(&gridLayer);
     renderView.onSurfaceCreated();
@@ -269,7 +286,7 @@ int main(int argc, char **argv) {
         SDL_Log("Screennail max edge %d, hi-res max edge %d", App::SCREEN_NAIL_MAX_EDGE, App::HI_RES_MAX_EDGE);
     }
 
-    gridLayer.setDataSource(&dataSource);
+    gridLayer.setDataSource(feedSource);
     SDL_Log("Scanning %s", photoDirectory.c_str());
 
     // Pointer state, turned into the MotionEvents the ported gesture code wants.

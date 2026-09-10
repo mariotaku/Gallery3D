@@ -8,7 +8,7 @@
 
 MediaFeed::MediaFeed(DataSource *dataSource, Listener *listener) : mDataSource(dataSource), mListener(listener) {}
 
-MediaSet *MediaFeed::addMediaSet(int64_t setId) {
+MediaSet *MediaFeed::addMediaSet(int64_t setId, DataSource *source) {
     std::lock_guard<std::mutex> lock(mSetsMutex);
     for (size_t i = 0; i < mMediaSets.size(); ++i) {
         if (mMediaSets[i]->mId == setId) {
@@ -20,7 +20,18 @@ MediaSet *MediaFeed::addMediaSet(int64_t setId) {
     }
     mMediaSets.push_back(std::make_unique<MediaSet>());
     mMediaSets.back()->mId = setId;
+    mMediaSets.back()->mDataSource = (source != nullptr) ? source : mDataSource;
     return mMediaSets.back().get();
+}
+
+void MediaFeed::loadItemsForSet(MediaSet *set) {
+    if (set == nullptr || set->getNumItems() > 0) {
+        return;
+    }
+    DataSource *source = (set->mDataSource != nullptr) ? set->mDataSource : mDataSource;
+    if (source != nullptr) {
+        source->loadItemsForSet(this, set);
+    }
 }
 
 MediaFeed::~MediaFeed() {
@@ -138,6 +149,17 @@ void MediaFeed::expandMediaSet(int mediaSetIndex) {
         mListener->onFeedAboutToChange(this);
     }
     {
+        // A source that fills its sets lazily needs the items before the slot
+        // model is rebuilt around them.
+        std::lock_guard<std::mutex> lock(mSetsMutex);
+        if (mediaSetIndex >= 0 && mediaSetIndex < (int)mMediaSets.size()) {
+            MediaSet *set = mMediaSets[(size_t)mediaSetIndex].get();
+            if (set->getNumItems() == 0 && set->mDataSource != nullptr) {
+                set->mDataSource->loadItemsForSet(this, set);
+            }
+        }
+    }
+    {
         std::lock_guard<std::mutex> lock(mSetsMutex);
         mExpandedMediaSetIndex = mediaSetIndex;
     }
@@ -244,15 +266,23 @@ void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaB
         return;
     }
 
+    // Whoever owns the item carries the operation out. The feed only updates
+    // itself for the ones that reported success, so a source that cannot do
+    // something leaves the wall matching its storage rather than diverging
+    // from it.
+    auto sourceFor = [this](MediaItem *item) -> DataSource * {
+        MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
+        if (set != nullptr && set->mDataSource != nullptr) {
+            return set->mDataSource;
+        }
+        return mDataSource;
+    };
+
     if (operation == OPERATION_DELETE) {
         int deleted = 0;
         for (MediaItem *item : items) {
-            if (item == nullptr || item->mFilePath.empty()) {
-                continue;
-            }
-            // Only forget the item if the file actually went. Leaving the wall
-            // showing something still on disk is better than the reverse.
-            if (FileOperations::moveToTrash(item->mFilePath)) {
+            DataSource *source = sourceFor(item);
+            if (source != nullptr && source->performOperation(operation, item, data)) {
                 removeItem(item);
                 ++deleted;
             }
@@ -272,13 +302,14 @@ void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaB
             if (item == nullptr) {
                 continue;
             }
-            float rotation = item->mRotation + degrees;
-            rotation = Shared::normalizePositive(rotation);
+            // The wall turns either way. Whether the turn outlives the session
+            // is up to the source, which is why its answer is not checked here.
+            float rotation = Shared::normalizePositive(item->mRotation + degrees);
             item->mRotation = rotation;
-            // A PNG or an EXIF free JPEG has no tag to rewrite, so the turn
-            // lasts only as long as the session. The display item has already
-            // been turned either way.
-            FileOperations::setExifOrientation(item->mFilePath, rotation);
+            DataSource *source = sourceFor(item);
+            if (source != nullptr) {
+                source->performOperation(operation, item, &rotation);
+            }
         }
         return;
     }

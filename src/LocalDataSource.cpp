@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "Bitmap.h"
+#include "FileOperations.h"
 #include "MediaFeed.h"
 #include "MediaSet.h"
 
@@ -105,7 +106,7 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
     scan(mRootPath, folders);
 
     for (const Folder &folder : folders) {
-        MediaSet *set = feed->addMediaSet(hashPath(folder.path));
+        MediaSet *set = feed->addMediaSet(hashPath(folder.path), this);
         set->mName = folder.name;
         set->mType = MediaSet::TYPE_FOLDER;
         set->mIsLocal = true;
@@ -158,4 +159,25 @@ void LocalDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
     (void)feed;
     (void)parentSet;
     // loadMediaSets already filled every set in.
+}
+
+bool LocalDataSource::performOperation(int operation, MediaItem *item, const void *data) {
+    if (item == nullptr || item->mFilePath.empty()) {
+        return false;
+    }
+    switch (operation) {
+    case MediaFeed::OPERATION_DELETE:
+        // To the recycle bin, and only report success if the file actually
+        // went. Leaving the wall showing something still on disk is better
+        // than the reverse.
+        return FileOperations::moveToTrash(item->mFilePath);
+    case MediaFeed::OPERATION_ROTATE: {
+        // A PNG or an EXIF free JPEG has no tag to rewrite, so the turn lasts
+        // only as long as the session and this says so.
+        float degrees = (data != nullptr) ? *(const float *)data : 0.0f;
+        return FileOperations::setExifOrientation(item->mFilePath, degrees);
+    }
+    default:
+        return false;
+    }
 }

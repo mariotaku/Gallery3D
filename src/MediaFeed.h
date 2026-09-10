@@ -55,7 +55,16 @@ class MediaFeed {
     // Appends an empty set with the given id and returns it. If a set with
     // that id is already present it is dropped first, so a rescan replaces a
     // stale album instead of duplicating it.
-    MediaSet *addMediaSet(int64_t setId);
+    //
+    // The source is remembered on the set. Pass the one doing the adding; it
+    // is what the feed calls back for that set's items and operations. Null
+    // means the feed's own source, which is the single source case.
+    MediaSet *addMediaSet(int64_t setId, DataSource *source = nullptr);
+
+    // Fills in a set's items by asking whoever created it. Does nothing for a
+    // set that already has them, so a source that loads everything up front
+    // costs nothing here.
+    void loadItemsForSet(MediaSet *set);
 
     int getNumSlots();
     MediaSet *getSetForSlot(int slotIndex);

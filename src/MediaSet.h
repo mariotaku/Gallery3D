@@ -50,6 +50,11 @@ class MediaSet {
     int64_t mPicasaAlbumId = Shared::INVALID;
     bool mIsLocal = true;
 
+    // Whoever created this set. The feed routes anything set specific back
+    // here rather than to its own source, which is what lets more than one
+    // source share a feed.
+    class DataSource *mDataSource = nullptr;
+
     std::vector<MediaItem *> &getItems() {
         return mItems;
     }
