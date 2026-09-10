@@ -289,6 +289,27 @@ void blit(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float alpha) {
     }
 }
 
+void stamp(Bitmap &dst, const Bitmap &src, int dstX, int dstY) {
+    if (!dst.valid() || !src.valid()) {
+        return;
+    }
+    for (int y = 0; y < src.height(); ++y) {
+        int ty = dstY + y;
+        if (ty < 0 || ty >= dst.height()) {
+            continue;
+        }
+        const uint8_t *srcRow = src.pixels() + (size_t)y * (size_t)src.width() * 4;
+        uint8_t *dstRow = dst.pixels() + (size_t)ty * (size_t)dst.width() * 4;
+        for (int x = 0; x < src.width(); ++x) {
+            int tx = dstX + x;
+            if (tx < 0 || tx >= dst.width()) {
+                continue;
+            }
+            std::memcpy(dstRow + (size_t)tx * 4, srcRow + (size_t)x * 4, 4);
+        }
+    }
+}
+
 void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, int height, float alpha) {
     if (!dst.valid() || !src.valid() || width <= 0 || height <= 0 || alpha <= 0.0f) {
         return;
@@ -409,15 +430,32 @@ static void readGuide(const Bitmap &raw, bool horizontal, int *begin, int *end) 
     *end = last;
 }
 
-NinePatch loadNinePatch(const std::string &path) {
+NinePatch loadNinePatch(const std::string &name) {
     NinePatch patch;
-    Bitmap raw = Bitmap::load(path, 0);
+    App::Drawable drawable = App::findDrawable(name);
+    Bitmap raw = Bitmap::load(drawable.path, 0);
     if (!raw.valid() || raw.width() < 3 || raw.height() < 3) {
         return patch;
     }
     readGuide(raw, true, &patch.stretchX0, &patch.stretchX1);
     readGuide(raw, false, &patch.stretchY0, &patch.stretchY1);
     patch.image = subImage(raw, 1, 1, raw.width() - 2, raw.height() - 2);
+
+    float factor = App::PIXEL_DENSITY / drawable.density;
+    if (factor > 0.99f && factor < 1.01f) {
+        return patch;
+    }
+    // The guides move with the art. Rounding them the same way the image is
+    // resized keeps the stretched middle where it was.
+    int width = std::max(3, (int)((float)patch.image.width() * factor + 0.5f));
+    int height = std::max(3, (int)((float)patch.image.height() * factor + 0.5f));
+    float scaleX = (float)width / (float)patch.image.width();
+    float scaleY = (float)height / (float)patch.image.height();
+    patch.stretchX0 = (int)((float)patch.stretchX0 * scaleX + 0.5f);
+    patch.stretchX1 = std::max(patch.stretchX0 + 1, (int)((float)patch.stretchX1 * scaleX + 0.5f));
+    patch.stretchY0 = (int)((float)patch.stretchY0 * scaleY + 0.5f);
+    patch.stretchY1 = std::max(patch.stretchY0 + 1, (int)((float)patch.stretchY1 * scaleY + 0.5f));
+    patch.image = patch.image.scaled(width, height);
     return patch;
 }
 

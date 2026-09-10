@@ -46,6 +46,13 @@ void MenuBar::setButtons(const std::vector<ButtonSpec> &buttons) {
     setHidden(mButtons.empty());
 }
 
+float MenuBar::buttonCenterX(size_t index) const {
+    if (index >= mButtons.size()) {
+        return mX + mWidth * 0.5f;
+    }
+    return mX + mButtons[index].x + mButtons[index].width * 0.5f;
+}
+
 void MenuBar::setButtonLabel(size_t index, const std::string &label) {
     if (index >= mButtons.size() || mButtons[index].label == label) {
         return;

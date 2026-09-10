@@ -130,6 +130,9 @@ int main(int argc, char **argv) {
     // the knob already sits, so anything else also scrolls the wall.
     bool scrub = false;
     float scrubAt = 0.5f;
+    // Taps a button on the bottom selection bar, so the popup it opens can be
+    // captured. Needs --select. -1 for off.
+    int popupButton = -1;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--screenshot" && i + 1 < argc) {
@@ -148,6 +151,8 @@ int main(int argc, char **argv) {
             rotate = true;
         } else if (arg == "--delete") {
             deleteSelection = true;
+        } else if (arg == "--popup" && i + 1 < argc) {
+            popupButton = std::atoi(argv[++i]);
         } else if (arg == "--scrub") {
             scrub = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -430,6 +435,18 @@ int main(int argc, char **argv) {
             // slot explicitly instead.
             gridLayer.getHud()->enterSelectionMode();
             gridLayer.addSlotToSelectedItems(0, false, true);
+        }
+        if (popupButton >= 0 && frameNumber == (screenshotFrames * 7) / 8) {
+            // A press and a release on the button, since a popup opens on the
+            // release, and there is no pointer here to do it.
+            MenuBar *bar = gridLayer.getHud()->getMenuBar();
+            MotionEvent press;
+            press.xs[0] = bar->buttonCenterX((size_t)popupButton);
+            press.ys[0] = bar->getY() + bar->getHeight() * 0.5f;
+            press.action = MotionEvent::ACTION_DOWN;
+            bar->onTouchEvent(press);
+            press.action = MotionEvent::ACTION_UP;
+            bar->onTouchEvent(press);
         }
         if (scrub && frameNumber == (screenshotFrames * 7) / 8) {
             // Straight at the bar rather than through the hit test list: a

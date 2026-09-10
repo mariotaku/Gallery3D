@@ -292,7 +292,7 @@ void TimeBar::updatePopup() {
 
 void TimeBar::PopupTexture::renderCanvas(Bitmap &canvas, int width, int height) {
     if (!mOwner->mPopupBackgroundLoaded) {
-        mOwner->mPopupBackground = Canvas::loadNinePatch(App::drawablePath("popup.9"));
+        mOwner->mPopupBackground = Canvas::loadNinePatch("popup.9");
         mOwner->mPopupBackgroundLoaded = true;
     }
     if (mOwner->mPopupBackground.valid()) {

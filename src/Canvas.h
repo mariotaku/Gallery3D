@@ -41,6 +41,13 @@ void blendOver(Bitmap &dst, const Bitmap &src, int x, int y, float r, float g, f
 // Blends a premultiplied source, which is what Bitmap::load returns.
 void blit(Bitmap &dst, const Bitmap &src, int x, int y, float alpha = 1.0f);
 
+// Replaces the destination pixels outright, alpha included, rather than
+// blending over them. Stands in for PorterDuff.Mode.SRC. The popup triangle
+// needs it: it has to cut the straight border off the bottom of the panel and
+// put its own outline there, and blending would leave the border showing
+// through.
+void stamp(Bitmap &dst, const Bitmap &src, int x, int y);
+
 // A nine-patch: the caps keep their size and the middle stretches. Android
 // resolved these at build time; here the 1 pixel guide border survives into
 // the shipped PNG, so loadNinePatch reads it and strips it.
@@ -57,7 +64,12 @@ struct NinePatch {
     }
 };
 
-NinePatch loadNinePatch(const std::string &path);
+// Takes a drawable name, not a path, because it resolves the density bucket and
+// then resizes the art to PIXEL_DENSITY. That resize matters: the caps are
+// drawn at their own size and only the middle stretches, so art left at the
+// density it shipped for gives a panel with corners and borders too small for
+// everything drawn next to them.
+NinePatch loadNinePatch(const std::string &name);
 
 // Draws a nine-patch into the rect. Smaller than the caps and it clamps, so a
 // too small rect loses the middle rather than mangling the corners.

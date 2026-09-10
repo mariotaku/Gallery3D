@@ -46,6 +46,10 @@ class MenuBar : public Layer {
 
     static float preferredHeight();
 
+    // Where a button sits, in window coordinates. A button that opens a popup
+    // needs this to point the popup back at itself.
+    float buttonCenterX(size_t index) const;
+
     void generate(RenderView *view, RenderLists &lists) override;
     void renderBlended(RenderView *view) override;
     bool onTouchEvent(const MotionEvent &event) override;

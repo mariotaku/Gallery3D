@@ -29,13 +29,20 @@ Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
     // Only two buckets, because those are the two the original shipped that are
     // worth having here. Anything above the baseline takes the hdpi art: at the
     // default density they are the same size, so nothing is resampled at all.
-    if (allowHigherDensity && PIXEL_DENSITY > 1.0f) {
-        std::string hdpi = ASSET_ROOT + "/drawable-hdpi/" + name + ".png";
-        if (fileExists(hdpi)) {
-            return Drawable{hdpi, 1.5f};
-        }
+    std::string hdpi = ASSET_ROOT + "/drawable-hdpi/" + name + ".png";
+    if (allowHigherDensity && PIXEL_DENSITY > 1.0f && fileExists(hdpi)) {
+        return Drawable{hdpi, 1.5f};
     }
-    return Drawable{ASSET_ROOT + "/drawable/" + name + ".png", 1.0f};
+    std::string baseline = ASSET_ROOT + "/drawable/" + name + ".png";
+    if (fileExists(baseline)) {
+        return Drawable{baseline, 1.0f};
+    }
+    // Not every drawable ships at every density. Take whatever there is rather
+    // than hand back a path with nothing behind it.
+    if (fileExists(hdpi)) {
+        return Drawable{hdpi, 1.5f};
+    }
+    return Drawable{baseline, 1.0f};
 }
 
 std::string drawablePath(const std::string &name) {

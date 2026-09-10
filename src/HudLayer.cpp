@@ -55,6 +55,9 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     mTopRightButton.generate(view, lists);
     mZoomInButton.generate(view, lists);
     mZoomOutButton.generate(view, lists);
+    // Last, so it is on top of the bars and sees input before them: the hit
+    // test walks the list backwards.
+    mPopupMenu.generate(view, lists);
 }
 
 void HudLayer::onSizeChanged() {
@@ -126,12 +129,29 @@ void HudLayer::computeBottomMenu() {
         topButtons.push_back({"", "Deselect all", [grid]() { grid->deselectOrCancelSelectMode(); }});
         mSelectionMenuTop.setButtons(topButtons);
 
+        // Delete and More, each opening a popup, which is what the original
+        // does. Its third button was Share, and there is no share to hand off
+        // to here, so this is its own no-share arrangement.
         std::vector<MenuBar::ButtonSpec> buttons;
-        buttons.push_back({"ic_menu_rotate_left", "", [grid]() { grid->rotateSelectedItems(-90.0f); }});
-        buttons.push_back({"ic_menu_rotate_right", "", [grid]() { grid->rotateSelectedItems(90.0f); }});
         if (!grid->noDeleteMode()) {
-            buttons.push_back({"icon_delete", "", [grid]() { grid->deleteSelection(); }});
+            size_t index = buttons.size();
+            buttons.push_back({"icon_delete", "Delete", [this, grid, index]() {
+                                   // Deleting is not undoable past the recycle
+                                   // bin, so it asks first.
+                                   showPopupFor(mMenuBar, index,
+                                                {{"Confirm delete", "icon_delete",
+                                                  [grid]() { grid->deleteSelection(); }},
+                                                 {"Cancel", "icon_cancel", nullptr}});
+                               }});
         }
+        size_t moreIndex = buttons.size();
+        buttons.push_back({"icon_more", "More", [this, grid, moreIndex]() {
+                               showPopupFor(mMenuBar, moreIndex,
+                                            {{"Rotate left", "ic_menu_rotate_left",
+                                              [grid]() { grid->rotateSelectedItems(-90.0f); }},
+                                             {"Rotate right", "ic_menu_rotate_right",
+                                              [grid]() { grid->rotateSelectedItems(90.0f); }}});
+                           }});
         mMenuBar.setButtons(buttons);
     } else {
         mMenuBar.clearButtons();
@@ -189,6 +209,17 @@ void HudLayer::computeTopRightButton() {
     mTopRightButton.setSize(TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, height);
 }
 
+void HudLayer::showPopupFor(const MenuBar &bar, size_t index, const std::vector<PopupMenu::Option> &options) {
+    mPopupMenu.setOptions(options);
+    // Anchored to the top of the bar the button is in, so the popup sits above
+    // it and its triangle points down at the button.
+    mPopupMenu.showAtPoint(bar.buttonCenterX(index), bar.getY(), mWidth, mHeight);
+}
+
+void HudLayer::closeSelectionMenu() {
+    mPopupMenu.close(true);
+}
+
 void HudLayer::updateNumItemsSelected(int count) {
     if (mNumItemsSelected == count) {
         return;
@@ -221,6 +252,7 @@ void HudLayer::reset() {
     mMode = MODE_NORMAL;
     mMenuBar.clearButtons();
     mFullscreenMenu.clearButtons();
+    mPopupMenu.close(false);
     setAlpha(1.0f);
     mAnimAlpha = 1.0f;
 }
@@ -268,6 +300,11 @@ bool HudLayer::update(RenderView *view, float frameInterval) {
     mZoomInButton.setHidden(zoomHidden);
     mZoomOutButton.setHidden(zoomHidden);
     mTopRightButton.setHidden(faded || selectionMode || fullscreen);
+    // A popup outlives the bar it came from only long enough to fade, and the
+    // chrome fading out takes it with it.
+    if (faded && mPopupMenu.isShowing()) {
+        mPopupMenu.close(true);
+    }
 
     return mAnimAlpha != mAlpha;
 }

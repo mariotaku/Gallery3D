@@ -9,11 +9,13 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "ImageButton.h"
 #include "Layer.h"
 #include "MenuBar.h"
 #include "PathBarLayer.h"
+#include "PopupMenu.h"
 #include "RenderView.h"
 #include "TimeBar.h"
 
@@ -81,12 +83,14 @@ class HudLayer : public Layer {
 
     void enterSelectionMode();
     void cancelSelection();
-    void closeSelectionMenu() {}
+    void closeSelectionMenu();
     // Rebuilds the bars and the top right button for the current mode and grid
     // state. Both change what the chrome offers, so both come through here.
     void computeBottomMenu();
     // The one button that changes with every grid state.
     void computeTopRightButton();
+    // Opens the popup above a bar button, pointing back at it.
+    void showPopupFor(const MenuBar &bar, size_t index, const std::vector<PopupMenu::Option> &options);
     void updateNumItemsSelected(int count);
     void fullscreenSelectionChanged(MediaItem *item, int index, int count) {
         (void)item;
@@ -118,6 +122,8 @@ class HudLayer : public Layer {
     // Select mode gets a second bar along the top: select all, the count, and
     // deselect all. The count is the middle button, which is why it has one.
     MenuBar mSelectionMenuTop;
+    // One popup, reused. Only ever one is open.
+    PopupMenu mPopupMenu;
     ImageButton mTopRightButton;
     ImageButton mZoomInButton;
     ImageButton mZoomOutButton;
