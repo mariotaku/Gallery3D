@@ -1,4 +1,6 @@
 build/
+# A second build tree, for building while the app from the first one is open.
+build-verify/
 .claude/worktrees/
 out/
 vcpkg_installed/
