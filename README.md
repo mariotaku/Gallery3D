@@ -73,6 +73,18 @@ cmake --build build --config Release
 SDL3, SDL3_image (png, jpeg, webp, tiff) and SDL3_ttf come from the vcpkg
 manifest. Assets are copied next to the binary at build time.
 
+## Test
+
+```sh
+ctest --test-dir build -C Release
+```
+
+Covers the arithmetic that has no picture attached: EXIF decoding, power of two
+padding, cover cropping, density bucket selection and nine patch guides. Every
+one of those has been wrong at some point here and none of them announced it.
+Anything needing a GL context is checked by screenshot instead, through the
+debug flags on the binary.
+
 ## Run
 
 ```sh
