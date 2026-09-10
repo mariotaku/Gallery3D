@@ -27,9 +27,19 @@ int SCREEN_NAIL_MAX_EDGE = 1024;
 std::string ASSET_ROOT = "assets";
 
 Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
-    // Only two buckets, because those are the two the original shipped that are
-    // worth having here. Anything above the baseline takes the hdpi art: at the
-    // default density they are the same size, so nothing is resampled at all.
+    // Two buckets. drawable-hdpi is drawn for density 1.5, exactly 1.5x
+    // drawable-mdpi in every asset the port ships.
+    //
+    // The baseline here is the unqualified drawable folder, which Android
+    // treats as mdpi, and this calls density 1. That is a shade loose: the
+    // original ships both, and for a few drawables they disagree. icon_play is
+    // 34 unqualified against 30 in mdpi, so calling it density 1 is out by
+    // 13%. It only matters for art drawn at its own size with no hdpi variant
+    // to prefer, which none of the current callers hit.
+    //
+    // Nothing lines up exactly anyway: PIXEL_DENSITY is the display scale times
+    // CONTENT_SCALE, 2.625 on this machine, so hdpi art is still resampled by
+    // 1.75. Picking the closer bucket is the point, not avoiding the resample.
     std::string hdpi = ASSET_ROOT + "/drawable-hdpi/" + name + ".png";
     if (allowHigherDensity && PIXEL_DENSITY > 1.0f && fileExists(hdpi)) {
         return Drawable{hdpi, 1.5f};
