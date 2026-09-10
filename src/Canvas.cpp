@@ -4,6 +4,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -292,33 +293,62 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, i
     if (!dst.valid() || !src.valid() || width <= 0 || height <= 0 || alpha <= 0.0f) {
         return;
     }
-    // Nearest sampling is enough: the callers stretch a one pixel column or a
-    // fixed cap, never a photo.
+    // Bilinear, not nearest. This started out stretching one pixel columns,
+    // where the two are the same, but it also scales icons: the art ships at
+    // one size and PIXEL_DENSITY is whatever the display and the content scale
+    // multiply to, so an icon is almost always resampled. Nearest made those
+    // edges stair step.
+    //
+    // The source is premultiplied, which is the space to interpolate in: a
+    // transparent pixel contributes nothing rather than dragging its colour in.
+    float scaleX = (float)src.width() / (float)width;
+    float scaleY = (float)src.height() / (float)height;
     for (int y = 0; y < height; ++y) {
         int ty = dstY + y;
         if (ty < 0 || ty >= dst.height()) {
             continue;
         }
-        int sy = (int)((int64_t)y * src.height() / height);
-        sy = std::min(sy, src.height() - 1);
-        const uint8_t *srcRow = src.pixels() + (size_t)sy * (size_t)src.width() * 4;
+        // Sample from pixel centres, so the result is not shifted half a pixel.
+        float fy = ((float)y + 0.5f) * scaleY - 0.5f;
+        int y0 = (int)std::floor(fy);
+        float wy = fy - (float)y0;
+        int y1 = std::min(y0 + 1, src.height() - 1);
+        y0 = std::min(std::max(y0, 0), src.height() - 1);
+        y1 = std::max(y1, 0);
+        const uint8_t *row0 = src.pixels() + (size_t)y0 * (size_t)src.width() * 4;
+        const uint8_t *row1 = src.pixels() + (size_t)y1 * (size_t)src.width() * 4;
         uint8_t *dstRow = dst.pixels() + (size_t)ty * (size_t)dst.width() * 4;
         for (int x = 0; x < width; ++x) {
             int tx = dstX + x;
             if (tx < 0 || tx >= dst.width()) {
                 continue;
             }
-            int sx = (int)((int64_t)x * src.width() / width);
-            sx = std::min(sx, src.width() - 1);
-            const uint8_t *s = srcRow + (size_t)sx * 4;
+            float fx = ((float)x + 0.5f) * scaleX - 0.5f;
+            int x0 = (int)std::floor(fx);
+            float wx = fx - (float)x0;
+            int x1 = std::min(x0 + 1, src.width() - 1);
+            x0 = std::min(std::max(x0, 0), src.width() - 1);
+            x1 = std::max(x1, 0);
+
+            const uint8_t *s00 = row0 + (size_t)x0 * 4;
+            const uint8_t *s01 = row0 + (size_t)x1 * 4;
+            const uint8_t *s10 = row1 + (size_t)x0 * 4;
+            const uint8_t *s11 = row1 + (size_t)x1 * 4;
+            float sample[4];
+            for (int c = 0; c < 4; ++c) {
+                float top = s00[c] + (s01[c] - s00[c]) * wx;
+                float bottom = s10[c] + (s11[c] - s10[c]) * wx;
+                sample[c] = top + (bottom - top) * wy;
+            }
+
             uint8_t *d = dstRow + (size_t)tx * 4;
-            float sa = (s[3] / 255.0f) * alpha;
+            float sa = (sample[3] / 255.0f) * alpha;
             if (sa <= 0.0f) {
                 continue;
             }
             float inv = 1.0f - sa;
             for (int c = 0; c < 4; ++c) {
-                d[c] = (uint8_t)std::min(255.0f, s[c] * alpha + d[c] * inv);
+                d[c] = (uint8_t)std::min(255.0f, sample[c] * alpha + d[c] * inv);
             }
         }
     }

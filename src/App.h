@@ -23,6 +23,21 @@ extern float CONTENT_SCALE;
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;
 
+// A drawable, and the density its art was drawn for. Android picked a folder
+// per screen density and the port does the same: the baseline folder is drawn
+// for density 1, drawable-hdpi for 1.5. Picking the closer one beats scaling
+// the baseline up, which is what made the breadcrumb icons stair step.
+struct Drawable {
+    std::string path;
+    float density = 1.0f;
+};
+
+// Pass false to stay on the baseline art, for callers that draw it at its own
+// size and were written against those pixel dimensions.
+Drawable findDrawable(const std::string &name, bool allowHigherDensity = true);
+
+// The path alone, for callers that resample to a size of their own choosing
+// and so only want the best source available.
 std::string drawablePath(const std::string &name);
 
 }  // namespace App

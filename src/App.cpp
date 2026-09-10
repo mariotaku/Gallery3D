@@ -1,6 +1,21 @@
 #include "App.h"
 
+#include <cstdio>
+
 namespace App {
+
+namespace {
+
+bool fileExists(const std::string &path) {
+    FILE *file = fopen(path.c_str(), "rb");
+    if (file == nullptr) {
+        return false;
+    }
+    fclose(file);
+    return true;
+}
+
+}  // namespace
 
 float PIXEL_DENSITY = 1.0f;
 // 1.5 fills the default 1280x800 window with two rows of stacks and no
@@ -10,8 +25,21 @@ float PIXEL_DENSITY = 1.0f;
 float CONTENT_SCALE = 1.5f;
 std::string ASSET_ROOT = "assets";
 
+Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
+    // Only two buckets, because those are the two the original shipped that are
+    // worth having here. Anything above the baseline takes the hdpi art: at the
+    // default density they are the same size, so nothing is resampled at all.
+    if (allowHigherDensity && PIXEL_DENSITY > 1.0f) {
+        std::string hdpi = ASSET_ROOT + "/drawable-hdpi/" + name + ".png";
+        if (fileExists(hdpi)) {
+            return Drawable{hdpi, 1.5f};
+        }
+    }
+    return Drawable{ASSET_ROOT + "/drawable/" + name + ".png", 1.0f};
+}
+
 std::string drawablePath(const std::string &name) {
-    return ASSET_ROOT + "/drawable/" + name + ".png";
+    return findDrawable(name).path;
 }
 
 }  // namespace App

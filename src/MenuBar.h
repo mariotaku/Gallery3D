@@ -5,8 +5,8 @@
 // PopupMenu hanging off it, a dropdown per button; that is still to do, so each
 // button here runs its action directly instead of opening a menu.
 //
-// It matters because delete and rotate already work and had no way to be
-// invoked short of a debug flag. This is what puts them under the pointer.
+// A button carries an icon, a label or both. Whichever it has sits centred in
+// the button, and a press lights it with the highlight art.
 #pragma once
 
 #include <functional>
@@ -27,8 +27,16 @@ class MenuBar : public Layer {
     MenuBar();
     ~MenuBar() override;
 
+    struct ButtonSpec {
+        // Either may be empty. A button with neither draws nothing but still
+        // takes its share of the bar, which is how the original spaced things.
+        std::string icon;
+        std::string label;
+        Action action;
+    };
+
     // Rebuilt whenever the mode changes, so the bar carries the right actions.
-    void setButtons(const std::vector<std::pair<std::string, Action>> &buttons);
+    void setButtons(const std::vector<ButtonSpec> &buttons);
     void clearButtons();
 
     static float preferredHeight();
@@ -44,6 +52,7 @@ class MenuBar : public Layer {
   private:
     struct Button {
         std::string icon;
+        std::string label;
         Action action;
         float x = 0.0f;
         float width = 0.0f;
@@ -57,13 +66,16 @@ class MenuBar : public Layer {
         void renderCanvas(Bitmap &canvas, int width, int height) override;
 
       private:
+        void drawHighlight(Bitmap &canvas, const Button &button, int height);
+
         MenuBar *mOwner;
     };
 
     void layout();
 
     std::vector<Button> mButtons;
+    // Which button is held down, so the bar can light it. -1 for none.
+    int mPressedIndex = -1;
     std::shared_ptr<BarTexture> mTexture;
-    int mTouchIndex = -1;
     bool mNeedsLayout = true;
 };

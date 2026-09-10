@@ -11,7 +11,32 @@ namespace {
 // Idle time in fullscreen before the chrome gets out of the way.
 const uint64_t AUTO_HIDE_MS = 5000;
 
+// The top right button is a wide tab. It is half as tall inside an album,
+// which is what the original did to keep it clear of the thumbnails.
+const float TOP_RIGHT_WIDTH = 100.0f;
+const float TOP_RIGHT_HEIGHT = 94.0f;
+const float ZOOM_BUTTON_WIDTH = 66.666f;
+const float ZOOM_BUTTON_HEIGHT = 42.0f;
+
 }  // namespace
+
+HudLayer::HudLayer() {
+    // The zoom buttons never change what they are, only whether they are up.
+    mZoomInButton.setImages("gallery_zoom_in", "gallery_zoom_in_touch");
+    mZoomOutButton.setImages("gallery_zoom_out", "gallery_zoom_out_touch");
+    mZoomInButton.setAction([this]() {
+        if (mGridLayer != nullptr) {
+            mGridLayer->zoomInToSelectedItem();
+            mGridLayer->markDirty(1);
+        }
+    });
+    mZoomOutButton.setAction([this]() {
+        if (mGridLayer != nullptr) {
+            mGridLayer->zoomOutFromSelectedItem();
+            mGridLayer->markDirty(1);
+        }
+    });
+}
 
 void HudLayer::generate(RenderView *view, RenderLists &lists) {
     lists.updateList.push_back(this);
@@ -20,7 +45,11 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     lists.blendedList.push_back(this);
     mPathBar.generate(view, lists);
     mMenuBar.generate(view, lists);
+    mFullscreenMenu.generate(view, lists);
     mTimeBar.generate(view, lists);
+    mTopRightButton.generate(view, lists);
+    mZoomInButton.generate(view, lists);
+    mZoomOutButton.generate(view, lists);
 }
 
 void HudLayer::onSizeChanged() {
@@ -38,27 +67,107 @@ void HudLayer::onSizeChanged() {
     float timeBarHeight = TimeBar::HEIGHT * App::PIXEL_DENSITY;
     mTimeBar.setPosition(0.0f, mHeight - timeBarHeight);
     mTimeBar.setSize(mWidth, timeBarHeight);
+
+    // And so does the fullscreen bar.
+    mFullscreenMenu.setPosition(0.0f, mHeight - MenuBar::preferredHeight());
+    mFullscreenMenu.setSize(mWidth, MenuBar::preferredHeight());
+
+    // The zoom buttons stack up from the right end of that bar.
+    float zoomWidth = ZOOM_BUTTON_WIDTH * App::PIXEL_DENSITY;
+    float zoomHeight = ZOOM_BUTTON_HEIGHT * App::PIXEL_DENSITY;
+    float zoomY = mHeight - MenuBar::preferredHeight() - zoomHeight;
+    mZoomInButton.setSize(zoomWidth, zoomHeight);
+    mZoomOutButton.setSize(zoomWidth, zoomHeight);
+    mZoomInButton.setPosition(mWidth - zoomWidth, zoomY);
+    mZoomOutButton.setPosition(mWidth - zoomWidth * 2.0f, zoomY);
+
+    mTopRightButton.setPosition(mWidth - TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, 0.0f);
+    computeBottomMenu();
 }
 
 void HudLayer::onGridStateChanged() {
-    if (mGridLayer != nullptr) {
-        mGridState = mGridLayer->getState();
+    if (mGridLayer == nullptr) {
+        return;
     }
+    int state = mGridLayer->getState();
+    if (mGridState == state) {
+        return;
+    }
+    mGridState = state;
+    // The chrome offers different things per state, so it is rebuilt here
+    // rather than checked every frame.
+    computeBottomMenu();
 }
 
 void HudLayer::computeBottomMenu() {
-    if (mGridLayer == nullptr || mMode != MODE_SELECT) {
+    GridLayer *grid = mGridLayer;
+    if (grid == nullptr) {
         mMenuBar.clearButtons();
+        mFullscreenMenu.clearButtons();
         return;
     }
-    GridLayer *grid = mGridLayer;
-    std::vector<std::pair<std::string, MenuBar::Action>> buttons;
-    buttons.emplace_back("ic_menu_rotate_left", [grid]() { grid->rotateSelectedItems(-90.0f); });
-    buttons.emplace_back("ic_menu_rotate_right", [grid]() { grid->rotateSelectedItems(90.0f); });
-    if (!grid->noDeleteMode()) {
-        buttons.emplace_back("icon_delete", [grid]() { grid->deleteSelection(); });
+
+    if (mMode == MODE_SELECT) {
+        std::vector<MenuBar::ButtonSpec> buttons;
+        buttons.push_back({"ic_menu_rotate_left", "", [grid]() { grid->rotateSelectedItems(-90.0f); }});
+        buttons.push_back({"ic_menu_rotate_right", "", [grid]() { grid->rotateSelectedItems(90.0f); }});
+        if (!grid->noDeleteMode()) {
+            buttons.push_back({"icon_delete", "", [grid]() { grid->deleteSelection(); }});
+        }
+        mMenuBar.setButtons(buttons);
+    } else {
+        mMenuBar.clearButtons();
     }
-    mMenuBar.setButtons(buttons);
+
+    if (mGridState == GridLayer::STATE_FULL_SCREEN && mMode != MODE_SELECT) {
+        std::vector<MenuBar::ButtonSpec> buttons;
+        // Both check the alpha first: with the chrome faded out, the first tap
+        // brings it back rather than doing what the button says.
+        buttons.push_back({"icon_play", "Slideshow", [this, grid]() {
+                               if (getAlpha() == 1.0f) {
+                                   grid->startSlideshow();
+                               } else {
+                                   setAlpha(1.0f);
+                               }
+                           }});
+        buttons.push_back({"icon_more", "Menu", [this, grid]() {
+                               if (getAlpha() == 1.0f) {
+                                   grid->enterSelectionMode();
+                               } else {
+                                   setAlpha(1.0f);
+                               }
+                           }});
+        mFullscreenMenu.setButtons(buttons);
+    } else {
+        mFullscreenMenu.clearButtons();
+    }
+
+    computeTopRightButton();
+}
+
+void HudLayer::computeTopRightButton() {
+    GridLayer *grid = mGridLayer;
+    float height = TOP_RIGHT_HEIGHT * App::PIXEL_DENSITY;
+    switch (mGridState) {
+    case GridLayer::STATE_GRID_VIEW:
+        // Half height inside an album, so it sits over less of the wall.
+        height *= 0.5f;
+        mTopRightButton.setImages("mode_grid", "mode_grid");
+        mTopRightButton.setAction([grid]() { grid->setState(GridLayer::STATE_TIMELINE); });
+        break;
+    case GridLayer::STATE_TIMELINE:
+        mTopRightButton.setImages("mode_stack", "mode_stack");
+        mTopRightButton.setAction([grid]() { grid->setState(GridLayer::STATE_GRID_VIEW); });
+        break;
+    default:
+        // Over the stacks the original put a camera button here, which would
+        // hand off to the camera app. There is nothing to hand off to on the
+        // desktop, so the button stays away.
+        mTopRightButton.setImages("", "");
+        mTopRightButton.setAction(nullptr);
+        break;
+    }
+    mTopRightButton.setSize(TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, height);
 }
 
 void HudLayer::setAlpha(float alpha) {
@@ -82,6 +191,7 @@ void HudLayer::setMode(int mode) {
 void HudLayer::reset() {
     mMode = MODE_NORMAL;
     mMenuBar.clearButtons();
+    mFullscreenMenu.clearButtons();
     setAlpha(1.0f);
     mAnimAlpha = 1.0f;
 }
@@ -115,9 +225,17 @@ bool HudLayer::update(RenderView *view, float frameInterval) {
     // The time bar scrubs an album, so it belongs to the grid view alone. Over
     // the stacks there is nothing to scrub, and fullscreen has its own chrome.
     bool inAlbum = mGridState == GridLayer::STATE_GRID_VIEW;
-    mPathBar.setHidden(faded);
+    bool fullscreen = mGridState == GridLayer::STATE_FULL_SCREEN;
+    mPathBar.setHidden(faded || selectionMode);
     mMenuBar.setHidden(faded || !selectionMode);
     mTimeBar.setHidden(faded || selectionMode || !inAlbum);
+    mFullscreenMenu.setHidden(faded || selectionMode || !fullscreen);
+    // The zoom buttons belong to the fullscreen bar, and the grid takes them
+    // away on its own while a photo is still settling.
+    bool zoomHidden = mFullscreenMenu.isHidden() || mZoomButtonsHidden;
+    mZoomInButton.setHidden(zoomHidden);
+    mZoomOutButton.setHidden(zoomHidden);
+    mTopRightButton.setHidden(faded || selectionMode || fullscreen);
 
     return mAnimAlpha != mAlpha;
 }

@@ -32,7 +32,30 @@ void Texture::clear() {
 
 Bitmap ResourceTexture::load(RenderView *view) {
     (void)view;
-    return Bitmap::load(App::drawablePath(mName), 0);
+    // An unscaled texture is drawn at whatever size it loads at, and its
+    // callers were written against the baseline art, so it has to stay there.
+    App::Drawable drawable = App::findDrawable(mName, mScaled);
+    Bitmap bitmap = Bitmap::load(drawable.path, 0);
+    if (!mScaled || !bitmap.valid()) {
+        return bitmap;
+    }
+    // What the scaled flag meant on Android: decodeResource sized the art for
+    // the screen density, so a caller could draw it at its own size and get a
+    // button the right size for the display. openRawResource did not, which is
+    // what the _unscaled art is named for, and those callers pass false.
+    //
+    // findDrawable has already picked the closest density, so this is usually
+    // the identity and nothing is resampled.
+    float factor = App::PIXEL_DENSITY / drawable.density;
+    if (factor > 0.99f && factor < 1.01f) {
+        return bitmap;
+    }
+    int width = (int)((float)bitmap.width() * factor + 0.5f);
+    int height = (int)((float)bitmap.height() * factor + 0.5f);
+    if (width <= 0 || height <= 0) {
+        return bitmap;
+    }
+    return bitmap.scaled(width, height);
 }
 
 Bitmap FileTexture::load(RenderView *view) {

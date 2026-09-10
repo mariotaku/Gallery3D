@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <string>
 
+#include "ImageButton.h"
 #include "Layer.h"
 #include "MenuBar.h"
 #include "PathBarLayer.h"
@@ -24,6 +25,8 @@ class HudLayer : public Layer {
   public:
     static const int MODE_NORMAL = 0;
     static const int MODE_SELECT = 1;
+
+    HudLayer();
 
     void generate(RenderView *view, RenderLists &lists) override;
     bool update(RenderView *view, float frameInterval) override;
@@ -43,6 +46,10 @@ class HudLayer : public Layer {
 
     MenuBar *getMenuBar() {
         return &mMenuBar;
+    }
+
+    MenuBar *getFullscreenMenu() {
+        return &mFullscreenMenu;
     }
 
     // The target. What is actually drawn animates toward it.
@@ -71,8 +78,11 @@ class HudLayer : public Layer {
     void enterSelectionMode();
     void cancelSelection();
     void closeSelectionMenu() {}
-    // Rebuilds the bottom bar for the current mode.
+    // Rebuilds the bars and the top right button for the current mode and grid
+    // state. Both change what the chrome offers, so both come through here.
     void computeBottomMenu();
+    // The one button that changes with every grid state.
+    void computeTopRightButton();
     void updateNumItemsSelected(int count) {
         (void)count;
     }
@@ -89,7 +99,7 @@ class HudLayer : public Layer {
     }
     void swapFullscreenLabel() {}
     void hideZoomButtons(bool hide) {
-        (void)hide;
+        mZoomButtonsHidden = hide;
     }
 
   protected:
@@ -100,6 +110,13 @@ class HudLayer : public Layer {
     PathBarLayer mPathBar;
     TimeBar mTimeBar;
     MenuBar mMenuBar;
+    // Fullscreen gets its own bar, because it offers different things and is up
+    // at the same time as nothing else.
+    MenuBar mFullscreenMenu;
+    ImageButton mTopRightButton;
+    ImageButton mZoomInButton;
+    ImageButton mZoomOutButton;
+    bool mZoomButtonsHidden = false;
     // The grid state the bars follow. Only the time bar cares: it belongs to
     // the album view and to nothing else.
     int mGridState = 0;
