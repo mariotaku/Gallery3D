@@ -25,4 +25,9 @@ bool moveToTrash(const std::string &path);
 // as long as the session.
 bool setExifOrientation(const std::string &path, float degrees);
 
+// Hands the file to whatever the desktop opens it with. The port has no video
+// decoder and the original had no player of its own either: MovieViewControl
+// wrapped the platform one. This is the same idea, one level out.
+bool openInDefaultApp(const std::string &path);
+
 }  // namespace FileOperations

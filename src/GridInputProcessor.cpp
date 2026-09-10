@@ -4,6 +4,7 @@
 
 #include <cmath>
 
+#include "FileOperations.h"
 #include "FloatUtils.h"
 #include "GridCameraManager.h"
 #include "GridLayer.h"
@@ -515,6 +516,16 @@ void GridInputProcessor::selectSlot(int slotId) {
         DisplayItem *displayItem = layer->getDisplayItemForSlotId(slotId);
         if (displayItem != nullptr) {
             MediaItem *item = displayItem->mItemRef;
+            if (item != nullptr && item->getMediaType() == MediaItem::MEDIA_TYPE_VIDEO) {
+                // The original handed video to the platform player rather than
+                // decoding it, and so does this. There is no fullscreen state
+                // for a video to enter here.
+                if (!FileOperations::openInDefaultApp(item->mFilePath)) {
+                    SDL_Log("Could not open %s", item->mFilePath.c_str());
+                }
+                constrainCamera(true);
+                return;
+            }
             mCurrentSelectedSlot = slotId;
             layer->endSlideshow();
             layer->setState(GridLayer::STATE_FULL_SCREEN);

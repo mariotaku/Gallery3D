@@ -156,4 +156,25 @@ bool setExifOrientation(const std::string &path, float degrees) {
     return false;
 }
 
+
+
+bool openInDefaultApp(const std::string &path) {
+#if defined(_WIN32)
+    int wideLength = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), (int)path.length(), nullptr, 0);
+    if (wideLength <= 0) {
+        return false;
+    }
+    std::vector<wchar_t> wide((size_t)wideLength + 1, 0);
+    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), (int)path.length(), wide.data(), wideLength);
+    // Above 32 means it launched. The API returns a small error code rather
+    // than a handle, which is why the comparison looks like this.
+    HINSTANCE result = ShellExecuteW(nullptr, L"open", wide.data(), nullptr, nullptr, SW_SHOWNORMAL);
+    return (INT_PTR)result > 32;
+#else
+    // SDL knows how to hand a URL to the desktop on every platform it supports,
+    // which for a local file means the default application for it.
+    return SDL_OpenURL(("file://" + path).c_str());
+#endif
+}
+
 }  // namespace FileOperations

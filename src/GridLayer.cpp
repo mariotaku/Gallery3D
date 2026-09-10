@@ -285,6 +285,12 @@ bool GridLayer::goBack() {
 }
 
 void GridLayer::endSlideshow() {
+    if (mSlideshowMode) {
+        // Paired with the disable in startSlideshow. SDL counts these, so the
+        // guard matters: ending a slideshow that never started would enable the
+        // screensaver on behalf of someone else.
+        SDL_EnableScreenSaver();
+    }
     mSlideshowMode = false;
     mHud.setAlpha(1.0f);
 }
@@ -1038,6 +1044,9 @@ void GridLayer::onTimeChanged(TimeBar *timebar) {
 
 void GridLayer::startSlideshow() {
     endSlideshow();
+    // The original held a wake lock so the screen would not go out mid
+    // slideshow. This is the desktop equivalent.
+    SDL_DisableScreenSaver();
     mSlideshowMode = true;
     mZoomValue = 1.0f;
     centerCameraForSlot(mInputProcessor->getCurrentSelectedSlot(), 1.0f);
