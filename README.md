@@ -124,9 +124,12 @@ through `SDL_GL_GetProcAddress`, so there is no GL loader dependency.
 
 ## What is not ported yet
 
-Milestone one is the 3D grid: album stacks, drill down, fling, fullscreen.
-The HUD is a stub, timeline clustering is naive, and the selection operations
-are no-ops. `TASKS.md` has the full list with the original file each gap maps to.
+The 3D grid and the HUD are done: album stacks, drill down, fling, fullscreen,
+the path bar, the selection and fullscreen bars with their popup menus, and the
+time bar. Timeline clustering is the real thing, and delete and rotate work.
+
+Still missing: the crop screen, video playback, reverse geocoding and the
+wallpaper service, and a build on anything other than Windows.
 
 ## Licence
 
