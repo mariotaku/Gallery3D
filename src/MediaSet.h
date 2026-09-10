@@ -92,6 +92,10 @@ class MediaSet {
 
     void generateTitle(bool truncateTitle);
 
+    // Drops the item and, if this set owns it, frees it. Returns false when the
+    // item is not in this set.
+    bool removeItem(MediaItem *item);
+
   private:
     std::vector<MediaItem *> mItems;
     std::vector<std::unique_ptr<MediaItem>> mOwnedItems;

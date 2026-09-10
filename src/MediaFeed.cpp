@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 
+#include "FileOperations.h"
 #include "LocalDataSource.h"
 
 MediaFeed::MediaFeed(DataSource *dataSource, Listener *listener) : mDataSource(dataSource), mListener(listener) {}
@@ -223,10 +224,80 @@ void MediaFeed::copySlotStateFrom(const MediaFeed &another) {
     mInClusteringMode = another.mInClusteringMode;
 }
 
-void MediaFeed::performOperation(int operation, void *mediaBuckets, void *data) {
-    (void)operation;
-    (void)mediaBuckets;
-    (void)data;
+void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaBuckets, const void *data) {
+    if (mediaBuckets == nullptr) {
+        return;
+    }
+
+    // Collect first. Deleting walks the same sets these buckets point into, so
+    // mutating while iterating them would be asking for trouble.
+    std::vector<MediaItem *> items;
+    for (const MediaBucket &bucket : *mediaBuckets) {
+        if (bucket.hasItems) {
+            items.insert(items.end(), bucket.mediaItems.begin(), bucket.mediaItems.end());
+        } else if (bucket.mediaSet != nullptr) {
+            const std::vector<MediaItem *> &setItems = bucket.mediaSet->getItems();
+            items.insert(items.end(), setItems.begin(), setItems.end());
+        }
+    }
+    if (items.empty()) {
+        return;
+    }
+
+    if (operation == OPERATION_DELETE) {
+        int deleted = 0;
+        for (MediaItem *item : items) {
+            if (item == nullptr || item->mFilePath.empty()) {
+                continue;
+            }
+            // Only forget the item if the file actually went. Leaving the wall
+            // showing something still on disk is better than the reverse.
+            if (FileOperations::moveToTrash(item->mFilePath)) {
+                removeItem(item);
+                ++deleted;
+            }
+        }
+        if (deleted > 0) {
+            if (mListener) {
+                mListener->onFeedAboutToChange(this);
+            }
+            updateListener(true);
+        }
+        return;
+    }
+
+    if (operation == OPERATION_ROTATE) {
+        float degrees = (data != nullptr) ? *(const float *)data : 0.0f;
+        for (MediaItem *item : items) {
+            if (item == nullptr) {
+                continue;
+            }
+            float rotation = item->mRotation + degrees;
+            rotation = Shared::normalizePositive(rotation);
+            item->mRotation = rotation;
+            // A PNG or an EXIF free JPEG has no tag to rewrite, so the turn
+            // lasts only as long as the session. The display item has already
+            // been turned either way.
+            FileOperations::setExifOrientation(item->mFilePath, rotation);
+        }
+        return;
+    }
+}
+
+void MediaFeed::removeItem(MediaItem *item) {
+    std::lock_guard<std::mutex> lock(mSetsMutex);
+    for (std::unique_ptr<MediaSet> &set : mMediaSets) {
+        if (set->removeItem(item)) {
+            set->updateNumExpectedItems();
+            set->generateTitle(true);
+            break;
+        }
+    }
+    // The clusters reference the same items, so they have to let go too or the
+    // timeline would draw a deleted photo.
+    for (std::unique_ptr<MediaSet> &cluster : mClustering.getClustersForDisplay()) {
+        cluster->removeItem(item);
+    }
 }
 
 void MediaFeed::setFilter(void *filter) {

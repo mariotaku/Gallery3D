@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "MediaBucketList.h"
 #include "MediaClustering.h"
 #include "MediaSet.h"
 #include "Shared.h"
@@ -91,9 +92,8 @@ class MediaFeed {
         mSingleImageMode = singleImageMode;
     }
 
-    // Kept so the ported call sites compile unchanged; milestone one does not
-    // edit media.
-    void performOperation(int operation, void *mediaBuckets, void *data);
+    // Deletes the selection to the recycle bin, or rotates it by data degrees.
+    void performOperation(int operation, std::vector<MediaBucket> *mediaBuckets, const void *data);
     void setFilter(void *filter);
     void removeFilter();
     const std::vector<int> *getBreaks() const {
@@ -102,6 +102,9 @@ class MediaFeed {
 
     void onResume() {}
     void onPause() {}
+
+    // Drops an item from whichever set owns it. Used after a delete.
+    void removeItem(MediaItem *item);
 
   private:
     void loaderThread();

@@ -120,6 +120,10 @@ int main(int argc, char **argv) {
     // Select mode is entered by long pressing a stack, so this is the headless
     // way in. It is also the only thing that exercises the checkmark drawing.
     bool select = false;
+    // Both act on the selection, so both need --select. They exist because
+    // there is no menu to invoke them from yet.
+    bool rotate = false;
+    bool deleteSelection = false;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--screenshot" && i + 1 < argc) {
@@ -134,6 +138,10 @@ int main(int argc, char **argv) {
             fullscreen = true;
         } else if (arg == "--select") {
             select = true;
+        } else if (arg == "--rotate") {
+            rotate = true;
+        } else if (arg == "--delete") {
+            deleteSelection = true;
         } else if (arg == "--scale" && i + 1 < argc) {
             float scale = (float)std::atof(argv[++i]);
             if (scale > 0.0f) {
@@ -409,6 +417,14 @@ int main(int argc, char **argv) {
             // slot explicitly instead.
             gridLayer.getHud()->enterSelectionMode();
             gridLayer.addSlotToSelectedItems(0, false, true);
+        }
+        if ((rotate || deleteSelection) && frameNumber == (screenshotFrames * 7) / 8) {
+            if (rotate) {
+                gridLayer.rotateSelectedItems(90.0f);
+            }
+            if (deleteSelection) {
+                gridLayer.deleteSelection();
+            }
         }
         if (!screenshotPath.empty() && frameNumber >= screenshotFrames &&
             SDL_GetTicks() - startTicks >= screenshotAfterMs) {

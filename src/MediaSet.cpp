@@ -1,5 +1,7 @@
 #include "MediaSet.h"
 
+#include <algorithm>
+
 void MediaSet::addItemRef(MediaItem *item) {
     if (!item) {
         return;
@@ -74,4 +76,20 @@ void MediaSet::generateTitle(bool truncateTitle) {
         mTruncTitleString = mTitleString;
         mNoCountTitleString = mName;
     }
+}
+
+bool MediaSet::removeItem(MediaItem *item) {
+    auto found = std::find(mItems.begin(), mItems.end(), item);
+    if (found == mItems.end()) {
+        return false;
+    }
+    mItems.erase(found);
+    // A cluster only references items; the album that owns them frees them.
+    for (size_t i = 0; i < mOwnedItems.size(); ++i) {
+        if (mOwnedItems[i].get() == item) {
+            mOwnedItems.erase(mOwnedItems.begin() + (long)i);
+            break;
+        }
+    }
+    return true;
 }
