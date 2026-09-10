@@ -118,7 +118,8 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             item->mScreennailUri = file;
             item->mMimeType = mimeTypeForPath(file);
             item->mCaption = fs::path(file).filename().string();
-            item->mRotation = Bitmap::readExifRotation(file);
+            Bitmap::ExifInfo exif = Bitmap::readExif(file);
+            item->mRotation = exif.rotationDegrees;
 
             std::error_code error;
             auto writeTime = fs::last_write_time(file, error);
@@ -135,6 +136,11 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
                 item->mDateModifiedInSec = unixSeconds;
                 item->mDateAddedInSec = unixSeconds;
                 item->mDateTakenInMs = unixSeconds * 1000LL;
+            }
+            // The shot time beats the mtime, which is only when the file was
+            // copied. Files without a readable EXIF date keep the mtime.
+            if (exif.dateTakenMs != 0) {
+                item->mDateTakenInMs = exif.dateTakenMs;
             }
             set->addItem(std::move(item));
         }

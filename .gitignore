@@ -1,4 +1,5 @@
 build/
+.claude/worktrees/
 out/
 vcpkg_installed/
 *.user
