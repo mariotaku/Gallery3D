@@ -13,6 +13,13 @@ inline float animateAfterFactoringSpeed(float prevVal, float targetVal, float ti
     if (prevVal == targetVal) {
         return targetVal;
     }
+    // No time passed, so nothing moves. Without this the step below is exactly
+    // zero, the "close enough to done" test underneath sees no movement and
+    // snaps to the target, and a stalled frame finishes the animation instead
+    // of leaving it alone.
+    if (timeElapsed <= 0.0f) {
+        return prevVal;
+    }
     float newVal = prevVal + ((targetVal - prevVal) * timeElapsed);
     if (std::fabs(newVal - prevVal) < 0.0001f) {
         return targetVal;

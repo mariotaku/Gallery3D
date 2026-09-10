@@ -210,6 +210,9 @@ class RenderView {
     Texture *mBoundTextureMixed = nullptr;
 
     uint64_t mFrameTime = 0;
+    // Separate from mFrameTime because that one has to stay in milliseconds
+    // for FloatAnim, while the interval needs better resolution than that.
+    uint64_t mFrameTimeNs = 0;
     float mFrameInterval = 0.0f;
     bool mRenderRequested = true;
 

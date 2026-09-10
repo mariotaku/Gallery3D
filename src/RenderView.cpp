@@ -290,9 +290,21 @@ void RenderView::onDrawFrame() {
 
     processTextures(false);
 
-    uint64_t now = SDL_GetTicks();
-    mFrameInterval = 0.001f * (float)std::min<uint64_t>(50, now - mFrameTime);
-    mFrameTime = now;
+    // The interval comes from the nanosecond clock, not SDL_GetTicks. A
+    // millisecond counter reports 0 for any frame shorter than that, which
+    // happens whenever the swap does not block - an unmapped window, or vsync
+    // off - and a zero step makes every animation jump straight to its target.
+    uint64_t nowNs = SDL_GetTicksNS();
+    uint64_t deltaNs = (mFrameTimeNs != 0 && nowNs > mFrameTimeNs) ? (nowNs - mFrameTimeNs) : 0;
+    mFrameTimeNs = nowNs;
+    // Still capped at 50ms, so a stall does not teleport the wall.
+    const uint64_t maxDeltaNs = 50ull * 1000ull * 1000ull;
+    if (deltaNs > maxDeltaNs) {
+        deltaNs = maxDeltaNs;
+    }
+    mFrameInterval = (float)((double)deltaNs / 1000000000.0);
+    // Kept in milliseconds: FloatAnim measures its durations against this.
+    mFrameTime = SDL_GetTicks();
 
     processTouchEvents();
 

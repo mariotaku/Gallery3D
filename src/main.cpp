@@ -67,9 +67,24 @@ int keyCodeFromSDL(SDL_Keycode key) {
 
 // Reads the framebuffer back and writes it out. Used by --screenshot so a
 // build can be checked without a human at the keyboard.
-void saveFramebuffer(int width, int height, const std::string &path) {
+// Returns false when the framebuffer has nothing in it yet, which happens if
+// the readback beats the first composite. The caller then waits and retries
+// rather than writing a blank png that looks like a rendering bug.
+bool saveFramebuffer(int width, int height, const std::string &path) {
     std::vector<unsigned char> pixels((size_t)width * (size_t)height * 4);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+    bool anyOpaque = false;
+    for (size_t i = 3; i < pixels.size(); i += 4) {
+        if (pixels[i] != 0) {
+            anyOpaque = true;
+            break;
+        }
+    }
+    if (!anyOpaque) {
+        return false;
+    }
+
     // GL returns bottom up rows.
     std::vector<unsigned char> flipped(pixels.size());
     size_t stride = (size_t)width * 4;
@@ -78,11 +93,13 @@ void saveFramebuffer(int width, int height, const std::string &path) {
     }
     SDL_Surface *surface =
         SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, flipped.data(), (int)stride);
-    if (surface != nullptr) {
-        IMG_SavePNG(surface, path.c_str());
-        SDL_DestroySurface(surface);
-        SDL_Log("Wrote %s", path.c_str());
+    if (surface == nullptr) {
+        return false;
     }
+    IMG_SavePNG(surface, path.c_str());
+    SDL_DestroySurface(surface);
+    SDL_Log("Wrote %s", path.c_str());
+    return true;
 }
 
 }  // namespace
@@ -210,6 +227,11 @@ int main(int argc, char **argv) {
     };
 
     int frameNumber = 0;
+    // --frames is a count, but a swap that does not block turns that count into
+    // no time at all. Requiring the wall clock to have passed as well keeps a
+    // capture from outrunning the compositor and the texture loaders.
+    const uint64_t startTicks = SDL_GetTicks();
+    const uint64_t screenshotAfterMs = (uint64_t)screenshotFrames * 1000ull / 60ull;
     bool running = true;
     while (running) {
         SDL_Event sdlEvent;
@@ -291,10 +313,15 @@ int main(int argc, char **argv) {
         if (openSlot >= 0 && frameNumber == screenshotFrames / 2) {
             gridLayer.tapGesture(openSlot, false);
         }
-        if (!screenshotPath.empty() && frameNumber >= screenshotFrames) {
+        if (!screenshotPath.empty() && frameNumber >= screenshotFrames &&
+            SDL_GetTicks() - startTicks >= screenshotAfterMs) {
             renderView.onDrawFrame();
-            saveFramebuffer(pixelWidth, pixelHeight, screenshotPath);
-            running = false;
+            if (saveFramebuffer(pixelWidth, pixelHeight, screenshotPath)) {
+                running = false;
+            } else if (SDL_GetTicks() - startTicks > screenshotAfterMs + 5000) {
+                SDL_Log("Gave up waiting for a composited frame");
+                running = false;
+            }
         }
     }
 
