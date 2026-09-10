@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include "App.h"
+#include "GridLayer.h"
 #include "FloatUtils.h"
 
 namespace {
@@ -18,6 +19,7 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     // drawn with, so the whole HUD fades as one.
     lists.blendedList.push_back(this);
     mPathBar.generate(view, lists);
+    mMenuBar.generate(view, lists);
 }
 
 void HudLayer::onSizeChanged() {
@@ -26,6 +28,25 @@ void HudLayer::onSizeChanged() {
     float inset = 3.0f * App::PIXEL_DENSITY;
     mPathBar.setPosition(inset, inset);
     mPathBar.setSize(mWidth - inset * 2.0f, PathBarLayer::preferredHeight());
+
+    // The menu bar runs along the bottom edge.
+    mMenuBar.setPosition(0.0f, mHeight - MenuBar::preferredHeight());
+    mMenuBar.setSize(mWidth, MenuBar::preferredHeight());
+}
+
+void HudLayer::computeBottomMenu() {
+    if (mGridLayer == nullptr || mMode != MODE_SELECT) {
+        mMenuBar.clearButtons();
+        return;
+    }
+    GridLayer *grid = mGridLayer;
+    std::vector<std::pair<std::string, MenuBar::Action>> buttons;
+    buttons.emplace_back("ic_menu_rotate_left", [grid]() { grid->rotateSelectedItems(-90.0f); });
+    buttons.emplace_back("ic_menu_rotate_right", [grid]() { grid->rotateSelectedItems(90.0f); });
+    if (!grid->noDeleteMode()) {
+        buttons.emplace_back("icon_delete", [grid]() { grid->deleteSelection(); });
+    }
+    mMenuBar.setButtons(buttons);
 }
 
 void HudLayer::setAlpha(float alpha) {
@@ -38,11 +59,17 @@ void HudLayer::setAlpha(float alpha) {
 }
 
 void HudLayer::setMode(int mode) {
+    if (mMode == mode) {
+        return;
+    }
     mMode = mode;
+    // The bar carries the actions for the mode, so it has to follow it.
+    computeBottomMenu();
 }
 
 void HudLayer::reset() {
     mMode = MODE_NORMAL;
+    mMenuBar.clearButtons();
     setAlpha(1.0f);
     mAnimAlpha = 1.0f;
 }
@@ -71,7 +98,9 @@ bool HudLayer::update(RenderView *view, float frameInterval) {
 
     // Once it has faded out there is nothing to draw and nothing to click, so
     // take the bars out of both the render and the hit test lists.
-    mPathBar.setHidden(mAnimAlpha <= 0.01f);
+    bool faded = mAnimAlpha <= 0.01f;
+    mPathBar.setHidden(faded);
+    mMenuBar.setHidden(faded || mMode != MODE_SELECT);
 
     return mAnimAlpha != mAlpha;
 }

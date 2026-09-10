@@ -10,6 +10,7 @@
 #include <string>
 
 #include "Layer.h"
+#include "MenuBar.h"
 #include "PathBarLayer.h"
 #include "RenderView.h"
 
@@ -44,16 +45,6 @@ class TimeBar {
   private:
     Listener *mListener = nullptr;
     MediaItem *mItem = nullptr;
-};
-
-class MenuBar {
-  public:
-    void setHidden(bool hidden) {
-        mHidden = hidden;
-    }
-
-  private:
-    bool mHidden = false;
 };
 
 class HudLayer : public Layer {
@@ -107,7 +98,8 @@ class HudLayer : public Layer {
     void enterSelectionMode();
     void cancelSelection();
     void closeSelectionMenu() {}
-    void computeBottomMenu() {}
+    // Rebuilds the bottom bar for the current mode.
+    void computeBottomMenu();
     void updateNumItemsSelected(int count) {
         (void)count;
     }
