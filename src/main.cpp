@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "App.h"
+#include "Canvas.h"
 #include "GridLayer.h"
 #include "GridLayoutInterface.h"
 #include "Input.h"
@@ -172,7 +173,7 @@ int main(int argc, char **argv) {
         displayScale = 1.0f;
     }
     App::PIXEL_DENSITY = displayScale * App::CONTENT_SCALE;
-    StringTexture::initFonts();
+    Canvas::initFonts();
 
     RenderView renderView;
     if (!renderView.init(window)) {
@@ -299,7 +300,7 @@ int main(int argc, char **argv) {
 
     gridLayer.shutdown();
     renderView.shutdown();
-    StringTexture::shutdownFonts();
+    Canvas::shutdownFonts();
     SDL_GL_DestroyContext(context);
     SDL_DestroyWindow(window);
     SDL_Quit();

@@ -1,64 +1,21 @@
-// Placeholder for com.cooliris.media.HudLayer and the bars it owns.
+// Partial port of com.cooliris.media.HudLayer and the bars it owns.
 //
-// Milestone one ports the 3D grid only. The grid drives the HUD from a dozen
-// call sites, so the surface is kept and the behaviour is not: the layer draws
-// nothing, always reports MODE_NORMAL and full alpha. Filling this in is what
-// turns the port into the whole app.
+// The path bar is real now. The rest - the menu bar, the selection menu, the
+// time bar - is still a stub that exists so the grid's call sites compile: it
+// draws nothing, always reports MODE_NORMAL and full alpha. The grid drives the
+// HUD from a dozen places, so the surface is kept and the behaviour is not.
 #pragma once
 
+#include <cstdint>
 #include <string>
-#include <vector>
 
 #include "Layer.h"
+#include "PathBarLayer.h"
 #include "RenderView.h"
 
 class MediaItem;
 class MediaFeed;
 class GridLayer;
-
-class PathBarLayer {
-  public:
-    void clear() {
-        mLabels.clear();
-    }
-
-    void pushLabel(const char *icon, const std::string &label) {
-        (void)icon;
-        mLabels.push_back(label);
-    }
-
-    void popLabel() {
-        if (!mLabels.empty()) {
-            mLabels.pop_back();
-        }
-    }
-
-    void changeLabel(const std::string &label) {
-        if (!mLabels.empty()) {
-            mLabels.back() = label;
-        }
-    }
-
-    std::string getCurrentLabel() const {
-        return mLabels.empty() ? std::string() : mLabels.back();
-    }
-
-    int getNumLevels() const {
-        return (int)mLabels.size();
-    }
-
-    void setHidden(bool hidden) {
-        mHidden = hidden;
-    }
-
-    void setAnimatedIcons(const void *icons) {
-        (void)icons;
-    }
-
-  private:
-    std::vector<std::string> mLabels;
-    bool mHidden = false;
-};
 
 class TimeBar {
   public:
@@ -104,10 +61,7 @@ class HudLayer : public Layer {
     static const int MODE_NORMAL = 0;
     static const int MODE_SELECT = 1;
 
-    void generate(RenderView *view, RenderLists &lists) override {
-        (void)view;
-        (void)lists;
-    }
+    void generate(RenderView *view, RenderLists &lists) override;
 
     void setGridLayer(GridLayer *layer) {
         mGridLayer = layer;
@@ -171,6 +125,9 @@ class HudLayer : public Layer {
     void hideZoomButtons(bool hide) {
         (void)hide;
     }
+
+  protected:
+    void onSizeChanged() override;
 
   private:
     GridLayer *mGridLayer = nullptr;

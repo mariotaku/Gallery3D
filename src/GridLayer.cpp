@@ -57,7 +57,15 @@ GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInter
     mHud.setGridLayer(this);
     mHud.getPathBar()->clear();
     mHud.getTimeBar()->setListener(this);
-    mHud.getPathBar()->pushLabel(Res::drawable::icon_home_small, Res::string::app_name);
+    mHud.getPathBar()->pushLabel(Res::drawable::icon_home_small, Res::string::app_name, [this]() {
+        if (mHud.getAlpha() == 1.0f) {
+            if (!mFeedAboutToChange) {
+                setState(STATE_MEDIA_SETS);
+            }
+        } else {
+            mHud.setAlpha(1.0f);
+        }
+    });
 
     mCameraManager = std::make_unique<GridCameraManager>(mCamera.get());
     mDrawManager = std::make_unique<GridDrawManager>(mCamera.get(), mDrawables.get(), &mDisplayList, mDisplayItems,
@@ -137,7 +145,19 @@ void GridLayer::setState(int state) {
             mInAlbum = true;
             MediaSet *set = feed ? feed->getCurrentSet() : nullptr;
             if (set != nullptr) {
-                mHud.getPathBar()->pushLabel(mDrawables->getIconForSet(set, true), set->mNoCountTitleString);
+                mHud.getPathBar()->pushLabel(mDrawables->getIconForSet(set, true), set->mNoCountTitleString,
+                                             [this]() {
+                                                 if (mFeedAboutToChange) {
+                                                     return;
+                                                 }
+                                                 if (mHud.getAlpha() == 1.0f) {
+                                                     disableLocationFiltering();
+                                                     mInputProcessor->clearSelection();
+                                                     setState(STATE_GRID_VIEW);
+                                                 } else {
+                                                     mHud.setAlpha(1.0f);
+                                                 }
+                                             });
             }
         }
         if (mState == STATE_FULL_SCREEN) {
@@ -198,7 +218,18 @@ void GridLayer::setState(int state) {
 void GridLayer::enableLocationFiltering(const std::string &label) {
     if (!mLocationFilter) {
         mLocationFilter = true;
-        mHud.getPathBar()->pushLabel(Res::drawable::icon_location_small, label);
+        mHud.getPathBar()->pushLabel(Res::drawable::icon_location_small, label, [this]() {
+            if (mHud.getAlpha() != 1.0f) {
+                mHud.setAlpha(1.0f);
+                return;
+            }
+            if (mState == STATE_FULL_SCREEN) {
+                mInputProcessor->clearSelection();
+                setState(STATE_GRID_VIEW);
+            } else {
+                disableLocationFiltering();
+            }
+        });
     }
 }
 

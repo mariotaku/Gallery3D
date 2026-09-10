@@ -188,10 +188,6 @@ class StringTexture : public Texture {
 
     static int computeTextWidthForConfig(const std::string &text, const Config &config);
 
-    // Opens the font used for every string texture. Call once at startup.
-    static bool initFonts();
-    static void shutdownFonts();
-
   private:
     std::string mText;
     Config mConfig;
