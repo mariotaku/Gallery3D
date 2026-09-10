@@ -204,8 +204,10 @@ Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
 }
 
 Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
-    // Walks the JPEG APP1 segment for the orientation (0x0112, in IFD0) and the
-    // capture date (0x9003, in the Exif sub-IFD that IFD0's tag 0x8769 points at).
+    // Walks the JPEG APP1 segment for the orientation (0x0112, in IFD0), the
+    // capture date (0x9003, in the Exif sub-IFD that IFD0's tag 0x8769 points
+    // at) and the position (in the GPS sub-IFD that IFD0's tag 0x8825 points
+    // at).
     // These are arbitrary user files, so every read is bounds checked and a
     // malformed header just leaves the defaults in place.
     ExifInfo info;
@@ -266,9 +268,43 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                 return parseExifDate(tiff + valueOffset, count);
             };
 
+            // A GPS coordinate is three rationals, degrees, minutes and
+            // seconds, held at an offset because twenty four bytes do not fit
+            // in the entry.
+            auto readCoordinate = [&](size_t entry, double *out) -> bool {
+                if (read16(entry + 2) != 5 || read32(entry + 4) != 3) {  // three RATIONALs
+                    return false;
+                }
+                size_t valueOffset = read32(entry + 8);
+                if (valueOffset > tiffLength || tiffLength - valueOffset < 24) {
+                    return false;
+                }
+                double parts[3];
+                for (int part = 0; part < 3; ++part) {
+                    unsigned numerator = read32(valueOffset + (size_t)part * 8);
+                    unsigned denominator = read32(valueOffset + (size_t)part * 8 + 4);
+                    if (denominator == 0) {
+                        return false;
+                    }
+                    parts[part] = (double)numerator / (double)denominator;
+                }
+                *out = parts[0] + parts[1] / 60.0 + parts[2] / 3600.0;
+                return true;
+            };
+            // The hemisphere is a one character ASCII tag, which does fit in
+            // the entry, so it is read in place.
+            auto readHemisphere = [&](size_t entry) -> char {
+                if (read16(entry + 2) != 2 || read32(entry + 4) != 2) {
+                    return 0;
+                }
+                size_t valueOffset = entry + 8;
+                return (valueOffset < tiffLength) ? (char)tiff[valueOffset] : (char)0;
+            };
+
             unsigned ifdOffset = read32(4);
             unsigned entryCount = read16(ifdOffset);
             unsigned exifIfdOffset = 0;
+            unsigned gpsIfdOffset = 0;
             for (unsigned i = 0; i < entryCount; ++i) {
                 size_t entry = (size_t)ifdOffset + 2 + (size_t)i * 12;
                 if (entry + 12 > tiffLength) {
@@ -297,6 +333,8 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                     info.dateTakenMs = readDate(entry);
                 } else if (tag == 0x8769) {
                     exifIfdOffset = read32(entry + 8);
+                } else if (tag == 0x8825) {
+                    gpsIfdOffset = read32(entry + 8);
                 }
             }
 
@@ -313,6 +351,49 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                     }
                     break;
                 }
+            }
+
+            double latitude = 0.0;
+            double longitude = 0.0;
+            char latitudeRef = 0;
+            char longitudeRef = 0;
+            bool haveLatitude = false;
+            bool haveLongitude = false;
+            entryCount = gpsIfdOffset ? read16(gpsIfdOffset) : 0;
+            for (unsigned i = 0; i < entryCount; ++i) {
+                size_t entry = (size_t)gpsIfdOffset + 2 + (size_t)i * 12;
+                if (entry + 12 > tiffLength) {
+                    break;
+                }
+                switch (read16(entry)) {
+                case 0x0001:
+                    latitudeRef = readHemisphere(entry);
+                    break;
+                case 0x0002:
+                    haveLatitude = readCoordinate(entry, &latitude);
+                    break;
+                case 0x0003:
+                    longitudeRef = readHemisphere(entry);
+                    break;
+                case 0x0004:
+                    haveLongitude = readCoordinate(entry, &longitude);
+                    break;
+                default:
+                    break;
+                }
+            }
+            if (haveLatitude && haveLongitude) {
+                if (latitudeRef == 'S') {
+                    latitude = -latitude;
+                }
+                if (longitudeRef == 'W') {
+                    longitude = -longitude;
+                }
+                // Exactly zero is how the rest of the port spells "no position",
+                // so a reading on the equator or the meridian is nudged rather
+                // than silently discarded.
+                info.latitude = (latitude == 0.0) ? 1e-9 : latitude;
+                info.longitude = (longitude == 0.0) ? 1e-9 : longitude;
             }
             break;
         }

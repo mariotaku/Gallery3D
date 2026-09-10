@@ -121,6 +121,8 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             item->mCaption = fs::path(file).filename().string();
             Bitmap::ExifInfo exif = Bitmap::readExif(file);
             item->mRotation = exif.rotationDegrees;
+            item->mLatitude = exif.latitude;
+            item->mLongitude = exif.longitude;
 
             std::error_code error;
             auto writeTime = fs::last_write_time(file, error);

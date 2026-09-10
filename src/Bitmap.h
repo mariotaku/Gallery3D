@@ -60,9 +60,14 @@ class Bitmap {
     struct ExifInfo {
         float rotationDegrees = 0.0f;
         int64_t dateTakenMs = 0;
+        // Signed decimal degrees, north and east positive. Both stay at zero
+        // when the file carries no position, which is what isLatLongValid
+        // treats as absent.
+        double latitude = 0.0;
+        double longitude = 0.0;
     };
 
-    // Reads the EXIF orientation and capture date of a JPEG in one pass.
+    // Reads the EXIF orientation, capture date and position of a JPEG in one pass.
     static ExifInfo readExif(const std::string &path);
 
   private:
