@@ -4,6 +4,7 @@
 
 #include "App.h"
 #include "GridLayer.h"
+#include "MediaItem.h"
 #include "FloatUtils.h"
 
 namespace {
@@ -218,6 +219,24 @@ void HudLayer::showPopupFor(const MenuBar &bar, size_t index, const std::vector<
 
 void HudLayer::closeSelectionMenu() {
     mPopupMenu.close(true);
+}
+
+void HudLayer::fullscreenSelectionChanged(MediaItem *item, int index, int count) {
+    if (item == nullptr) {
+        return;
+    }
+    mCachedPosition = std::to_string(index) + "/" + std::to_string(count);
+    mCachedCaption = item->mCaption;
+    // Opens on the position rather than the caption, which is what tells you
+    // where you are in the album.
+    mCachedCurrentLabel = mCachedPosition;
+    mPathBar.changeLabel(mCachedCurrentLabel);
+}
+
+void HudLayer::swapFullscreenLabel() {
+    bool showingCaption = !mCachedCaption.empty() && mCachedCurrentLabel == mCachedCaption;
+    mCachedCurrentLabel = (showingCaption || mCachedCaption.empty()) ? mCachedPosition : mCachedCaption;
+    mPathBar.changeLabel(mCachedCurrentLabel);
 }
 
 void HudLayer::updateNumItemsSelected(int count) {

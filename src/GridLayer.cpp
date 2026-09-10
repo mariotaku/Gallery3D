@@ -181,6 +181,18 @@ void GridLayer::setState(int state) {
         layoutInterface->mNumRows = 1;
         layoutInterface->mSpacingX = (int)(40 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(40 * App::PIXEL_DENSITY);
+        if (mState != STATE_FULL_SCREEN) {
+            // A crumb of its own for the photo. It starts blank because
+            // fullscreenSelectionChanged fills it in with the position as soon
+            // as there is a photo to count, and tapping it swaps between that
+            // and the caption.
+            mHud.getPathBar()->pushLabel(Res::drawable::ic_fs_details, "", [this]() {
+                if (mHud.getAlpha() == 1.0f) {
+                    mHud.swapFullscreenLabel();
+                }
+                mHud.setAlpha(1.0f);
+            });
+        }
         break;
     case STATE_MEDIA_SETS:
         mTimeElapsedSinceStackViewReady = 0.0f;

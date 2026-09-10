@@ -61,6 +61,7 @@ const char *const icon_picasa_small = "icon_picasa_small";
 const char *const icon_folder_small = "icon_folder_small";
 const char *const icon_home_small = "icon_home_small";
 const char *const icon_location_small = "icon_location_small";
+const char *const ic_fs_details = "ic_fs_details";
 const char *const transparent = "transparent";
 const char *const grid_placeholder = "grid_placeholder";
 const char *const default_background = "default_background";

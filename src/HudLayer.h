@@ -92,18 +92,16 @@ class HudLayer : public Layer {
     // Opens the popup above a bar button, pointing back at it.
     void showPopupFor(const MenuBar &bar, size_t index, const std::vector<PopupMenu::Option> &options);
     void updateNumItemsSelected(int count);
-    void fullscreenSelectionChanged(MediaItem *item, int index, int count) {
-        (void)item;
-        (void)index;
-        (void)count;
-    }
+    // Fullscreen puts the photo's position in the path bar instead of the album
+    // name, and a tap on it swaps to the caption.
+    void fullscreenSelectionChanged(MediaItem *item, int index, int count);
     void setFeed(MediaFeed *feed, int state, bool needsLayout) {
         mTimeBar.setFeed(feed, state, needsLayout);
     }
     void setTimeBarTime(int64_t time) {
         (void)time;
     }
-    void swapFullscreenLabel() {}
+    void swapFullscreenLabel();
     void hideZoomButtons(bool hide) {
         mZoomButtonsHidden = hide;
     }
@@ -129,6 +127,11 @@ class HudLayer : public Layer {
     ImageButton mZoomOutButton;
     bool mZoomButtonsHidden = false;
     int mNumItemsSelected = 0;
+    // What the path bar shows in fullscreen. The caption can be empty, which is
+    // why the position is kept separately rather than derived.
+    std::string mCachedCaption;
+    std::string mCachedPosition;
+    std::string mCachedCurrentLabel;
     // The grid state the bars follow. Only the time bar cares: it belongs to
     // the album view and to nothing else.
     int mGridState = 0;
