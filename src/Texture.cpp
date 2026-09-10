@@ -11,6 +11,7 @@
 #include "App.h"
 #include "MediaItem.h"
 #include "RenderView.h"
+#include "Shared.h"
 
 Texture::~Texture() {
     if (mId != 0 && mOwner != nullptr) {
@@ -45,15 +46,22 @@ Bitmap MediaItemTexture::load(RenderView *view) {
     }
     if (mConfig) {
         // Grid thumbnail. The original pulled a pre-baked, centre cropped
-        // thumbnail out of the disk cache; here we decode from the file and
-        // crop to the same shape so grid items fill their frame.
-        int width = (int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY);
-        int height = (int)(mConfig->thumbnailHeight * App::PIXEL_DENSITY);
-        Bitmap decoded = Bitmap::load(mItem->mFilePath, std::max(width, height) * 3);
+        // thumbnail out of the disk cache, always 128x96, which the loader then
+        // padded to 128x128. That is why GridDrawables gives the grid quad
+        // texture extents of (1.0, oneByAspect): it expects the image to fill
+        // the full width and exactly oneByAspect of the height of a square
+        // power of two texture. The shipped grid_placeholder.png is 128x96 for
+        // the same reason.
+        //
+        // So pick a power of two side and crop to that ratio, whatever the
+        // display density. Anything else leaves the quad sampling the padding.
+        int side = Shared::nextPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
+        int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
+        Bitmap decoded = Bitmap::load(mItem->mFilePath, std::max(side, height) * 2);
         if (!decoded.valid()) {
             return decoded;
         }
-        return decoded.coverCropped(width, height);
+        return decoded.coverCropped(side, height);
     }
     // Screennail, used once an item fills the screen.
     return Bitmap::load(mItem->mFilePath, FileTexture::MAX_RESOLUTION);
