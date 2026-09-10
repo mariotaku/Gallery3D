@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "App.h"
+#include "DiskCache.h"
 #include "MediaItem.h"
 #include "RenderView.h"
 #include "Shared.h"
@@ -57,11 +58,30 @@ Bitmap MediaItemTexture::load(RenderView *view) {
         // display density. Anything else leaves the quad sampling the padding.
         int side = Shared::nextPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
         int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
+
+        // Decoding a few hundred originals costs seconds on every launch, so
+        // keep the cropped result on disk. The key carries the modification
+        // time and the crop size, because the size follows the display density
+        // and can differ between runs.
+        char suffix[64];
+        SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d", (long long)mItem->mDateModifiedInSec,
+                     side, height);
+        std::string key = mItem->mFilePath + suffix;
+        DiskCache &cache = DiskCache::thumbnails();
+        Bitmap cached = cache.get(key);
+        if (cached.valid() && cached.width() == side && cached.height() == height) {
+            return cached;
+        }
+
         Bitmap decoded = Bitmap::load(mItem->mFilePath, std::max(side, height) * 2);
         if (!decoded.valid()) {
             return decoded;
         }
-        return decoded.coverCropped(side, height);
+        Bitmap cropped = decoded.coverCropped(side, height);
+        if (cropped.valid()) {
+            cache.put(key, cropped);
+        }
+        return cropped;
     }
     // Screennail, used once an item fills the screen.
     return Bitmap::load(mItem->mFilePath, FileTexture::MAX_RESOLUTION);
