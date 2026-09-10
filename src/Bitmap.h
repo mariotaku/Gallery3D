@@ -48,8 +48,15 @@ class Bitmap {
     // original's thumbnail cache stored, and why grid items have no letterbox.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 
-    // Reads the EXIF orientation tag of a JPEG and returns it in degrees.
-    static float readExifRotation(const std::string &path);
+    // What one pass over a JPEG's EXIF header yields. Either field stays at its
+    // default when the tag is missing or the file is not a JPEG.
+    struct ExifInfo {
+        float rotationDegrees = 0.0f;
+        int64_t dateTakenMs = 0;
+    };
+
+    // Reads the EXIF orientation and capture date of a JPEG in one pass.
+    static ExifInfo readExif(const std::string &path);
 
   private:
     int mWidth = 0;

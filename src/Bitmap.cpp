@@ -6,8 +6,43 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 
 namespace {
+
+// Turns an EXIF "YYYY:MM:DD HH:MM:SS" stamp into milliseconds since the Unix
+// epoch. EXIF carries no time zone, so the camera's wall clock is read as local
+// time. Cameras also write blank and half filled stamps, hence the range checks.
+int64_t parseExifDate(const uint8_t *text, size_t length) {
+    if (length < 19) {
+        return 0;
+    }
+    char stamp[20];
+    std::memcpy(stamp, text, 19);
+    stamp[19] = '\0';
+    int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    if (std::sscanf(stamp, "%4d:%2d:%2d %2d:%2d:%2d", &year, &month, &day, &hour, &minute,
+                    &second) != 6) {
+        return 0;
+    }
+    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 ||
+        minute < 0 || minute > 59 || second < 0 || second > 60) {
+        return 0;
+    }
+    std::tm parts = {};
+    parts.tm_year = year - 1900;
+    parts.tm_mon = month - 1;
+    parts.tm_mday = day;
+    parts.tm_hour = hour;
+    parts.tm_min = minute;
+    parts.tm_sec = second;
+    parts.tm_isdst = -1;  // let the C library work out whether DST was in force
+    std::time_t taken = std::mktime(&parts);
+    if (taken == (std::time_t)-1) {
+        return 0;
+    }
+    return (int64_t)taken * 1000LL;
+}
 
 // Multiplies each colour channel by its alpha. The renderer blends with
 // GL_ONE / GL_ONE_MINUS_SRC_ALPHA, which expects premultiplied source pixels.
@@ -153,18 +188,21 @@ Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
     return result;
 }
 
-float Bitmap::readExifRotation(const std::string &path) {
-    // Walks the JPEG APP1 segment far enough to find tag 0x0112, the orientation.
+Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
+    // Walks the JPEG APP1 segment for the orientation (0x0112, in IFD0) and the
+    // capture date (0x9003, in the Exif sub-IFD that IFD0's tag 0x8769 points at).
+    // These are arbitrary user files, so every read is bounds checked and a
+    // malformed header just leaves the defaults in place.
+    ExifInfo info;
     std::FILE *file = std::fopen(path.c_str(), "rb");
     if (!file) {
-        return 0.0f;
+        return info;
     }
-    float degrees = 0.0f;
     std::vector<uint8_t> header(65536);
     size_t read = std::fread(header.data(), 1, header.size(), file);
     std::fclose(file);
     if (read < 12 || header[0] != 0xFF || header[1] != 0xD8) {
-        return 0.0f;
+        return info;
     }
 
     size_t pos = 2;
@@ -199,25 +237,64 @@ float Bitmap::readExifRotation(const std::string &path) {
                 return ((unsigned)tiff[offset + 3] << 24) | ((unsigned)tiff[offset + 2] << 16) |
                        ((unsigned)tiff[offset + 1] << 8) | (unsigned)tiff[offset];
             };
+            // A date does not fit in the entry's four value bytes, so the entry
+            // holds an offset to the string instead.
+            auto readDate = [&](size_t entry) -> int64_t {
+                if (read16(entry + 2) != 2) {  // ASCII
+                    return 0;
+                }
+                size_t count = read32(entry + 4);
+                size_t valueOffset = read32(entry + 8);
+                if (count > tiffLength || valueOffset > tiffLength - count) {
+                    return 0;
+                }
+                return parseExifDate(tiff + valueOffset, count);
+            };
+
             unsigned ifdOffset = read32(4);
             unsigned entryCount = read16(ifdOffset);
+            unsigned exifIfdOffset = 0;
             for (unsigned i = 0; i < entryCount; ++i) {
                 size_t entry = (size_t)ifdOffset + 2 + (size_t)i * 12;
-                if (read16(entry) == 0x0112) {
+                if (entry + 12 > tiffLength) {
+                    break;
+                }
+                unsigned tag = read16(entry);
+                if (tag == 0x0112) {
                     unsigned orientation = read16(entry + 8);
                     switch (orientation) {
                     case 6:
-                        degrees = 90.0f;
+                        info.rotationDegrees = 90.0f;
                         break;
                     case 3:
-                        degrees = 180.0f;
+                        info.rotationDegrees = 180.0f;
                         break;
                     case 8:
-                        degrees = 270.0f;
+                        info.rotationDegrees = 270.0f;
                         break;
                     default:
-                        degrees = 0.0f;
+                        info.rotationDegrees = 0.0f;
                         break;
+                    }
+                } else if (tag == 0x0132) {
+                    // DateTime is when the file was last written, so it is only
+                    // a fallback for the shot time below.
+                    info.dateTakenMs = readDate(entry);
+                } else if (tag == 0x8769) {
+                    exifIfdOffset = read32(entry + 8);
+                }
+            }
+
+            entryCount = exifIfdOffset ? read16(exifIfdOffset) : 0;
+            for (unsigned i = 0; i < entryCount; ++i) {
+                size_t entry = (size_t)exifIfdOffset + 2 + (size_t)i * 12;
+                if (entry + 12 > tiffLength) {
+                    break;
+                }
+                if (read16(entry) == 0x9003) {
+                    int64_t taken = readDate(entry);
+                    if (taken != 0) {
+                        info.dateTakenMs = taken;
                     }
                     break;
                 }
@@ -229,5 +306,5 @@ float Bitmap::readExifRotation(const std::string &path) {
         }
         pos += 2 + length;
     }
-    return degrees;
+    return info;
 }
