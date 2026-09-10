@@ -1,0 +1,77 @@
+#include "MediaSet.h"
+
+void MediaSet::addItemRef(MediaItem *item) {
+    if (!item) {
+        return;
+    }
+    mItems.push_back(item);
+
+    if (item->isDateTakenValid()) {
+        int64_t dateTaken = item->mDateTakenInMs;
+        if (dateTaken < mMinTimestamp) {
+            mMinTimestamp = dateTaken;
+        }
+        if (dateTaken > mMaxTimestamp) {
+            mMaxTimestamp = dateTaken;
+        }
+    } else if (item->isDateAddedValid()) {
+        int64_t dateAdded = item->mDateAddedInSec * 1000;
+        if (dateAdded < mMinAddedTimestamp) {
+            mMinAddedTimestamp = dateAdded;
+        }
+        if (dateAdded > mMaxAddedTimestamp) {
+            mMaxAddedTimestamp = dateAdded;
+        }
+    }
+
+    if (!item->isLatLongValid()) {
+        return;
+    }
+    double itemLatitude = item->mLatitude;
+    double itemLongitude = item->mLongitude;
+    if (mMinLatLatitude > itemLatitude) {
+        mMinLatLatitude = itemLatitude;
+        mMinLatLongitude = itemLongitude;
+        mLatLongDetermined = true;
+    }
+    if (mMaxLatLatitude < itemLatitude) {
+        mMaxLatLatitude = itemLatitude;
+        mMaxLatLongitude = itemLongitude;
+        mLatLongDetermined = true;
+    }
+    if (mMinLonLongitude > itemLongitude) {
+        mMinLonLatitude = itemLatitude;
+        mMinLonLongitude = itemLongitude;
+        mLatLongDetermined = true;
+    }
+    if (mMaxLonLongitude < itemLongitude) {
+        mMaxLonLatitude = itemLatitude;
+        mMaxLonLongitude = itemLongitude;
+        mLatLongDetermined = true;
+    }
+}
+
+void MediaSet::addItem(std::unique_ptr<MediaItem> item) {
+    if (!item) {
+        return;
+    }
+    MediaItem *raw = item.get();
+    raw->mParentMediaSet = this;
+    mOwnedItems.push_back(std::move(item));
+    addItemRef(raw);
+}
+
+void MediaSet::generateTitle(bool truncateTitle) {
+    std::string size =
+        mNumExpectedItemsCountAccurate ? ("  (" + std::to_string(mNumExpectedItems) + ")") : std::string();
+    mTitleString = mName + size;
+    if (truncateTitle) {
+        size_t length = mName.length();
+        mTruncTitleString =
+            (length > 16) ? (mName.substr(0, 12) + "..." + mName.substr(length - 4, 4) + size) : (mName + size);
+        mNoCountTitleString = mName;
+    } else {
+        mTruncTitleString = mTitleString;
+        mNoCountTitleString = mName;
+    }
+}

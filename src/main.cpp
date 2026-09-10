@@ -1,0 +1,292 @@
+// Entry point, replacing com.cooliris.media.Gallery.
+//
+// Usage: gallery3d [photo directory]
+// Defaults to the user's Pictures folder.
+#include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
+
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "App.h"
+#include "GridLayer.h"
+#include "GridLayoutInterface.h"
+#include "Input.h"
+#include "LocalDataSource.h"
+#include "RenderView.h"
+#include "Texture.h"
+#include "gles2.h"
+
+namespace {
+
+std::string defaultPhotoDirectory() {
+    const char *home = SDL_getenv("USERPROFILE");
+    if (home == nullptr) {
+        home = SDL_getenv("HOME");
+    }
+    if (home == nullptr) {
+        return ".";
+    }
+    return std::string(home) + "/Pictures";
+}
+
+std::string assetRoot() {
+    // Assets are copied next to the binary at build time.
+    const char *base = SDL_GetBasePath();
+    if (base == nullptr) {
+        return "assets";
+    }
+    return std::string(base) + "assets";
+}
+
+int keyCodeFromSDL(SDL_Keycode key) {
+    switch (key) {
+    case SDLK_ESCAPE:
+    case SDLK_BACKSPACE:
+        return KeyEvent::KEYCODE_BACK;
+    case SDLK_LEFT:
+        return KeyEvent::KEYCODE_DPAD_LEFT;
+    case SDLK_RIGHT:
+        return KeyEvent::KEYCODE_DPAD_RIGHT;
+    case SDLK_UP:
+        return KeyEvent::KEYCODE_DPAD_UP;
+    case SDLK_DOWN:
+        return KeyEvent::KEYCODE_DPAD_DOWN;
+    case SDLK_RETURN:
+    case SDLK_SPACE:
+        return KeyEvent::KEYCODE_DPAD_CENTER;
+    case SDLK_TAB:
+        return KeyEvent::KEYCODE_MENU;
+    default:
+        return KeyEvent::KEYCODE_UNKNOWN;
+    }
+}
+
+// Reads the framebuffer back and writes it out. Used by --screenshot so a
+// build can be checked without a human at the keyboard.
+void saveFramebuffer(int width, int height, const std::string &path) {
+    std::vector<unsigned char> pixels((size_t)width * (size_t)height * 4);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    // GL returns bottom up rows.
+    std::vector<unsigned char> flipped(pixels.size());
+    size_t stride = (size_t)width * 4;
+    for (int y = 0; y < height; ++y) {
+        std::memcpy(&flipped[(size_t)y * stride], &pixels[(size_t)(height - 1 - y) * stride], stride);
+    }
+    SDL_Surface *surface =
+        SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, flipped.data(), (int)stride);
+    if (surface != nullptr) {
+        IMG_SavePNG(surface, path.c_str());
+        SDL_DestroySurface(surface);
+        SDL_Log("Wrote %s", path.c_str());
+    }
+}
+
+}  // namespace
+
+int main(int argc, char **argv) {
+    std::string photoDirectory;
+    std::string screenshotPath;
+    int screenshotFrames = 240;
+    // Opens the given album part way through, so the grid view can be captured
+    // without a hand on the mouse.
+    int openSlot = -1;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--screenshot" && i + 1 < argc) {
+            screenshotPath = argv[++i];
+        } else if (arg == "--frames" && i + 1 < argc) {
+            screenshotFrames = std::atoi(argv[++i]);
+        } else if (arg == "--open" && i + 1 < argc) {
+            openSlot = std::atoi(argv[++i]);
+        } else if (photoDirectory.empty()) {
+            photoDirectory = arg;
+        }
+    }
+    if (photoDirectory.empty()) {
+        photoDirectory = defaultPhotoDirectory();
+    }
+
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        SDL_Log("SDL_Init failed: %s", SDL_GetError());
+        return 1;
+    }
+
+    // Ask for ES 2.0 first. Desktop drivers that refuse it still hand back a
+    // context whose GL 2.0 core covers every call this port makes.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+    SDL_Window *window =
+        SDL_CreateWindow("Gallery3D", 1024, 640, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if (window == nullptr) {
+        SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
+        return 1;
+    }
+
+    bool realES = true;
+    SDL_GLContext context = SDL_GL_CreateContext(window);
+    if (context == nullptr) {
+        SDL_Log("ES 2.0 context unavailable (%s), falling back to desktop GL", SDL_GetError());
+        realES = false;
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+        context = SDL_GL_CreateContext(window);
+    }
+    if (context == nullptr) {
+        SDL_Log("SDL_GL_CreateContext failed: %s", SDL_GetError());
+        return 1;
+    }
+    GLES2_SetRealES(realES);
+    if (!GLES2_Load()) {
+        SDL_Log("Failed to load GL entry points");
+        return 1;
+    }
+    SDL_GL_SetSwapInterval(1);
+    SDL_Log("GL_VERSION  : %s", (const char *)glGetString(GL_VERSION));
+    SDL_Log("GL_RENDERER : %s", (const char *)glGetString(GL_RENDERER));
+
+    App::ASSET_ROOT = assetRoot();
+    App::PIXEL_DENSITY = SDL_GetWindowDisplayScale(window);
+    if (App::PIXEL_DENSITY <= 0.0f) {
+        App::PIXEL_DENSITY = 1.0f;
+    }
+    StringTexture::initFonts();
+
+    RenderView renderView;
+    if (!renderView.init(window)) {
+        SDL_Log("RenderView init failed");
+        return 1;
+    }
+
+    GridLayoutInterface layoutInterface(4);
+    GridLayer gridLayer((int)(96.0f * App::PIXEL_DENSITY), (int)(72.0f * App::PIXEL_DENSITY), &layoutInterface,
+                        &renderView);
+    LocalDataSource dataSource(photoDirectory);
+
+    renderView.setRootLayer(&gridLayer);
+    renderView.onSurfaceCreated();
+
+    int pixelWidth = 0;
+    int pixelHeight = 0;
+    SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+    renderView.onSurfaceChanged(pixelWidth, pixelHeight);
+
+    gridLayer.setDataSource(&dataSource);
+    SDL_Log("Scanning %s", photoDirectory.c_str());
+
+    // Pointer state, turned into the MotionEvents the ported gesture code wants.
+    // SDL reports pointer positions in window units; the renderer works in
+    // pixels, so scale on the way in.
+    bool mouseDown = false;
+    MotionEvent event;
+    auto pointerScale = [&]() {
+        int windowWidth = 0;
+        int windowHeight = 0;
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        return (windowWidth > 0) ? ((float)pixelWidth / (float)windowWidth) : 1.0f;
+    };
+
+    int frameNumber = 0;
+    bool running = true;
+    while (running) {
+        SDL_Event sdlEvent;
+        while (SDL_PollEvent(&sdlEvent)) {
+            switch (sdlEvent.type) {
+            case SDL_EVENT_QUIT:
+                running = false;
+                break;
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+                renderView.onSurfaceChanged(pixelWidth, pixelHeight);
+                renderView.requestRender();
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                if (sdlEvent.button.button == SDL_BUTTON_LEFT) {
+                    mouseDown = true;
+                    event = MotionEvent();
+                    event.action = MotionEvent::ACTION_DOWN;
+                    event.xs[0] = sdlEvent.button.x * pointerScale();
+                    event.ys[0] = sdlEvent.button.y * pointerScale();
+                    event.eventTime = SDL_GetTicks();
+                    renderView.queueTouchEvent(event);
+                }
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                if (sdlEvent.button.button == SDL_BUTTON_LEFT && mouseDown) {
+                    mouseDown = false;
+                    event.action = MotionEvent::ACTION_UP;
+                    event.xs[0] = sdlEvent.button.x * pointerScale();
+                    event.ys[0] = sdlEvent.button.y * pointerScale();
+                    event.eventTime = SDL_GetTicks();
+                    renderView.queueTouchEvent(event);
+                }
+                break;
+            case SDL_EVENT_MOUSE_MOTION:
+                if (mouseDown) {
+                    event.action = MotionEvent::ACTION_MOVE;
+                    event.xs[0] = sdlEvent.motion.x * pointerScale();
+                    event.ys[0] = sdlEvent.motion.y * pointerScale();
+                    event.eventTime = SDL_GetTicks();
+                    renderView.queueTouchEvent(event);
+                }
+                break;
+            case SDL_EVENT_MOUSE_WHEEL: {
+                // The wheel drives the pinch: it spreads a stack in the album
+                // view and zooms a photo in fullscreen.
+                float mouseX = 0.0f;
+                float mouseY = 0.0f;
+                SDL_GetMouseState(&mouseX, &mouseY);
+                float scale = pointerScale();
+                gridLayer.getInputProcessor()->onWheel(mouseX * scale, mouseY * scale, sdlEvent.wheel.y);
+                renderView.requestRender();
+                break;
+            }
+            case SDL_EVENT_KEY_DOWN: {
+                int keyCode = keyCodeFromSDL(sdlEvent.key.key);
+                if (keyCode == KeyEvent::KEYCODE_BACK && sdlEvent.key.key == SDLK_ESCAPE &&
+                    gridLayer.getState() == GridLayer::STATE_MEDIA_SETS) {
+                    running = false;
+                    break;
+                }
+                if (keyCode != KeyEvent::KEYCODE_UNKNOWN) {
+                    KeyEvent keyEvent;
+                    keyEvent.action = KeyEvent::ACTION_DOWN;
+                    keyEvent.keyCode = keyCode;
+                    renderView.dispatchKeyDown(keyCode, keyEvent);
+                }
+                break;
+            }
+            default:
+                break;
+            }
+        }
+
+        renderView.onDrawFrame();
+        SDL_GL_SwapWindow(window);
+
+        ++frameNumber;
+        if (openSlot >= 0 && frameNumber == screenshotFrames / 2) {
+            gridLayer.tapGesture(openSlot, false);
+        }
+        if (!screenshotPath.empty() && frameNumber >= screenshotFrames) {
+            renderView.onDrawFrame();
+            saveFramebuffer(pixelWidth, pixelHeight, screenshotPath);
+            running = false;
+        }
+    }
+
+    gridLayer.shutdown();
+    renderView.shutdown();
+    StringTexture::shutdownFonts();
+    SDL_GL_DestroyContext(context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
+}

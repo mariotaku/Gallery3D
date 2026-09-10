@@ -1,0 +1,12 @@
+{
+  "name": "gallery3d-sdl",
+  "version": "0.1.0",
+  "dependencies": [
+    "sdl3",
+    {
+      "name": "sdl3-image",
+      "features": ["png", "jpeg", "webp", "tiff"]
+    },
+    "sdl3-ttf"
+  ]
+}
