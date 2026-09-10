@@ -206,6 +206,8 @@ class RenderView {
     GLuint mQuad2DVBO = 0;
 
     Texture *mBoundTexture = nullptr;
+    // The texture on unit 1 while mixing, for the second set of coordinates.
+    Texture *mBoundTextureMixed = nullptr;
 
     uint64_t mFrameTime = 0;
     float mFrameInterval = 0.0f;
