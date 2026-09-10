@@ -76,11 +76,16 @@ manifest. Assets are copied next to the binary at build time.
 ## Run
 
 ```sh
-build/Release/gallery3d.exe [photo directory]
+build/Release/gallery3d.exe [photo directory] [--also directory]
 ```
 
 Defaults to your Pictures folder. It walks the tree and makes one album per
 folder that holds images.
+
+`--also` shows a second directory on the same wall. It runs two data sources
+through `ConcatenatedDataSource`, which is the seam another kind of storage
+would plug into: each album remembers which source produced it, and the feed
+asks that one for its items and for deletes and rotations.
 
 The layout constants come from a 320x480 handset, so on a monitor the wall
 would be a small cluster in the middle of the backdrop. `--scale` stretches the
