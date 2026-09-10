@@ -43,6 +43,10 @@ struct Drawable {
 // size and were written against those pixel dimensions.
 Drawable findDrawable(const std::string &name, bool allowHigherDensity = true);
 
+// The density of the bucket the current PIXEL_DENSITY selects, ignoring whether
+// any particular file exists in it. For reporting what the loader settled on.
+float drawableBucketDensity();
+
 // The path alone, for callers that resample to a size of their own choosing
 // and so only want the best source available.
 std::string drawablePath(const std::string &name);

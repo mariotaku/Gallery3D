@@ -26,34 +26,80 @@ float CONTENT_SCALE = 1.5f;
 int SCREEN_NAIL_MAX_EDGE = 1024;
 std::string ASSET_ROOT = "assets";
 
+namespace {
+
+// The density buckets the port ships, ascending. Android's naming, and its
+// numbers: mdpi is the 1x baseline and hdpi is exactly 1.5x it, which holds for
+// every asset here. Add xhdpi at 2.0 above if art for it ever appears.
+struct Bucket {
+    const char *directory;
+    float density;
+};
+
+const Bucket kBuckets[] = {
+    {"drawable-mdpi", 1.0f},
+    {"drawable-hdpi", 1.5f},
+};
+
+// The unqualified folder. Android treats it as mdpi, and mostly it is, but the
+// original ships both and they disagree for a few assets, so it is the last
+// resort rather than a bucket. Unscaled textures use it directly: their callers
+// were written against these exact pixel sizes.
+const char *const kFallbackDirectory = "drawable";
+
+std::string pathIn(const char *directory, const std::string &name) {
+    return ASSET_ROOT + "/" + directory + "/" + name + ".png";
+}
+
+}  // namespace
+
 Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
-    // Two buckets. drawable-hdpi is drawn for density 1.5, exactly 1.5x
-    // drawable-mdpi in every asset the port ships.
-    //
-    // The baseline here is the unqualified drawable folder, which Android
-    // treats as mdpi, and this calls density 1. That is a shade loose: the
-    // original ships both, and for a few drawables they disagree. icon_play is
-    // 34 unqualified against 30 in mdpi, so calling it density 1 is out by
-    // 13%. It only matters for art drawn at its own size with no hdpi variant
-    // to prefer, which none of the current callers hit.
-    //
-    // Nothing lines up exactly anyway: PIXEL_DENSITY is the display scale times
-    // CONTENT_SCALE, 2.625 on this machine, so hdpi art is still resampled by
-    // 1.75. Picking the closer bucket is the point, not avoiding the resample.
-    std::string hdpi = ASSET_ROOT + "/drawable-hdpi/" + name + ".png";
-    if (allowHigherDensity && PIXEL_DENSITY > 1.0f && fileExists(hdpi)) {
-        return Drawable{hdpi, 1.5f};
+    if (allowHigherDensity) {
+        // The smallest bucket that still has enough pixels, so art is reduced
+        // rather than blown up. PIXEL_DENSITY is the right thing to compare
+        // against, not the display scale on its own: every size the art is
+        // drawn at has already been multiplied by it.
+        const Bucket *best = nullptr;
+        for (const Bucket &bucket : kBuckets) {
+            if (bucket.density + 0.001f < PIXEL_DENSITY) {
+                continue;
+            }
+            if (fileExists(pathIn(bucket.directory, name))) {
+                best = &bucket;
+                break;
+            }
+        }
+        // Nothing dense enough exists, so take the densest that does and accept
+        // the upscale.
+        if (best == nullptr) {
+            for (int i = (int)(sizeof(kBuckets) / sizeof(kBuckets[0])) - 1; i >= 0; --i) {
+                if (fileExists(pathIn(kBuckets[i].directory, name))) {
+                    best = &kBuckets[i];
+                    break;
+                }
+            }
+        }
+        if (best != nullptr) {
+            return Drawable{pathIn(best->directory, name), best->density};
+        }
     }
-    std::string baseline = ASSET_ROOT + "/drawable/" + name + ".png";
-    if (fileExists(baseline)) {
-        return Drawable{baseline, 1.0f};
+
+    std::string fallback = pathIn(kFallbackDirectory, name);
+    if (fileExists(fallback) || !allowHigherDensity) {
+        return Drawable{fallback, 1.0f};
     }
-    // Not every drawable ships at every density. Take whatever there is rather
-    // than hand back a path with nothing behind it.
-    if (fileExists(hdpi)) {
-        return Drawable{hdpi, 1.5f};
+    // Nothing anywhere. Hand back the fallback path so the caller reports a
+    // missing file rather than a missing directory.
+    return Drawable{fallback, 1.0f};
+}
+
+float drawableBucketDensity() {
+    for (const Bucket &bucket : kBuckets) {
+        if (bucket.density + 0.001f >= PIXEL_DENSITY) {
+            return bucket.density;
+        }
     }
-    return Drawable{baseline, 1.0f};
+    return kBuckets[sizeof(kBuckets) / sizeof(kBuckets[0]) - 1].density;
 }
 
 std::string drawablePath(const std::string &name) {
