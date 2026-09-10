@@ -123,9 +123,6 @@ void PathBarLayer::layout() {
 }
 
 void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
-    // The bar is exactly as wide as its crumbs plus the cap, so the width is
-    // the layout's to know and nothing here reads it.
-    (void)width;
     Bitmap fill = Bitmap::load(App::drawablePath("pathbar_bg"), 0);
     Bitmap cap = Bitmap::load(App::drawablePath("pathbar_cap"), 0);
     Bitmap join = Bitmap::load(App::drawablePath("pathbar_join"), 0);
@@ -135,12 +132,18 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
     // shapes its end, so laying one over the fill doubles the tone and leaves
     // the rounded edge sitting on a square one. The original draws the fill up
     // to the end of each crumb and puts the join and the cap in the gaps.
-    auto paintFill = [&](int x, int spanWidth) {
+    //
+    // Every span starts where the last one ended rather than being rounded on
+    // its own. Rounding each independently leaves a one pixel gap wherever the
+    // two roundings disagree, which at some densities they do: a crumb ending
+    // at 102.375 rounds to 102 while the join, placed by subtracting a
+    // truncated width, starts at 103.
+    auto paintSpan = [&](const Bitmap &art, int x, int spanWidth) {
         if (spanWidth <= 0) {
             return;
         }
-        if (fill.valid()) {
-            Canvas::blitScaled(canvas, fill, x, 0, spanWidth, height);
+        if (art.valid()) {
+            Canvas::blitScaled(canvas, art, x, 0, spanWidth, height);
         } else {
             // No art: a flat bar still beats nothing to click on.
             Canvas::fillRect(canvas, x, 0, spanWidth, height, 0.0f, 0.0f, 0.0f, 0.18f);
@@ -148,27 +151,22 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
     };
 
     const std::vector<Component> &components = mOwner->mComponents;
-    int joinWidth = (int)scaled(JOIN_WIDTH);
-    int capWidth = (int)scaled(CAP_WIDTH);
-    int fillEnd = 0;
+    int spanStart = 0;
 
     for (size_t i = 0; i < components.size(); ++i) {
         const Component &component = components[i];
         int x = (int)(component.x + 0.5f);
-        int componentWidth = (int)(component.width + 0.5f);
+        int componentEnd = (int)(component.x + component.width + 0.5f);
 
         if (i == 0) {
             // The first crumb takes the fill all the way back to the left edge.
-            paintFill(0, x + componentWidth);
+            paintSpan(fill, 0, componentEnd);
         } else {
-            if (join.valid()) {
-                Canvas::blitScaled(canvas, join, x - joinWidth, 0, joinWidth, height);
-            } else {
-                paintFill(x - joinWidth, joinWidth);
-            }
-            paintFill(x, componentWidth);
+            // The join fills everything the layout left between the crumbs.
+            paintSpan(join, spanStart, x - spanStart);
+            paintSpan(fill, x, componentEnd - x);
         }
-        fillEnd = x + componentWidth;
+        spanStart = componentEnd;
 
         if (!component.icon.empty()) {
             Bitmap icon = Bitmap::load(App::drawablePath(component.icon), 0);
@@ -189,11 +187,9 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
         }
     }
 
-    if (cap.valid()) {
-        Canvas::blitScaled(canvas, cap, fillEnd, 0, capWidth, height);
-    } else {
-        paintFill(fillEnd, capWidth);
-    }
+    // And the cap takes the rest, so it reaches the edge of the texture however
+    // the widths rounded.
+    paintSpan(cap, spanStart, width - spanStart);
 }
 
 void PathBarLayer::generate(RenderView *view, RenderLists &lists) {
