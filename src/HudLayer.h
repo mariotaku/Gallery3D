@@ -52,6 +52,10 @@ class HudLayer : public Layer {
         return &mFullscreenMenu;
     }
 
+    MenuBar *getSelectionMenuTop() {
+        return &mSelectionMenuTop;
+    }
+
     // The target. What is actually drawn animates toward it.
     float getAlpha() const {
         return mAlpha;
@@ -83,9 +87,7 @@ class HudLayer : public Layer {
     void computeBottomMenu();
     // The one button that changes with every grid state.
     void computeTopRightButton();
-    void updateNumItemsSelected(int count) {
-        (void)count;
-    }
+    void updateNumItemsSelected(int count);
     void fullscreenSelectionChanged(MediaItem *item, int index, int count) {
         (void)item;
         (void)index;
@@ -113,10 +115,14 @@ class HudLayer : public Layer {
     // Fullscreen gets its own bar, because it offers different things and is up
     // at the same time as nothing else.
     MenuBar mFullscreenMenu;
+    // Select mode gets a second bar along the top: select all, the count, and
+    // deselect all. The count is the middle button, which is why it has one.
+    MenuBar mSelectionMenuTop;
     ImageButton mTopRightButton;
     ImageButton mZoomInButton;
     ImageButton mZoomOutButton;
     bool mZoomButtonsHidden = false;
+    int mNumItemsSelected = 0;
     // The grid state the bars follow. Only the time bar cares: it belongs to
     // the album view and to nothing else.
     int mGridState = 0;

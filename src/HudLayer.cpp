@@ -18,6 +18,10 @@ const float TOP_RIGHT_HEIGHT = 94.0f;
 const float ZOOM_BUTTON_WIDTH = 66.666f;
 const float ZOOM_BUTTON_HEIGHT = 42.0f;
 
+std::string selectionCountLabel(int count) {
+    return std::to_string(count) + ((count == 1) ? " item" : " items");
+}
+
 }  // namespace
 
 HudLayer::HudLayer() {
@@ -46,6 +50,7 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     mPathBar.generate(view, lists);
     mMenuBar.generate(view, lists);
     mFullscreenMenu.generate(view, lists);
+    mSelectionMenuTop.generate(view, lists);
     mTimeBar.generate(view, lists);
     mTopRightButton.generate(view, lists);
     mZoomInButton.generate(view, lists);
@@ -81,6 +86,11 @@ void HudLayer::onSizeChanged() {
     mZoomInButton.setPosition(mWidth - zoomWidth, zoomY);
     mZoomOutButton.setPosition(mWidth - zoomWidth * 2.0f, zoomY);
 
+    // The top selection bar takes the whole top edge, where the path bar sits
+    // the rest of the time. They are never both up.
+    mSelectionMenuTop.setPosition(0.0f, 0.0f);
+    mSelectionMenuTop.setSize(mWidth, MenuBar::preferredHeight());
+
     mTopRightButton.setPosition(mWidth - TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, 0.0f);
     computeBottomMenu();
 }
@@ -108,6 +118,14 @@ void HudLayer::computeBottomMenu() {
     }
 
     if (mMode == MODE_SELECT) {
+        std::vector<MenuBar::ButtonSpec> topButtons;
+        topButtons.push_back({"", "Select all", [grid]() { grid->selectAll(); }});
+        // The middle one is the count. It is a button so that it takes a third
+        // of the bar like the other two; it has no action.
+        topButtons.push_back({"", selectionCountLabel(mNumItemsSelected), nullptr});
+        topButtons.push_back({"", "Deselect all", [grid]() { grid->deselectOrCancelSelectMode(); }});
+        mSelectionMenuTop.setButtons(topButtons);
+
         std::vector<MenuBar::ButtonSpec> buttons;
         buttons.push_back({"ic_menu_rotate_left", "", [grid]() { grid->rotateSelectedItems(-90.0f); }});
         buttons.push_back({"ic_menu_rotate_right", "", [grid]() { grid->rotateSelectedItems(90.0f); }});
@@ -117,6 +135,7 @@ void HudLayer::computeBottomMenu() {
         mMenuBar.setButtons(buttons);
     } else {
         mMenuBar.clearButtons();
+        mSelectionMenuTop.clearButtons();
     }
 
     if (mGridState == GridLayer::STATE_FULL_SCREEN && mMode != MODE_SELECT) {
@@ -168,6 +187,16 @@ void HudLayer::computeTopRightButton() {
         break;
     }
     mTopRightButton.setSize(TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, height);
+}
+
+void HudLayer::updateNumItemsSelected(int count) {
+    if (mNumItemsSelected == count) {
+        return;
+    }
+    mNumItemsSelected = count;
+    // In place, not a rebuild: this runs on every tap that changes the
+    // selection, and rebuilding the bar would drop the press that caused it.
+    mSelectionMenuTop.setButtonLabel(1, selectionCountLabel(count));
 }
 
 void HudLayer::setAlpha(float alpha) {
@@ -230,6 +259,9 @@ bool HudLayer::update(RenderView *view, float frameInterval) {
     mMenuBar.setHidden(faded || !selectionMode);
     mTimeBar.setHidden(faded || selectionMode || !inAlbum);
     mFullscreenMenu.setHidden(faded || selectionMode || !fullscreen);
+    // The top bar replaces the path bar in select mode, except in fullscreen,
+    // where the original left the top edge alone.
+    mSelectionMenuTop.setHidden(faded || !selectionMode || fullscreen);
     // The zoom buttons belong to the fullscreen bar, and the grid takes them
     // away on its own while a photo is still settling.
     bool zoomHidden = mFullscreenMenu.isHidden() || mZoomButtonsHidden;

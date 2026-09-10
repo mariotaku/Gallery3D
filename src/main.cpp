@@ -224,6 +224,8 @@ int main(int argc, char **argv) {
         displayScale = 1.0f;
     }
     App::PIXEL_DENSITY = displayScale * App::CONTENT_SCALE;
+    SDL_Log("PIXEL_DENSITY %.3f (display scale %.3f x content scale %.3f)", App::PIXEL_DENSITY, displayScale,
+            App::CONTENT_SCALE);
     Canvas::initFonts();
 
     RenderView renderView;

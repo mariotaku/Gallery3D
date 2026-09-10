@@ -46,6 +46,14 @@ void MenuBar::setButtons(const std::vector<ButtonSpec> &buttons) {
     setHidden(mButtons.empty());
 }
 
+void MenuBar::setButtonLabel(size_t index, const std::string &label) {
+    if (index >= mButtons.size() || mButtons[index].label == label) {
+        return;
+    }
+    mButtons[index].label = label;
+    mTexture->setNeedsDraw();
+}
+
 void MenuBar::clearButtons() {
     mButtons.clear();
     mPressedIndex = -1;

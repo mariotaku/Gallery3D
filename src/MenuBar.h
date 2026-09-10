@@ -39,6 +39,11 @@ class MenuBar : public Layer {
     void setButtons(const std::vector<ButtonSpec> &buttons);
     void clearButtons();
 
+    // Changes one button's label in place. The selection count sits in a button
+    // of its own and changes on every tap, and rebuilding the bar for it would
+    // throw away the press the tap is part of.
+    void setButtonLabel(size_t index, const std::string &label);
+
     static float preferredHeight();
 
     void generate(RenderView *view, RenderLists &lists) override;
