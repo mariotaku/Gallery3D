@@ -1,6 +1,6 @@
 // Entry point, replacing com.cooliris.media.Gallery.
 //
-// Usage: gallery3d [photo directory]
+// Usage: gallery3d [photo directory] [--scale N]
 // Defaults to the user's Pictures folder.
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
@@ -101,6 +101,11 @@ int main(int argc, char **argv) {
             screenshotFrames = std::atoi(argv[++i]);
         } else if (arg == "--open" && i + 1 < argc) {
             openSlot = std::atoi(argv[++i]);
+        } else if (arg == "--scale" && i + 1 < argc) {
+            float scale = (float)std::atof(argv[++i]);
+            if (scale > 0.0f) {
+                App::CONTENT_SCALE = scale;
+            }
         } else if (photoDirectory.empty()) {
             photoDirectory = arg;
         }
@@ -123,7 +128,7 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
     SDL_Window *window =
-        SDL_CreateWindow("Gallery3D", 1024, 640, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        SDL_CreateWindow("Gallery3D", 1280, 800, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (window == nullptr) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
@@ -153,10 +158,20 @@ int main(int argc, char **argv) {
     SDL_Log("GL_RENDERER : %s", (const char *)glGetString(GL_RENDERER));
 
     App::ASSET_ROOT = assetRoot();
-    App::PIXEL_DENSITY = SDL_GetWindowDisplayScale(window);
-    if (App::PIXEL_DENSITY <= 0.0f) {
-        App::PIXEL_DENSITY = 1.0f;
+    // Two separate things, multiplied into the one knob the ported code reads.
+    // The display scale is what SDL reports for the monitor: how many physical
+    // pixels a logical pixel is worth, so text and assets stay crisp on HiDPI.
+    // The content scale says how big the wall should be, because the ported
+    // constants were picked for a 320x480 phone. Everything downstream keys off
+    // App::PIXEL_DENSITY - grid item size below, slot spacing in
+    // GridLayoutInterface, labels in DisplaySlot, quads in GridDrawables,
+    // thumbnail resolution in Texture - so scaling it here scales the whole
+    // wall coherently, and nothing else has to know.
+    float displayScale = SDL_GetWindowDisplayScale(window);
+    if (displayScale <= 0.0f) {
+        displayScale = 1.0f;
     }
+    App::PIXEL_DENSITY = displayScale * App::CONTENT_SCALE;
     StringTexture::initFonts();
 
     RenderView renderView;
