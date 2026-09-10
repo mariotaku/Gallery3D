@@ -57,7 +57,12 @@ GridQuad *GridQuad::createGridQuad(float width, float height, float xOffset, flo
         }
     }
     grid->mU = uExtents;
-    grid->mV = uExtents;
+    // The original assigns uExtents here too, which is a typo upstream. It
+    // cannot bite: mU and mV are only read by recomputeQuad, only the
+    // fullscreen quads ever reach that, and resizeQuad sets both before the
+    // first one is drawn. Corrected anyway, so the next reader is not left
+    // deciding whether it matters.
+    grid->mV = vExtents;
     return grid;
 }
 
@@ -68,6 +73,10 @@ void GridQuad::setDynamic(bool dynamic) {
 void GridQuad::update(float timeElapsed) {
     mAnimWidth = FloatUtils::animate(mAnimWidth, mWidth, timeElapsed);
     mAnimHeight = FloatUtils::animate(mAnimHeight, mHeight, timeElapsed);
+    // These two animate and nothing reads them: recomputeQuad takes mU and mV
+    // directly, so a change of extents snaps. That is the original's behaviour
+    // and the extents only change when the texture behind the quad does, which
+    // is already a hard cut.
     mAnimU = FloatUtils::animate(mAnimU, mU, timeElapsed);
     mAnimV = FloatUtils::animate(mAnimV, mV, timeElapsed);
     recomputeQuad();
