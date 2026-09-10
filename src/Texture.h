@@ -35,6 +35,14 @@ class Texture {
         return true;
     }
 
+    // Whether to build a mip chain. Worth it only for something drawn much
+    // smaller than it is stored, which on this wall means the grid thumbnails:
+    // zoomed out they minify hard, and one bilinear tap out of a full size
+    // image crawls as the camera moves.
+    virtual bool wantsMipmaps() const {
+        return false;
+    }
+
     void clear();
 
     bool isLoaded() const {
@@ -123,6 +131,11 @@ class MediaItemTexture : public Texture {
     };
 
     MediaItemTexture(const Config *config, MediaItem *item) : mConfig(config), mItem(item) {}
+
+    // Only the grid thumbnails. The fullscreen path draws close to one to one.
+    bool wantsMipmaps() const override {
+        return mConfig != nullptr;
+    }
 
     bool isCached() const override {
         return mConfig != nullptr;

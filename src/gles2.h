@@ -78,7 +78,14 @@ typedef std::ptrdiff_t GLsizeiptr;
 #define GL_TEXTURE_WRAP_T 0x2803
 #define GL_NEAREST 0x2600
 #define GL_LINEAR 0x2601
+#define GL_LINEAR_MIPMAP_NEAREST 0x2701
 #define GL_LINEAR_MIPMAP_LINEAR 0x2703
+// GL_EXT_texture_filter_anisotropic. Not core in ES 2.0, but present nearly
+// everywhere, and it is what keeps a mipmapped thumbnail sharp when it is drawn
+// close to its own size.
+#define GL_EXTENSIONS 0x1F03
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 #define GL_CLAMP_TO_EDGE 0x812F
 #define GL_REPEAT 0x2901
 
@@ -137,8 +144,10 @@ typedef std::ptrdiff_t GLsizeiptr;
     X(void, glEnable, (GLenum cap))                                                                    \
     X(void, glEnableVertexAttribArray, (GLuint index))                                                 \
     X(void, glGenBuffers, (GLsizei n, GLuint *buffers))                                                \
+    X(void, glGenerateMipmap, (GLenum target))                                                          \
     X(void, glGenTextures, (GLsizei n, GLuint *textures))                                              \
     X(GLenum, glGetError, (void))                                                                      \
+    X(void, glGetFloatv, (GLenum pname, GLfloat *params))                                           \
     X(void, glGetIntegerv, (GLenum pname, GLint *params))                                          \
     X(GLboolean, glIsEnabled, (GLenum cap))                                                        \
     X(void, glGetProgramInfoLog, (GLuint p, GLsizei bufSize, GLsizei *length, GLchar *infoLog))        \

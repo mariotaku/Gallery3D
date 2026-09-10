@@ -153,14 +153,29 @@ Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
     return result;
 }
 
-Bitmap Bitmap::paddedTo(int paddedWidth, int paddedHeight) const {
+Bitmap Bitmap::paddedTo(int paddedWidth, int paddedHeight, bool clampEdges) const {
     if (!valid() || paddedWidth < mWidth || paddedHeight < mHeight) {
         return *this;
     }
     Bitmap result(paddedWidth, paddedHeight);
     for (int y = 0; y < mHeight; ++y) {
-        std::memcpy(result.pixels() + (size_t)y * (size_t)paddedWidth * 4,
-                    mPixels.data() + (size_t)y * (size_t)mWidth * 4, (size_t)mWidth * 4);
+        uint8_t *row = result.pixels() + (size_t)y * (size_t)paddedWidth * 4;
+        std::memcpy(row, mPixels.data() + (size_t)y * (size_t)mWidth * 4, (size_t)mWidth * 4);
+        if (clampEdges) {
+            // Repeat the last pixel of the row across the rest of it.
+            const uint8_t *last = row + (size_t)(mWidth - 1) * 4;
+            for (int x = mWidth; x < paddedWidth; ++x) {
+                std::memcpy(row + (size_t)x * 4, last, 4);
+            }
+        }
+    }
+    if (clampEdges && mHeight > 0) {
+        // Then repeat the last row down the rest of the bitmap.
+        const uint8_t *last = result.pixels() + (size_t)(mHeight - 1) * (size_t)paddedWidth * 4;
+        for (int y = mHeight; y < paddedHeight; ++y) {
+            std::memcpy(result.pixels() + (size_t)y * (size_t)paddedWidth * 4, last,
+                        (size_t)paddedWidth * 4);
+        }
     }
     return result;
 }

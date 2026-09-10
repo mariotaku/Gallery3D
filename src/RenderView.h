@@ -226,6 +226,8 @@ class RenderView {
     std::vector<std::weak_ptr<Texture>> mLiveTextures;
     size_t mTextureBytes = 0;
     uint64_t mFrameCounter = 0;
+    // 1 means the extension is missing, and then no mip chains are built.
+    float mMaxAnisotropy = 1.0f;
 
     std::map<std::string, TexturePtr> mCacheScaled;
     std::map<std::string, TexturePtr> mCacheUnscaled;

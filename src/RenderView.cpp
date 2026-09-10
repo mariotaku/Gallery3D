@@ -187,6 +187,22 @@ bool RenderView::init(SDL_Window *window) {
     }
     glGenBuffers(1, &mQuad2DVBO);
 
+    // Mipmaps alone cost too much sharpness: a thumbnail drawn near its own
+    // size still blends level 0 with level 1, and the fine detail in a photo
+    // goes with it. Anisotropic filtering is what keeps both ends: sharp head
+    // on, filtered where the wall tilts away and minifies. Without it the
+    // trade is not worth making, so the mip chain is only built when it is
+    // there to pair with.
+    const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
+    if (extensions != nullptr && SDL_strstr(extensions, "GL_EXT_texture_filter_anisotropic") != nullptr) {
+        GLfloat maxAnisotropy = 1.0f;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
+        // Four is where the returns flatten out for this, and it is cheap.
+        mMaxAnisotropy = (maxAnisotropy < 4.0f) ? maxAnisotropy : 4.0f;
+    }
+    SDL_Log("Anisotropic filtering %s (max %.1f)", (mMaxAnisotropy > 1.0f) ? "on" : "unavailable",
+            mMaxAnisotropy);
+
     mLoadThreadsRunning.store(true);
     for (int i = 0; i < NUM_TEXTURE_LOAD_THREADS; ++i) {
         mLoadThreads.emplace_back([this, i]() { textureLoadThread(i); });
@@ -516,7 +532,7 @@ void RenderView::loadTextureAsync(const TexturePtr &texture) {
         if (!Shared::isPowerOf2(width) || !Shared::isPowerOf2(height)) {
             int paddedWidth = Shared::nextPowerOf2(width);
             int paddedHeight = Shared::nextPowerOf2(height);
-            bitmap = bitmap.paddedTo(paddedWidth, paddedHeight);
+            bitmap = bitmap.paddedTo(paddedWidth, paddedHeight, texture->wantsMipmaps());
             texture->mNormalizedWidth = (float)width / (float)paddedWidth;
             texture->mNormalizedHeight = (float)height / (float)paddedHeight;
         } else {
@@ -541,11 +557,20 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     glBindTexture(GL_TEXTURE_2D, textureId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // ES 2.0 only accepts a mip chain on a power of two texture, and every
+    // texture that asks for one is padded to a power of two anyway.
+    bool mipmapped = texture->wantsMipmaps() && mMaxAnisotropy > 1.0f &&
+                     Shared::isPowerOf2(texture->mBitmap.width()) &&
+                     Shared::isPowerOf2(texture->mBitmap.height());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mipmapped ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mBitmap.width(), texture->mBitmap.height(), 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, texture->mBitmap.pixels());
+    if (mipmapped) {
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, mMaxAnisotropy);
+    }
     GLenum error = glGetError();
 
     texture->mBitmap = Bitmap();
@@ -563,7 +588,12 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         texture->mId = textureId;
         texture->mOwner = this;
         texture->mState = Texture::STATE_LOADED;
+        // A full chain is a third again on top of the base level, and the
+        // budget has to know or it will hold a third more than it thinks.
         texture->mBytes = (size_t)width * (size_t)height * 4;
+        if (mipmapped) {
+            texture->mBytes += texture->mBytes / 3;
+        }
         texture->mLastUsedFrame = mFrameCounter;
         mTextureBytes += texture->mBytes;
         mLiveTextures.push_back(texture);

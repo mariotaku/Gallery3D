@@ -42,7 +42,14 @@ class Bitmap {
     Bitmap scaled(int newWidth, int newHeight) const;
 
     // Copies this bitmap into the top left of a larger transparent bitmap.
-    Bitmap paddedTo(int paddedWidth, int paddedHeight) const;
+    //
+    // clampEdges fills the padding by repeating the last row and column instead
+    // of leaving it transparent. Only a texture that is mipmapped wants that:
+    // the quad never samples the padding at full size, but a reduced level
+    // averages across the boundary and would drag the transparency in. It is
+    // wrong for anything drawn with extents of (1, 1), which samples the
+    // padding on purpose.
+    Bitmap paddedTo(int paddedWidth, int paddedHeight, bool clampEdges = false) const;
 
     // Scales to cover the given box and centre crops to it. This is what the
     // original's thumbnail cache stored, and why grid items have no letterbox.
