@@ -125,9 +125,8 @@ through `SDL_GL_GetProcAddress`, so there is no GL loader dependency.
 ## What is not ported yet
 
 Milestone one is the 3D grid: album stacks, drill down, fling, fullscreen.
-The HUD is a stub, the background is the shipped gradient rather than an
-adaptive one, timeline clustering is naive, and the selection operations are
-no-ops. `TASKS.md` has the full list with the original file each gap maps to.
+The HUD is a stub, timeline clustering is naive, and the selection operations
+are no-ops. `TASKS.md` has the full list with the original file each gap maps to.
 
 ## Licence
 

@@ -683,12 +683,15 @@ bool RenderView::bindMixed(const TexturePtr &from, const TexturePtr &to, float r
     }
     mMixing = true;
     mMixRatio = ratio;
+    // Kept so draw2D can give attribute 2 the extents of the second texture.
+    mBoundTextureMixed = to.get();
     glEnableVertexAttribArray(2);
     return true;
 }
 
 void RenderView::unbindMixed() {
     mMixing = false;
+    mBoundTextureMixed = nullptr;
     glDisableVertexAttribArray(2);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -840,6 +843,16 @@ void RenderView::draw2D(float x, float y, float z, float width, float height) {
     const float texCoords[] = {
         0.0f, 0.0f, u, 0.0f, 0.0f, v, u, v,
     };
+    // The mix program samples a second texture, which needs its own extents.
+    float u1 = 1.0f;
+    float v1 = 1.0f;
+    if (mMixing && mBoundTextureMixed) {
+        u1 = mBoundTextureMixed->getNormalizedWidth();
+        v1 = mBoundTextureMixed->getNormalizedHeight();
+    }
+    const float texCoords1[] = {
+        0.0f, 0.0f, u1, 0.0f, 0.0f, v1, u1, v1,
+    };
 
     Mat4 savedProjection = mProjectionMatrix;
     Mat4 savedModelView = mModelView.top();
@@ -848,11 +861,17 @@ void RenderView::draw2D(float x, float y, float z, float width, float height) {
     applyUniforms();
 
     glBindBuffer(GL_ARRAY_BUFFER, mQuad2DVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(texCoords), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(texCoords) + sizeof(texCoords1), nullptr,
+                 GL_DYNAMIC_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(positions), positions);
     glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions), sizeof(texCoords), texCoords);
+    glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(texCoords), sizeof(texCoords1), texCoords1);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (const void *)sizeof(positions));
+    if (mMixing) {
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0,
+                              (const void *)(sizeof(positions) + sizeof(texCoords)));
+    }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
