@@ -2,14 +2,23 @@
 //
 // The Android build scaled every layout constant by the display density. The
 // port keeps the same knob so the ported arithmetic stays byte for byte the
-// same; main() sets it from the SDL display scale.
+// same; main() sets it at startup.
 #pragma once
 
 #include <string>
 
 namespace App {
 
+// The one scale every ported layout constant multiplies by: grid item size,
+// slot spacing, label size, quad size, thumbnail resolution. main() sets it to
+// the display scale times CONTENT_SCALE.
 extern float PIXEL_DENSITY;
+
+// How much bigger the wall is than the phone it was drawn for. The ported
+// constants come from a 320x480 handset, so on a monitor they leave the wall as
+// a small cluster in the middle of the backdrop. This factor stretches the
+// whole wall at once. --scale overrides it.
+extern float CONTENT_SCALE;
 
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;

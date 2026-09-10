@@ -82,6 +82,19 @@ build/Release/gallery3d.exe [photo directory]
 Defaults to your Pictures folder. It walks the tree and makes one album per
 folder that holds images.
 
+The layout constants come from a 320x480 handset, so on a monitor the wall
+would be a small cluster in the middle of the backdrop. `--scale` stretches the
+whole wall - stacks, spacing, captions and thumbnail resolution together. It
+defaults to 1.5, which fills a 1280x800 window. Raise it for a bigger wall with
+fewer albums on screen, lower it for more.
+
+```sh
+gallery3d --scale 2.0        # bigger stacks, fewer per screen
+```
+
+The display DPI is a separate factor and still applies on top, so the wall
+keeps the same apparent size on a HiDPI screen.
+
 | Input | Action |
 | --- | --- |
 | drag | scroll the wall |
