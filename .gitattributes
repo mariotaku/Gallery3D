@@ -1,0 +1,6 @@
+# The tree is CRLF on disk; normalise to LF in the repository so git stops
+# rewriting every file on add.
+* text=auto eol=lf
+
+*.png binary
+*.ttf binary
