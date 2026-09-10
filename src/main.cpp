@@ -6,6 +6,7 @@
 #include <SDL3_image/SDL_image.h>
 
 #include <cstdlib>
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -219,6 +220,38 @@ int main(int argc, char **argv) {
     // pixels, so scale on the way in.
     bool mouseDown = false;
     MotionEvent event;
+
+    // Live fingers, in the order they went down. The ported gesture code wants
+    // Android's shape: one event carrying every pointer, with the action
+    // saying which one changed. SDL reports each finger separately, so they
+    // are tracked here and folded into one event.
+    struct Finger {
+        SDL_FingerID id;
+        float x;
+        float y;
+    };
+    std::vector<Finger> fingers;
+    auto fingerIndex = [&fingers](SDL_FingerID id) -> int {
+        for (size_t i = 0; i < fingers.size(); ++i) {
+            if (fingers[i].id == id) {
+                return (int)i;
+            }
+        }
+        return -1;
+    };
+    // SDL gives finger positions normalised to the window, so scale to pixels.
+    auto buildTouchEvent = [&fingers, &pixelWidth, &pixelHeight](int action, int actionIndex) {
+        MotionEvent touch;
+        touch.action = action;
+        touch.actionIndex = actionIndex;
+        touch.pointerCount = (int)std::min<size_t>(fingers.size(), 2);
+        for (int i = 0; i < touch.pointerCount; ++i) {
+            touch.xs[i] = fingers[(size_t)i].x * (float)pixelWidth;
+            touch.ys[i] = fingers[(size_t)i].y * (float)pixelHeight;
+        }
+        touch.eventTime = SDL_GetTicks();
+        return touch;
+    };
     auto pointerScale = [&]() {
         int windowWidth = 0;
         int windowHeight = 0;
@@ -275,6 +308,42 @@ int main(int argc, char **argv) {
                     renderView.queueTouchEvent(event);
                 }
                 break;
+            case SDL_EVENT_FINGER_DOWN: {
+                if (fingerIndex(sdlEvent.tfinger.fingerID) >= 0) {
+                    break;
+                }
+                fingers.push_back({sdlEvent.tfinger.fingerID, sdlEvent.tfinger.x, sdlEvent.tfinger.y});
+                int index = (int)fingers.size() - 1;
+                // The first finger opens the gesture; later ones join it.
+                renderView.queueTouchEvent(buildTouchEvent(
+                    index == 0 ? MotionEvent::ACTION_DOWN : MotionEvent::ACTION_POINTER_DOWN, index));
+                break;
+            }
+            case SDL_EVENT_FINGER_MOTION: {
+                int index = fingerIndex(sdlEvent.tfinger.fingerID);
+                if (index < 0) {
+                    break;
+                }
+                fingers[(size_t)index].x = sdlEvent.tfinger.x;
+                fingers[(size_t)index].y = sdlEvent.tfinger.y;
+                renderView.queueTouchEvent(buildTouchEvent(MotionEvent::ACTION_MOVE, index));
+                break;
+            }
+            case SDL_EVENT_FINGER_UP: {
+                int index = fingerIndex(sdlEvent.tfinger.fingerID);
+                if (index < 0) {
+                    break;
+                }
+                // Build the event before dropping the finger, so the pointer
+                // that lifted is still in it - that is what Android does and
+                // what ScaleGestureDetector reads to end a pinch.
+                bool last = fingers.size() == 1;
+                MotionEvent touch =
+                    buildTouchEvent(last ? MotionEvent::ACTION_UP : MotionEvent::ACTION_POINTER_UP, index);
+                fingers.erase(fingers.begin() + index);
+                renderView.queueTouchEvent(touch);
+                break;
+            }
             case SDL_EVENT_MOUSE_WHEEL: {
                 // The wheel drives the pinch: it spreads a stack in the album
                 // view and zooms a photo in fullscreen.
