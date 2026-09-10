@@ -169,6 +169,11 @@ class StringTexture : public Texture {
         int yalignment = ALIGN_VCENTER;
         int sizeMode = SIZE_BOUNDS_TO_TEXT;
         int overflowMode = OVERFLOW_FADE;
+        // Renders the texture this many times larger than the logical box. The
+        // 3D label quad maps the whole texture whatever its resolution, so this
+        // buys crisper glyphs for free. Leave at 1 for anything draw2D blits at
+        // its own pixel size.
+        int superSample = 1;
     };
 
     StringTexture(std::string text, const Config &config);

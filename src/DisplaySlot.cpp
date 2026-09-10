@@ -27,6 +27,7 @@ void DisplaySlot::initStyles() {
     sCaptionStyle.height = labelHeight;
     sCaptionStyle.yalignment = StringTexture::Config::ALIGN_TOP;
     sCaptionStyle.xalignment = StringTexture::Config::ALIGN_HCENTER;
+    sCaptionStyle.superSample = 2;
 
     sClusterStyle = sCaptionStyle;
 
@@ -35,6 +36,7 @@ void DisplaySlot::initStyles() {
     sLocationStyle.width = labelWidth;
     sLocationStyle.height = labelHeight;
     sLocationStyle.xalignment = StringTexture::Config::ALIGN_HCENTER;
+    sLocationStyle.superSample = 2;
 
     sStylesReady = true;
 }

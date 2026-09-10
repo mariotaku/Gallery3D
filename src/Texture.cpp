@@ -96,7 +96,9 @@ TTF_Font *openFirst(const char *const *candidates, size_t count, float size) {
     return nullptr;
 }
 
-// Blends src over dst at (dstX, dstY). Both are premultiplied RGBA.
+// Blends src over dst at (dstX, dstY), tinting src by (r, g, b, a). src is
+// straight alpha, the way SDL_ttf hands glyphs back; dst is premultiplied,
+// the way the renderer wants to receive it.
 void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, float g, float b, float a) {
     for (int y = 0; y < src.height(); ++y) {
         int ty = dstY + y;
@@ -116,9 +118,14 @@ void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, floa
             if (sa <= 0.0f) {
                 continue;
             }
-            float sr = (s[0] / 255.0f) * r * a;
-            float sg = (s[1] / 255.0f) * g * a;
-            float sb = (s[2] / 255.0f) * b * a;
+            // The colour has to carry the glyph's own coverage, because the
+            // result is uploaded premultiplied and the renderer blends it with
+            // GL_ONE. Scaling by the tint alpha alone would push every partly
+            // covered edge pixel to full brightness and throw the antialiasing
+            // away.
+            float sr = (s[0] / 255.0f) * r * sa;
+            float sg = (s[1] / 255.0f) * g * sa;
+            float sb = (s[2] / 255.0f) * b * sa;
             float inv = 1.0f - sa;
             d[0] = (uint8_t)std::min(255.0f, sr * 255.0f + d[0] * inv);
             d[1] = (uint8_t)std::min(255.0f, sg * 255.0f + d[1] * inv);
@@ -126,6 +133,72 @@ void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, floa
             d[3] = (uint8_t)std::min(255.0f, sa * 255.0f + d[3] * inv);
         }
     }
+}
+
+// Box blurs the coverage of a glyph bitmap and returns it as a white bitmap
+// with that coverage as its alpha, padded by the radius so the halo is not
+// clipped. Stands in for Paint.setShadowLayer, which drew a blurred drop
+// shadow rather than offset copies. Two passes approximate a tent filter.
+Bitmap blurredCoverage(const Bitmap &src, int radius) {
+    if (!src.valid() || radius <= 0) {
+        return Bitmap();
+    }
+    const int pad = radius;
+    const int width = src.width() + pad * 2;
+    const int height = src.height() + pad * 2;
+
+    std::vector<float> coverage((size_t)width * (size_t)height, 0.0f);
+    for (int y = 0; y < src.height(); ++y) {
+        const uint8_t *row = src.pixels() + (size_t)y * (size_t)src.width() * 4;
+        for (int x = 0; x < src.width(); ++x) {
+            coverage[(size_t)(y + pad) * (size_t)width + (size_t)(x + pad)] = row[(size_t)x * 4 + 3] / 255.0f;
+        }
+    }
+
+    std::vector<float> scratch(coverage.size(), 0.0f);
+    const float norm = 1.0f / (float)(radius * 2 + 1);
+    for (int pass = 0; pass < 2; ++pass) {
+        // Horizontal.
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float sum = 0.0f;
+                for (int k = -radius; k <= radius; ++k) {
+                    int sx = x + k;
+                    if (sx >= 0 && sx < width) {
+                        sum += coverage[(size_t)y * (size_t)width + (size_t)sx];
+                    }
+                }
+                scratch[(size_t)y * (size_t)width + (size_t)x] = sum * norm;
+            }
+        }
+        // Vertical.
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float sum = 0.0f;
+                for (int k = -radius; k <= radius; ++k) {
+                    int sy = y + k;
+                    if (sy >= 0 && sy < height) {
+                        sum += scratch[(size_t)sy * (size_t)width + (size_t)x];
+                    }
+                }
+                coverage[(size_t)y * (size_t)width + (size_t)x] = sum * norm;
+            }
+        }
+    }
+
+    Bitmap result(width, height);
+    uint8_t *pixels = result.pixels();
+    for (size_t i = 0; i < coverage.size(); ++i) {
+        float value = coverage[i];
+        if (value > 1.0f) {
+            value = 1.0f;
+        }
+        pixels[i * 4 + 0] = 255;
+        pixels[i * 4 + 1] = 255;
+        pixels[i * 4 + 2] = 255;
+        pixels[i * 4 + 3] = (uint8_t)(value * 255.0f + 0.5f);
+    }
+    return result;
 }
 
 Bitmap surfaceToBitmap(SDL_Surface *surface) {
@@ -237,8 +310,14 @@ Bitmap StringTexture::load(RenderView *view) {
         return Bitmap();
     }
 
+    // Everything below works in device pixels: the logical box scaled by the
+    // supersample factor.
+    const int scale = std::max(1, mConfig.superSample);
+    const int boundsWidth = mWidth * scale;
+    const int boundsHeight = mHeight * scale;
+
     TTF_Font *font = mConfig.bold ? sFontBold : sFontRegular;
-    float fontSize = mConfig.fontSize;
+    float fontSize = mConfig.fontSize * (float)scale;
     TTF_SetFontSize(font, fontSize);
 
     int textWidth = 0;
@@ -247,16 +326,17 @@ Bitmap StringTexture::load(RenderView *view) {
 
     if (mConfig.sizeMode == Config::SIZE_TEXT_TO_BOUNDS) {
         // Shrink until the string fits the fixed width, exactly as the original.
-        while (textWidth >= mWidth && fontSize > 6.0f) {
-            fontSize -= 1.0f;
+        while (textWidth >= boundsWidth && fontSize > 6.0f * (float)scale) {
+            fontSize -= (float)scale;
             TTF_SetFontSize(font, fontSize);
             TTF_GetStringSize(font, mText.c_str(), mText.length(), &textWidth, &textHeight);
         }
     }
 
-    int padding = 1 + mConfig.shadowRadius;
-    int backWidth = mWidth;
-    int backHeight = mHeight;
+    int shadowRadius = mConfig.shadowRadius * scale;
+    int padding = 1 + shadowRadius;
+    int backWidth = boundsWidth;
+    int backHeight = boundsHeight;
     if (mConfig.sizeMode == Config::SIZE_BOUNDS_TO_TEXT) {
         backWidth = textWidth + 2 * padding;
         backHeight = textHeight + padding;
@@ -293,20 +373,19 @@ Bitmap StringTexture::load(RenderView *view) {
     }
 
     Bitmap result(backWidth, backHeight);
-    // The original asked Paint for a blurred black shadow. A four way black
-    // offset costs nothing and keeps labels readable over bright photos.
-    if (mConfig.shadowRadius > 0) {
-        int offset = std::max(1, mConfig.shadowRadius / 2);
-        blendOver(result, glyphs, x - offset, y, 0.0f, 0.0f, 0.0f, 0.6f);
-        blendOver(result, glyphs, x + offset, y, 0.0f, 0.0f, 0.0f, 0.6f);
-        blendOver(result, glyphs, x, y - offset, 0.0f, 0.0f, 0.0f, 0.6f);
-        blendOver(result, glyphs, x, y + offset, 0.0f, 0.0f, 0.0f, 0.6f);
+    if (shadowRadius > 0) {
+        // Soft black halo under the text so labels stay readable over a bright
+        // photo, the same job Paint.setShadowLayer did.
+        Bitmap shadow = blurredCoverage(glyphs, shadowRadius);
+        if (shadow.valid()) {
+            blendOver(result, shadow, x - shadowRadius, y - shadowRadius, 0.0f, 0.0f, 0.0f, 1.0f);
+        }
     }
     blendOver(result, glyphs, x, y, mConfig.r, mConfig.g, mConfig.b, mConfig.a);
 
     if (textWidth > backWidth && mConfig.overflowMode == Config::OVERFLOW_FADE) {
         // Fade the right edge when the string overflows its box.
-        int gradientLeft = backWidth - Config::FADE_WIDTH;
+        int gradientLeft = backWidth - Config::FADE_WIDTH * scale;
         if (gradientLeft < 0) {
             gradientLeft = 0;
         }
