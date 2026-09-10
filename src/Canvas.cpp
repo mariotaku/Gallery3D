@@ -6,7 +6,10 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
+#include <string>
 #include <vector>
+
+#include "App.h"
 
 namespace {
 
@@ -17,23 +20,40 @@ TTF_Font *sFontRegular = nullptr;
 TTF_Font *sFontBold = nullptr;
 bool sFontsReady = false;
 
+// A shipped font is preferred, then whatever the platform is likely to have.
+// The shipped name is resolved against the asset root rather than the working
+// directory, because the app is not necessarily launched from beside its
+// binary.
+const char *const kShippedRegular = "Roboto-Regular.ttf";
+const char *const kShippedBold = "Roboto-Bold.ttf";
+
 const char *const kFontCandidates[] = {
-    "assets/fonts/Roboto-Regular.ttf",
     "C:/Windows/Fonts/segoeui.ttf",
     "C:/Windows/Fonts/arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+    "/Library/Fonts/Arial.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
 };
 
 const char *const kBoldFontCandidates[] = {
-    "assets/fonts/Roboto-Bold.ttf",
     "C:/Windows/Fonts/segoeuib.ttf",
     "C:/Windows/Fonts/arialbd.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
 };
 
-TTF_Font *openFirst(const char *const *candidates, size_t count, float size) {
+TTF_Font *openFirst(const char *shippedName, const char *const *candidates, size_t count, float size) {
+    std::string shipped = App::ASSET_ROOT + "/fonts/" + shippedName;
+    if (TTF_Font *font = TTF_OpenFont(shipped.c_str(), size)) {
+        return font;
+    }
     for (size_t i = 0; i < count; ++i) {
         TTF_Font *font = TTF_OpenFont(candidates[i], size);
         if (font) {
@@ -90,8 +110,10 @@ bool initFonts() {
         SDL_Log("TTF_Init failed: %s", SDL_GetError());
         return false;
     }
-    sFontRegular = openFirst(kFontCandidates, sizeof(kFontCandidates) / sizeof(kFontCandidates[0]), 20.0f);
-    sFontBold = openFirst(kBoldFontCandidates, sizeof(kBoldFontCandidates) / sizeof(kBoldFontCandidates[0]), 20.0f);
+    sFontRegular =
+        openFirst(kShippedRegular, kFontCandidates, sizeof(kFontCandidates) / sizeof(kFontCandidates[0]), 20.0f);
+    sFontBold = openFirst(kShippedBold, kBoldFontCandidates,
+                          sizeof(kBoldFontCandidates) / sizeof(kBoldFontCandidates[0]), 20.0f);
     if (!sFontRegular) {
         SDL_Log("No usable font found; text will be blank");
         return false;

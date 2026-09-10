@@ -1,6 +1,7 @@
 #include "LocalDataSource.h"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 
@@ -124,15 +125,16 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             std::error_code error;
             auto writeTime = fs::last_write_time(file, error);
             if (!error) {
-                auto seconds = std::chrono::duration_cast<std::chrono::seconds>(writeTime.time_since_epoch()).count();
-                // file_clock's epoch differs per platform; shifting it to the
-                // Unix epoch keeps the date checks in MediaItem meaningful.
-#if defined(_WIN32)
-                const int64_t kFileTimeToUnix = 11644473600LL;
-                int64_t unixSeconds = (int64_t)seconds - kFileTimeToUnix;
-#else
-                int64_t unixSeconds = (int64_t)seconds;
-#endif
+                // file_clock's epoch is unspecified before C++20 and is not the
+                // Unix epoch on Windows. Rather than hardcode the offset per
+                // platform, carry the file time across to the system clock by
+                // the difference between the two clocks read together. Costs a
+                // little precision, which does not matter for a photo date, and
+                // needs no guard.
+                auto systemTime = std::chrono::system_clock::now() +
+                                  (writeTime - std::filesystem::file_time_type::clock::now());
+                int64_t unixSeconds =
+                    std::chrono::duration_cast<std::chrono::seconds>(systemTime.time_since_epoch()).count();
                 item->mDateModifiedInSec = unixSeconds;
                 item->mDateAddedInSec = unixSeconds;
                 item->mDateTakenInMs = unixSeconds * 1000LL;
