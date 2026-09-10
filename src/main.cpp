@@ -112,6 +112,9 @@ int main(int argc, char **argv) {
     // Opens the given album part way through, so the grid view can be captured
     // without a hand on the mouse.
     int openSlot = -1;
+    // The timeline is entered from the HUD menu, which is not ported yet, so
+    // this is the only way to see it.
+    bool timeline = false;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--screenshot" && i + 1 < argc) {
@@ -120,6 +123,8 @@ int main(int argc, char **argv) {
             screenshotFrames = std::atoi(argv[++i]);
         } else if (arg == "--open" && i + 1 < argc) {
             openSlot = std::atoi(argv[++i]);
+        } else if (arg == "--timeline") {
+            timeline = true;
         } else if (arg == "--scale" && i + 1 < argc) {
             float scale = (float)std::atof(argv[++i]);
             if (scale > 0.0f) {
@@ -381,6 +386,9 @@ int main(int argc, char **argv) {
         ++frameNumber;
         if (openSlot >= 0 && frameNumber == screenshotFrames / 2) {
             gridLayer.tapGesture(openSlot, false);
+        }
+        if (timeline && frameNumber == (screenshotFrames * 3) / 4) {
+            gridLayer.setState(GridLayer::STATE_TIMELINE);
         }
         if (!screenshotPath.empty() && frameNumber >= screenshotFrames &&
             SDL_GetTicks() - startTicks >= screenshotAfterMs) {

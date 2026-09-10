@@ -90,7 +90,7 @@ int MediaFeed::getNumSlots() {
         }
         return mMediaSets[(size_t)currentMediaSetIndex]->getNumExpectedItems();
     }
-    return (int)mClusters.size();
+    return (int)mClustering.getClustersForDisplay().size();
 }
 
 MediaSet *MediaFeed::getSetForSlot(int slotIndex) {
@@ -118,8 +118,9 @@ MediaSet *MediaFeed::getSetForSlot(int slotIndex) {
         mSingleWrapper.setNumExpectedItems(1);
         return &mSingleWrapper;
     }
-    if (slotIndex < (int)mClusters.size()) {
-        return mClusters[(size_t)slotIndex].get();
+    std::vector<std::unique_ptr<MediaSet>> &clusters = mClustering.getClustersForDisplay();
+    if (slotIndex < (int)clusters.size()) {
+        return clusters[(size_t)slotIndex].get();
     }
     return nullptr;
 }
@@ -179,35 +180,27 @@ void MediaFeed::performClustering() {
         return;
     }
     MediaSet *setToUse = mMediaSets[(size_t)mExpandedMediaSetIndex].get();
-    mClusters.clear();
 
-    // The original ran a multi pass clusterer over time and location. This is
-    // the simple version: start a new cluster wherever the gap between
-    // consecutive shots is more than an hour.
-    const int64_t kSplitGapMs = 60LL * 60LL * 1000LL;
+    // Newest first, the order the original's feed delivered items in. The
+    // clusterer walks the sequence and only ever compares neighbours, so the
+    // order is what makes a run of shots a run.
     std::vector<MediaItem *> items = setToUse->getItems();
     std::sort(items.begin(), items.end(),
               [](const MediaItem *a, const MediaItem *b) { return a->mDateTakenInMs > b->mDateTakenInMs; });
 
-    MediaSet *current = nullptr;
-    int64_t previousTime = 0;
-    for (MediaItem *item : items) {
-        int64_t time = item->mDateTakenInMs;
-        bool startNew = (current == nullptr) || (previousTime != 0 && std::llabs(previousTime - time) > kSplitGapMs);
-        if (startNew) {
-            mClusters.push_back(std::make_unique<MediaSet>());
-            current = mClusters.back().get();
-            current->mId = (int64_t)mClusters.size();
-            current->mType = MediaSet::TYPE_SMART;
+    mClustering.clear();
+    if (!items.empty()) {
+        int64_t range = items.front()->mDateTakenInMs - items.back()->mDateTakenInMs;
+        if (range < 0) {
+            range = -range;
         }
-        current->addItemRef(item);
-        previousTime = time;
+        mClustering.setTimeRange(range, (int)items.size());
     }
-    for (std::unique_ptr<MediaSet> &cluster : mClusters) {
-        cluster->updateNumExpectedItems();
-        cluster->mName = setToUse->mName;
-        cluster->generateTitle(true);
+    for (MediaItem *item : items) {
+        mClustering.addItemForClustering(item);
     }
+    mClustering.compute(nullptr, true);
+    mClustering.generateCaptions();
 
     mInClusteringMode = true;
     updateListener(true);

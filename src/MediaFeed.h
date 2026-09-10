@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "MediaClustering.h"
 #include "MediaSet.h"
 #include "Shared.h"
 
@@ -118,8 +119,9 @@ class MediaFeed {
     // Wraps one item so a grid slot can be handed a MediaSet, as the original did.
     MediaSet mSingleWrapper;
 
-    // Cluster sets, rebuilt whenever the timeline is entered.
-    std::vector<std::unique_ptr<MediaSet>> mClusters;
+    // Rebuilt whenever the timeline is entered. Owns the cluster sets, which
+    // reference items the album still owns.
+    MediaClustering mClustering;
 
     std::thread mLoaderThread;
     std::atomic<bool> mLoading{false};
