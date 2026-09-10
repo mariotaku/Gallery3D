@@ -189,7 +189,10 @@ void PathBarLayer::renderBlended(RenderView *view) {
     }
     // Chrome sits in front of the wall. draw2D writes its z straight into the
     // depth buffer, so 0 is nearest.
-    view->resetColor();
+    //
+    // The colour is deliberately not reset: HudLayer drew just before this and
+    // set the alpha the whole HUD fades with. The bar bitmap is premultiplied,
+    // so scaling it by that alpha keeps it premultiplied.
     view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     view->draw2D(mTexture, mX, mY, (float)mTexture->getCanvasWidth(), (float)mTexture->getCanvasHeight());
 }

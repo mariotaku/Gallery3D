@@ -1,9 +1,9 @@
 // Partial port of com.cooliris.media.HudLayer and the bars it owns.
 //
-// The path bar is real now. The rest - the menu bar, the selection menu, the
-// time bar - is still a stub that exists so the grid's call sites compile: it
-// draws nothing, always reports MODE_NORMAL and full alpha. The grid drives the
-// HUD from a dozen places, so the surface is kept and the behaviour is not.
+// The layer itself is real now: it animates its own opacity, hides itself after
+// five idle seconds in fullscreen, and switches between the normal and select
+// modes. The path bar is real. The menu bar, the selection menu and the time
+// bar are still stubs that exist so the grid's call sites compile.
 #pragma once
 
 #include <cstdint>
@@ -62,6 +62,8 @@ class HudLayer : public Layer {
     static const int MODE_SELECT = 1;
 
     void generate(RenderView *view, RenderLists &lists) override;
+    bool update(RenderView *view, float frameInterval) override;
+    void renderBlended(RenderView *view) override;
 
     void setGridLayer(GridLayer *layer) {
         mGridLayer = layer;
@@ -79,30 +81,31 @@ class HudLayer : public Layer {
         return &mMenuBar;
     }
 
+    // The target. What is actually drawn animates toward it.
     float getAlpha() const {
         return mAlpha;
     }
 
-    void setAlpha(float alpha) {
-        mAlpha = alpha;
-    }
+    void setAlpha(float alpha);
 
     int getMode() const {
         return mMode;
     }
 
-    void setMode(int mode) {
-        mMode = mode;
-    }
+    void setMode(int mode);
 
     void clear() {}
-    void reset() {}
+    void reset();
     void onGridStateChanged() {}
+
+    // Only fullscreen asks for this. Everywhere else the grid pins the alpha
+    // to 1 every frame, which keeps the idle timer from ever expiring.
     void autoHide(bool enable) {
-        (void)enable;
+        mAutoHide = enable;
     }
-    void enterSelectionMode() {}
-    void cancelSelection() {}
+
+    void enterSelectionMode();
+    void cancelSelection();
     void closeSelectionMenu() {}
     void computeBottomMenu() {}
     void updateNumItemsSelected(int count) {
@@ -135,5 +138,8 @@ class HudLayer : public Layer {
     TimeBar mTimeBar;
     MenuBar mMenuBar;
     float mAlpha = 1.0f;
+    float mAnimAlpha = 1.0f;
+    bool mAutoHide = false;
+    uint64_t mLastTimeFullOpacity = 0;
     int mMode = MODE_NORMAL;
 };

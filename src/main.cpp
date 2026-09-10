@@ -115,6 +115,11 @@ int main(int argc, char **argv) {
     // The timeline is entered from the HUD menu, which is not ported yet, so
     // this is the only way to see it.
     bool timeline = false;
+    // Fullscreen is reached by tapping a photo, so this is the headless way in.
+    bool fullscreen = false;
+    // Select mode is entered by long pressing a stack, so this is the headless
+    // way in. It is also the only thing that exercises the checkmark drawing.
+    bool select = false;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--screenshot" && i + 1 < argc) {
@@ -125,6 +130,10 @@ int main(int argc, char **argv) {
             openSlot = std::atoi(argv[++i]);
         } else if (arg == "--timeline") {
             timeline = true;
+        } else if (arg == "--fullscreen") {
+            fullscreen = true;
+        } else if (arg == "--select") {
+            select = true;
         } else if (arg == "--scale" && i + 1 < argc) {
             float scale = (float)std::atof(argv[++i]);
             if (scale > 0.0f) {
@@ -389,6 +398,17 @@ int main(int argc, char **argv) {
         }
         if (timeline && frameNumber == (screenshotFrames * 3) / 4) {
             gridLayer.setState(GridLayer::STATE_TIMELINE);
+        }
+        if (fullscreen && frameNumber == (screenshotFrames * 3) / 4) {
+            gridLayer.getInputProcessor()->setCurrentSelectedSlot(0);
+        }
+        if (select && frameNumber == (screenshotFrames * 3) / 4) {
+            // Not GridLayer::enterSelectionMode: that selects the focused slot,
+            // and with no pointer there is no focus, so the empty selection
+            // cancels the mode again straight away. Set the mode and pick a
+            // slot explicitly instead.
+            gridLayer.getHud()->enterSelectionMode();
+            gridLayer.addSlotToSelectedItems(0, false, true);
         }
         if (!screenshotPath.empty() && frameNumber >= screenshotFrames &&
             SDL_GetTicks() - startTicks >= screenshotAfterMs) {
