@@ -27,6 +27,11 @@ extern float CONTENT_SCALE;
 // on top, so raising it past 1024 costs the next power of two either way.
 extern int SCREEN_NAIL_MAX_EDGE;
 
+// Longest edge for the texture behind a zoomed photo. Only the focused item
+// ever holds one and the draw code drops it as focus moves, so it can afford to
+// be larger than the screennail.
+extern int HI_RES_MAX_EDGE;
+
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;
 

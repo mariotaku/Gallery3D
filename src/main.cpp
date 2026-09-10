@@ -130,6 +130,9 @@ int main(int argc, char **argv) {
     // the knob already sits, so anything else also scrolls the wall.
     bool scrub = false;
     float scrubAt = 0.5f;
+    // Zooms the fullscreen photo, which is the only thing that reaches for the
+    // hi-res texture. Needs --fullscreen, and fires after it.
+    bool zoom = false;
     // Taps a button on the bottom selection bar, so the popup it opens can be
     // captured. Needs --select. -1 for off.
     int popupButton = -1;
@@ -153,6 +156,8 @@ int main(int argc, char **argv) {
             deleteSelection = true;
         } else if (arg == "--popup" && i + 1 < argc) {
             popupButton = std::atoi(argv[++i]);
+        } else if (arg == "--zoom") {
+            zoom = true;
         } else if (arg == "--scrub") {
             scrub = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -258,7 +263,10 @@ int main(int argc, char **argv) {
     {
         int longEdge = (pixelWidth > pixelHeight) ? pixelWidth : pixelHeight;
         App::SCREEN_NAIL_MAX_EDGE = std::min(2048, std::max(1024, longEdge));
-        SDL_Log("Screennail max edge %d", App::SCREEN_NAIL_MAX_EDGE);
+        // Twice that when zoomed, which covers the fill-screen zoom without
+        // trying to hold a whole 24 megapixel photo on the card.
+        App::HI_RES_MAX_EDGE = std::min(4096, App::SCREEN_NAIL_MAX_EDGE * 2);
+        SDL_Log("Screennail max edge %d, hi-res max edge %d", App::SCREEN_NAIL_MAX_EDGE, App::HI_RES_MAX_EDGE);
     }
 
     gridLayer.setDataSource(&dataSource);
@@ -456,6 +464,9 @@ int main(int argc, char **argv) {
             bar->onTouchEvent(press);
             press.action = MotionEvent::ACTION_UP;
             bar->onTouchEvent(press);
+        }
+        if (zoom && frameNumber == (screenshotFrames * 7) / 8) {
+            gridLayer.zoomInToSelectedItem();
         }
         if (scrub && frameNumber == (screenshotFrames * 7) / 8) {
             // Straight at the bar rather than through the hit test list: a

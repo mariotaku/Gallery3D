@@ -302,9 +302,11 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         TexturePtr hiRes = (zoomValue != 1.0f && i == 0 && item->getMediaType() != MediaItem::MEDIA_TYPE_VIDEO)
                                ? displayItem->getHiResImage()
                                : nullptr;
-        if (App::PIXEL_DENSITY > 1.0f) {
-            hiRes = texture;
-        }
+        // The original swapped the hi-res texture out for the screennail above
+        // density 1: on a dense handset the screennail already held everything
+        // the screen could resolve. This window is far larger than the phone
+        // that was written for, so a zoom has somewhere to go and the extra
+        // texture earns its memory.
         if (i != 0) {
             displayItem->clearHiResImage();
         }
