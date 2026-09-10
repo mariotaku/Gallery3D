@@ -16,6 +16,7 @@
 #include "GridInputProcessor.h"
 #include "GridLayoutInterface.h"
 #include "HudLayer.h"
+#include "LoadingLayer.h"
 #include "IndexRange.h"
 #include "Layer.h"
 #include "MediaBucketList.h"
@@ -227,6 +228,7 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     std::vector<MediaItem *> mVisibleItems;
 
     BackgroundLayer mBackground;
+    LoadingLayer mLoading;
     bool mLocationFilter = false;
     float mZoomValue = 1.0f;
     float mCurrentFocusItemWidth = 1.0f;

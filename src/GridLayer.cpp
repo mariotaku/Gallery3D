@@ -42,7 +42,7 @@ bool contains(const std::vector<MediaItem *> &items, MediaItem *item) {
 }  // namespace
 
 GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view)
-    : mBackground(this), mView(view), mLayoutInterface(layoutInterface) {
+    : mBackground(this), mLoading(this), mView(view), mLayoutInterface(layoutInterface) {
     mBufferedVisibleRange.set(Shared::INVALID, Shared::INVALID);
     mVisibleRange.set(Shared::INVALID, Shared::INVALID);
     mCompleteRange.set(Shared::INVALID, Shared::INVALID);
@@ -99,6 +99,8 @@ void GridLayer::generate(RenderView *view, RenderLists &lists) {
     lists.blendedList.push_back(this);
     lists.hitTestList.push_back(this);
     mHud.generate(view, lists);
+    // Last, so the sheet covers the wall and the chrome while it is up.
+    mLoading.generate(view, lists);
 }
 
 void GridLayer::onSizeChanged() {
