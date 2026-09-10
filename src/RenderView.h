@@ -170,6 +170,9 @@ class RenderView {
     void loadTextureAsync(const TexturePtr &texture);
     void uploadTexture(const TexturePtr &texture);
     void processTextures(bool processAll);
+    // Drops the least recently bound textures once the total passes the
+    // budget. Called once a frame.
+    void enforceTextureBudget();
     void queueLoad(const TexturePtr &texture, bool highPriority);
     void processTouchEvents();
     void updateLists();
@@ -218,6 +221,11 @@ class RenderView {
 
     int mLoadingCount = 0;
     int64_t mLoadingExpensiveTexturesStartTime = 0;
+
+    // Every uploaded texture, weakly held so this list never keeps one alive.
+    std::vector<std::weak_ptr<Texture>> mLiveTextures;
+    size_t mTextureBytes = 0;
+    uint64_t mFrameCounter = 0;
 
     std::map<std::string, TexturePtr> mCacheScaled;
     std::map<std::string, TexturePtr> mCacheUnscaled;

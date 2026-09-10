@@ -74,6 +74,10 @@ class Texture {
     float mNormalizedHeight = 0.0f;
     Bitmap mBitmap;
     RenderView *mOwner = nullptr;
+    // Bookkeeping for the texture budget in RenderView: how much GPU memory
+    // this one holds, and the frame it was last bound on.
+    size_t mBytes = 0;
+    uint64_t mLastUsedFrame = 0;
 };
 
 using TexturePtr = std::shared_ptr<Texture>;

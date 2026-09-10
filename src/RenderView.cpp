@@ -288,7 +288,9 @@ void RenderView::onDrawFrame() {
         mLoadingExpensiveTexturesStartTime = loadingExpensiveTextures ? (int64_t)SDL_GetTicks() : 0;
     }
 
+    ++mFrameCounter;
     processTextures(false);
+    enforceTextureBudget();
 
     // The interval comes from the nanosecond clock, not SDL_GetTicks. A
     // millisecond counter reports 0 for any frame shorter than that, which
@@ -526,6 +528,8 @@ void RenderView::loadTextureAsync(const TexturePtr &texture) {
 }
 
 void RenderView::uploadTexture(const TexturePtr &texture) {
+    const int width = texture->mBitmap.valid() ? texture->mBitmap.width() : 0;
+    const int height = texture->mBitmap.valid() ? texture->mBitmap.height() : 0;
     if (!texture->mBitmap.valid()) {
         texture->mState = Texture::STATE_ERROR;
         texture->mBitmap = Bitmap();
@@ -559,6 +563,10 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         texture->mId = textureId;
         texture->mOwner = this;
         texture->mState = Texture::STATE_LOADED;
+        texture->mBytes = (size_t)width * (size_t)height * 4;
+        texture->mLastUsedFrame = mFrameCounter;
+        mTextureBytes += texture->mBytes;
+        mLiveTextures.push_back(texture);
         requestRender();
     }
 }
@@ -587,6 +595,59 @@ void RenderView::processTextures(bool processAll) {
         uploadTexture(texture);
         --mLoadingCount;
     } while (processAll);
+}
+
+void RenderView::enforceTextureBudget() {
+    // A few hundred megabytes of thumbnails is comfortable; past that the
+    // least recently bound ones go back to disk and reload if needed.
+    const size_t kBudgetBytes = 192u * 1024u * 1024u;
+    // Never drop something drawn in the last few frames, or scrolling would
+    // evict and reload the same thumbnails every frame.
+    const uint64_t kKeepFrames = 120;
+
+    // Prune the entries whose textures have gone and total up what is left.
+    // The list holds weak references, so it never keeps a texture alive.
+    std::vector<TexturePtr> alive;
+    alive.reserve(mLiveTextures.size());
+    size_t total = 0;
+    for (size_t i = 0; i < mLiveTextures.size();) {
+        TexturePtr texture = mLiveTextures[i].lock();
+        if (!texture || texture->mId == 0 || texture->mState != Texture::STATE_LOADED) {
+            mLiveTextures[i] = mLiveTextures.back();
+            mLiveTextures.pop_back();
+            continue;
+        }
+        total += texture->mBytes;
+        alive.push_back(std::move(texture));
+        ++i;
+    }
+    mTextureBytes = total;
+    if (total <= kBudgetBytes) {
+        return;
+    }
+
+    // Oldest first, and stop once there is comfortable headroom so this does
+    // not run again on the very next frame.
+    std::sort(alive.begin(), alive.end(), [](const TexturePtr &a, const TexturePtr &b) {
+        return a->mLastUsedFrame < b->mLastUsedFrame;
+    });
+    const size_t targetBytes = kBudgetBytes - kBudgetBytes / 10;
+    for (const TexturePtr &texture : alive) {
+        if (mTextureBytes <= targetBytes) {
+            break;
+        }
+        if (texture->mLastUsedFrame + kKeepFrames > mFrameCounter) {
+            // Everything from here on is hotter still.
+            break;
+        }
+        queueDeleteTexture(texture->mId);
+        mTextureBytes -= texture->mBytes;
+        texture->mId = 0;
+        texture->mBytes = 0;
+        // Back to unloaded, so the normal path reloads it if it is needed
+        // again. clear() would also throw away the size the meshes read.
+        texture->mState = Texture::STATE_UNLOADED;
+    }
 }
 
 void RenderView::processAllTextures() {
@@ -672,6 +733,7 @@ bool RenderView::bind(const TexturePtr &texture) {
     case Texture::STATE_LOADED:
         glBindTexture(GL_TEXTURE_2D, texture->mId);
         mBoundTexture = texture.get();
+        texture->mLastUsedFrame = mFrameCounter;
         return true;
     default:
         break;
