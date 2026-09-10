@@ -111,20 +111,10 @@ through `SDL_GL_GetProcAddress`, so there is no GL loader dependency.
 
 ## What is not ported yet
 
-Milestone one is the 3D grid. Missing, in rough order of how much the app wants
-them back:
-
-- **HUD** - `HudLayer`, `PathBarLayer`, `TimeBar`, `MenuBar` and the selection
-  menu are stubs in `HudLayer.h`. The grid drives them from a dozen call sites,
-  so the surface is there and the behaviour is not.
-- **Adaptive background** - `BackgroundLayer` stitches and parallaxes the
-  shipped gradient, but does not derive a blurred, colour matched backdrop from
-  the photo under the cursor or crossfade between them.
-- **Timeline clustering** - `MediaFeed::performClustering` splits on a one hour
-  gap. The original `MediaClustering` did a multi pass job over time and place.
-- **Selection, delete, rotate, crop, slideshow, wallpaper** - the state machine
-  and `MediaBucketList` are ported; the operations are no-ops.
-- **Picasa sync, video playback, reverse geocoding, the thumbnail disk cache.**
+Milestone one is the 3D grid: album stacks, drill down, fling, fullscreen.
+The HUD is a stub, the background is the shipped gradient rather than an
+adaptive one, timeline clustering is naive, and the selection operations are
+no-ops. `TASKS.md` has the full list with the original file each gap maps to.
 
 ## Licence
 
