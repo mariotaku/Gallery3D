@@ -2,8 +2,9 @@
 //
 // The layer itself is real now: it animates its own opacity, hides itself after
 // five idle seconds in fullscreen, and switches between the normal and select
-// modes. The path bar is real. The menu bar, the selection menu and the time
-// bar are still stubs that exist so the grid's call sites compile.
+// modes. The path bar, the menu bar and the time bar are real. The selection
+// menu and the zoom buttons are still stubs that exist so the grid's call sites
+// compile.
 #pragma once
 
 #include <cstdint>
@@ -13,39 +14,11 @@
 #include "MenuBar.h"
 #include "PathBarLayer.h"
 #include "RenderView.h"
+#include "TimeBar.h"
 
 class MediaItem;
 class MediaFeed;
 class GridLayer;
-
-class TimeBar {
-  public:
-    class Listener {
-      public:
-        virtual ~Listener() = default;
-        virtual void onTimeChanged(TimeBar *timebar) = 0;
-    };
-
-    void setListener(Listener *listener) {
-        mListener = listener;
-    }
-
-    void setItem(MediaItem *item) {
-        mItem = item;
-    }
-
-    MediaItem *getItem() const {
-        return mItem;
-    }
-
-    bool isDragged() const {
-        return false;
-    }
-
-  private:
-    Listener *mListener = nullptr;
-    MediaItem *mItem = nullptr;
-};
 
 class HudLayer : public Layer {
   public:
@@ -87,7 +60,7 @@ class HudLayer : public Layer {
 
     void clear() {}
     void reset();
-    void onGridStateChanged() {}
+    void onGridStateChanged();
 
     // Only fullscreen asks for this. Everywhere else the grid pins the alpha
     // to 1 every frame, which keeps the idle timer from ever expiring.
@@ -109,9 +82,7 @@ class HudLayer : public Layer {
         (void)count;
     }
     void setFeed(MediaFeed *feed, int state, bool needsLayout) {
-        (void)feed;
-        (void)state;
-        (void)needsLayout;
+        mTimeBar.setFeed(feed, state, needsLayout);
     }
     void setTimeBarTime(int64_t time) {
         (void)time;
@@ -129,6 +100,9 @@ class HudLayer : public Layer {
     PathBarLayer mPathBar;
     TimeBar mTimeBar;
     MenuBar mMenuBar;
+    // The grid state the bars follow. Only the time bar cares: it belongs to
+    // the album view and to nothing else.
+    int mGridState = 0;
     float mAlpha = 1.0f;
     float mAnimAlpha = 1.0f;
     bool mAutoHide = false;

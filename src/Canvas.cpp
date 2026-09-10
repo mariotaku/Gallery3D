@@ -324,6 +324,119 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, i
     }
 }
 
+// Copies a rectangle out of a bitmap. Only the nine-patch needs this, so it
+// stays here rather than growing Bitmap's interface.
+static Bitmap subImage(const Bitmap &src, int x, int y, int width, int height) {
+    if (!src.valid() || width <= 0 || height <= 0) {
+        return Bitmap();
+    }
+    Bitmap out(width, height);
+    for (int row = 0; row < height; ++row) {
+        int sy = y + row;
+        if (sy < 0 || sy >= src.height()) {
+            continue;
+        }
+        for (int col = 0; col < width; ++col) {
+            int sx = x + col;
+            if (sx < 0 || sx >= src.width()) {
+                continue;
+            }
+            const uint8_t *s = src.pixels() + ((size_t)sy * (size_t)src.width() + (size_t)sx) * 4;
+            uint8_t *d = out.pixels() + ((size_t)row * (size_t)width + (size_t)col) * 4;
+            for (int c = 0; c < 4; ++c) {
+                d[c] = s[c];
+            }
+        }
+    }
+    return out;
+}
+
+// Reads one edge of the guide border and returns the run of marked pixels.
+static void readGuide(const Bitmap &raw, bool horizontal, int *begin, int *end) {
+    int length = horizontal ? raw.width() : raw.height();
+    int first = -1;
+    int last = -1;
+    for (int i = 1; i < length - 1; ++i) {
+        int x = horizontal ? i : 0;
+        int y = horizontal ? 0 : i;
+        uint8_t alpha = raw.pixels()[((size_t)y * (size_t)raw.width() + (size_t)x) * 4 + 3];
+        if (alpha == 0) {
+            continue;
+        }
+        if (first < 0) {
+            first = i;
+        }
+        last = i;
+    }
+    if (first < 0) {
+        // No guide. Stretch the middle pixel, which is what a plain image wants.
+        *begin = (length - 2) / 2;
+        *end = *begin + 1;
+        return;
+    }
+    // Guide coordinates count the border, the content does not.
+    *begin = first - 1;
+    *end = last;
+}
+
+NinePatch loadNinePatch(const std::string &path) {
+    NinePatch patch;
+    Bitmap raw = Bitmap::load(path, 0);
+    if (!raw.valid() || raw.width() < 3 || raw.height() < 3) {
+        return patch;
+    }
+    readGuide(raw, true, &patch.stretchX0, &patch.stretchX1);
+    readGuide(raw, false, &patch.stretchY0, &patch.stretchY1);
+    patch.image = subImage(raw, 1, 1, raw.width() - 2, raw.height() - 2);
+    return patch;
+}
+
+void blitNinePatch(Bitmap &dst, const NinePatch &patch, int x, int y, int width, int height, float alpha) {
+    if (!dst.valid() || !patch.valid() || width <= 0 || height <= 0 || alpha <= 0.0f) {
+        return;
+    }
+    const Bitmap &src = patch.image;
+    int capLeft = patch.stretchX0;
+    int capRight = src.width() - patch.stretchX1;
+    int capTop = patch.stretchY0;
+    int capBottom = src.height() - patch.stretchY1;
+    // Below the caps there is no room for the middle. Give each cap its share
+    // of what there is instead of letting the middle go negative.
+    if (capLeft + capRight > width) {
+        int total = capLeft + capRight;
+        capLeft = capLeft * width / total;
+        capRight = width - capLeft;
+    }
+    if (capTop + capBottom > height) {
+        int total = capTop + capBottom;
+        capTop = capTop * height / total;
+        capBottom = height - capTop;
+    }
+    int midW = width - capLeft - capRight;
+    int midH = height - capTop - capBottom;
+
+    // Source rows and columns, then the destination rows and columns they map
+    // to. Index 1 is the stretched middle in both.
+    int srcX[3] = {0, patch.stretchX0, patch.stretchX1};
+    int srcW[3] = {patch.stretchX0, patch.stretchX1 - patch.stretchX0, src.width() - patch.stretchX1};
+    int srcY[3] = {0, patch.stretchY0, patch.stretchY1};
+    int srcH[3] = {patch.stretchY0, patch.stretchY1 - patch.stretchY0, src.height() - patch.stretchY1};
+    int dstX[3] = {x, x + capLeft, x + capLeft + midW};
+    int dstW[3] = {capLeft, midW, capRight};
+    int dstY[3] = {y, y + capTop, y + capTop + midH};
+    int dstH[3] = {capTop, midH, capBottom};
+
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            if (srcW[col] <= 0 || srcH[row] <= 0 || dstW[col] <= 0 || dstH[row] <= 0) {
+                continue;
+            }
+            Bitmap piece = subImage(src, srcX[col], srcY[row], srcW[col], srcH[row]);
+            blitScaled(dst, piece, dstX[col], dstY[row], dstW[col], dstH[row], alpha);
+        }
+    }
+}
+
 Bitmap blurredCoverage(const Bitmap &src, int radius) {
     if (!src.valid() || radius <= 0) {
         return Bitmap();

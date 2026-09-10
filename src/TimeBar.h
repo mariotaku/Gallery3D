@@ -1,0 +1,135 @@
+// Port of com.cooliris.media.TimeBar: the scrubber along the bottom of an
+// album. Drag it and the wall scrolls to that date, with the date itself shown
+// in a popup while the drag lasts.
+//
+// Two things about the original are worth knowing before reading this.
+//
+// It builds a list of markers, one every few items, and the drag position is
+// an index into that list rather than into the items. That is what makes the
+// bar move at a sane speed over an album of thousands of photos.
+//
+// And by Gingerbread it no longer drew those markers. Earlier versions drew a
+// scrolling ruler of month names, day numbers and dots; that code is gone and
+// only the knob and the date popup are left. The markers survive as the thing
+// that maps a position to an item. This port follows Gingerbread, so the
+// marker types exist and nothing draws them.
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "Canvas.h"
+#include "CanvasTexture.h"
+#include "Layer.h"
+#include "RenderView.h"
+
+class MediaFeed;
+class MediaItem;
+class MediaSet;
+
+class TimeBar : public Layer {
+  public:
+    static const int HEIGHT = 48;
+
+    class Listener {
+      public:
+        virtual ~Listener() = default;
+        virtual void onTimeChanged(TimeBar *timebar) = 0;
+    };
+
+    TimeBar();
+    ~TimeBar() override;
+
+    void setListener(Listener *listener) {
+        mListener = listener;
+    }
+
+    void setFeed(MediaFeed *feed, int state, bool needsLayout);
+
+    // The item under the knob.
+    MediaItem *getItem() const;
+
+    // Moves the knob to the item. The grid calls this every frame with whatever
+    // is under the camera, which is what keeps the two in step.
+    void setItem(MediaItem *item);
+
+    bool isDragged() const {
+        return mInDrag;
+    }
+
+    void generate(RenderView *view, RenderLists &lists) override;
+    bool update(RenderView *view, float frameInterval) override;
+    void renderBlended(RenderView *view) override;
+    bool onTouchEvent(const MotionEvent &event) override;
+
+  protected:
+    void onSizeChanged() override;
+
+  private:
+    struct Marker {
+        static const int TYPE_MONTH = 1;
+        static const int TYPE_DAY = 2;
+        static const int TYPE_DOT = 3;
+
+        float x = 0.0f;
+        int year = 0;
+        int month = 0;
+        int day = 0;
+        int type = TYPE_DOT;
+        std::vector<MediaItem *> items;
+    };
+
+    // The background and the date drawn into one texture. The original kept a
+    // StringTexture per month, day and year and blitted them side by side over
+    // a nine patch; composing once is the same picture with one bind.
+    class PopupTexture : public CanvasTexture {
+      public:
+        explicit PopupTexture(TimeBar *owner) : mOwner(owner) {}
+
+      protected:
+        void renderCanvas(Bitmap &canvas, int width, int height) override;
+
+      private:
+        TimeBar *mOwner;
+    };
+
+    void layout();
+    float addMarker(const Marker &marker);
+    const Marker *getAnchorMarker() const;
+    float getScrollForPosition(float position) const;
+    float getPositionForScroll(float scroll) const;
+    float getKnobXForPosition(float position) const;
+    float getPositionForKnobX(float knobX) const;
+    // Rebuilds the popup when the date under the knob changes.
+    void updatePopup();
+
+    Listener *mListener = nullptr;
+    MediaFeed *mFeed = nullptr;
+    int mState = 0;
+    float mTotalWidth = 0.0f;
+    float mPosition = 0.0f;
+    float mPositionAnim = 0.0f;
+    float mScroll = 0.0f;
+    float mScrollAnim = 0.0f;
+    bool mInDrag = false;
+    float mDragX = 0.0f;
+    bool mShowTime = true;
+    float mTextAlpha = 0.0f;
+    float mAnimTextAlpha = 0.0f;
+
+    // Markers and the item to marker index. Both are only touched on the
+    // render thread: the feed hands its changes over through a flag that
+    // GridLayer polls, so unlike the original there is nothing to lock against.
+    std::vector<Marker> mMarkers;
+    std::unordered_map<const MediaItem *, size_t> mTracker;
+
+    std::string mPopupText;
+    int mPopupTextWidth = 0;
+    int mPopupTextHeight = 0;
+    std::shared_ptr<PopupTexture> mPopup;
+    Canvas::NinePatch mPopupBackground;
+    bool mPopupBackgroundLoaded = false;
+};

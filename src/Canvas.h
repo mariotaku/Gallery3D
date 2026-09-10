@@ -41,6 +41,28 @@ void blendOver(Bitmap &dst, const Bitmap &src, int x, int y, float r, float g, f
 // Blends a premultiplied source, which is what Bitmap::load returns.
 void blit(Bitmap &dst, const Bitmap &src, int x, int y, float alpha = 1.0f);
 
+// A nine-patch: the caps keep their size and the middle stretches. Android
+// resolved these at build time; here the 1 pixel guide border survives into
+// the shipped PNG, so loadNinePatch reads it and strips it.
+struct NinePatch {
+    Bitmap image;
+    // Half open, in image coordinates. Everything outside is a cap.
+    int stretchX0 = 0;
+    int stretchX1 = 0;
+    int stretchY0 = 0;
+    int stretchY1 = 0;
+
+    bool valid() const {
+        return image.valid();
+    }
+};
+
+NinePatch loadNinePatch(const std::string &path);
+
+// Draws a nine-patch into the rect. Smaller than the caps and it clamps, so a
+// too small rect loses the middle rather than mangling the corners.
+void blitNinePatch(Bitmap &dst, const NinePatch &patch, int x, int y, int width, int height, float alpha = 1.0f);
+
 // Stretches a premultiplied source across the rect. The path bar fill ships as
 // a single column, so this is how it becomes a bar.
 void blitScaled(Bitmap &dst, const Bitmap &src, int x, int y, int width, int height, float alpha = 1.0f);

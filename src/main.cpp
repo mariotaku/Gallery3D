@@ -124,6 +124,12 @@ int main(int argc, char **argv) {
     // there is no menu to invoke them from yet.
     bool rotate = false;
     bool deleteSelection = false;
+    // Holds a drag on the time bar, which is the only thing that raises the
+    // date popup. Needs --open, because the bar belongs to the album view. The
+    // value is where along the bar to press, from 0 to 1; the middle is where
+    // the knob already sits, so anything else also scrolls the wall.
+    bool scrub = false;
+    float scrubAt = 0.5f;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--screenshot" && i + 1 < argc) {
@@ -142,6 +148,11 @@ int main(int argc, char **argv) {
             rotate = true;
         } else if (arg == "--delete") {
             deleteSelection = true;
+        } else if (arg == "--scrub") {
+            scrub = true;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                scrubAt = (float)std::atof(argv[++i]);
+            }
         } else if (arg == "--scale" && i + 1 < argc) {
             float scale = (float)std::atof(argv[++i]);
             if (scale > 0.0f) {
@@ -417,6 +428,17 @@ int main(int argc, char **argv) {
             // slot explicitly instead.
             gridLayer.getHud()->enterSelectionMode();
             gridLayer.addSlotToSelectedItems(0, false, true);
+        }
+        if (scrub && frameNumber == (screenshotFrames * 7) / 8) {
+            // Straight at the bar rather than through the hit test list: a
+            // press has to land on it and then stay down, and there is no
+            // pointer here to hold it there.
+            TimeBar *timeBar = gridLayer.getHud()->getTimeBar();
+            MotionEvent down;
+            down.action = MotionEvent::ACTION_DOWN;
+            down.xs[0] = timeBar->getX() + timeBar->getWidth() * scrubAt;
+            down.ys[0] = timeBar->getY() + timeBar->getHeight() * 0.5f;
+            timeBar->onTouchEvent(down);
         }
         if ((rotate || deleteSelection) && frameNumber == (screenshotFrames * 7) / 8) {
             if (rotate) {

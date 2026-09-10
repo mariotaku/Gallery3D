@@ -16,8 +16,9 @@
 //
 // In the original the only subclass was PopupMenu. Here it is meant as the
 // shared base for HUD chrome, because compositing a widget once into a bitmap
-// is simpler than the original's many small draw2D calls per widget, and it
-// sidesteps the nine patch art the port cannot read.
+// is simpler than the original's many small draw2D calls per widget: the nine
+// patch art the original stretched at draw time gets stretched once here, into
+// the bitmap.
 #pragma once
 
 #include "Texture.h"

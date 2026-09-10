@@ -20,6 +20,7 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     lists.blendedList.push_back(this);
     mPathBar.generate(view, lists);
     mMenuBar.generate(view, lists);
+    mTimeBar.generate(view, lists);
 }
 
 void HudLayer::onSizeChanged() {
@@ -32,6 +33,17 @@ void HudLayer::onSizeChanged() {
     // The menu bar runs along the bottom edge.
     mMenuBar.setPosition(0.0f, mHeight - MenuBar::preferredHeight());
     mMenuBar.setSize(mWidth, MenuBar::preferredHeight());
+
+    // So does the time bar, and only one of the two is ever up.
+    float timeBarHeight = TimeBar::HEIGHT * App::PIXEL_DENSITY;
+    mTimeBar.setPosition(0.0f, mHeight - timeBarHeight);
+    mTimeBar.setSize(mWidth, timeBarHeight);
+}
+
+void HudLayer::onGridStateChanged() {
+    if (mGridLayer != nullptr) {
+        mGridState = mGridLayer->getState();
+    }
 }
 
 void HudLayer::computeBottomMenu() {
@@ -99,8 +111,13 @@ bool HudLayer::update(RenderView *view, float frameInterval) {
     // Once it has faded out there is nothing to draw and nothing to click, so
     // take the bars out of both the render and the hit test lists.
     bool faded = mAnimAlpha <= 0.01f;
+    bool selectionMode = mMode == MODE_SELECT;
+    // The time bar scrubs an album, so it belongs to the grid view alone. Over
+    // the stacks there is nothing to scrub, and fullscreen has its own chrome.
+    bool inAlbum = mGridState == GridLayer::STATE_GRID_VIEW;
     mPathBar.setHidden(faded);
-    mMenuBar.setHidden(faded || mMode != MODE_SELECT);
+    mMenuBar.setHidden(faded || !selectionMode);
+    mTimeBar.setHidden(faded || selectionMode || !inAlbum);
 
     return mAnimAlpha != mAlpha;
 }
