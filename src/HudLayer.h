@@ -32,10 +32,21 @@ class HudLayer : public Layer {
     HudLayer();
 
     void generate(RenderView *view, RenderLists &lists) override;
+    // The bar's strip belongs to the bar, even where there is nothing drawn in
+    // it. Without this a drag across an empty stretch of the top bar falls
+    // through and scrolls the wall behind it.
+    bool containsPoint(float x, float y) override;
+    bool onTouchEvent(const MotionEvent &event) override;
 
     // Straight to the window buttons, the only chrome here that answers to a
     // pointer that is merely passing over.
     void onPointerMoved(float x, float y);
+
+    // Where the top selection bar starts. It runs the full width, unlike the
+    // path bar, so it is the one piece of chrome that reaches the window
+    // buttons and has to be pushed clear of them. Pure arithmetic and static so
+    // it can be checked without a window to ask.
+    static float selectionBarTop(float safeTop, float captionHeight);
 
     CaptionButtons *getCaptionButtons() {
         return &mCaptionButtons;
@@ -149,6 +160,9 @@ class HudLayer : public Layer {
     // The grid state the bars follow. Only the time bar cares: it belongs to
     // the album view and to nothing else.
     int mGridState = 0;
+    // Where the top bar's strip ends, in window coordinates.
+    float topBarBottom() const;
+
     float mAlpha = 1.0f;
     float mAnimAlpha = 1.0f;
     bool mAutoHide = false;

@@ -9,6 +9,7 @@
 #include "App.h"
 #include "Bitmap.h"
 #include "CaptionButtons.h"
+#include "HudLayer.h"
 
 namespace {
 
@@ -162,4 +163,58 @@ TEST(hovering_close_paints_it_rather_than_only_the_glyph) {
     // And the pointer moving away puts it back.
     buttons.onPointerMoved(10.0f, 10.0f);
     CHECK_EQ(inkIn(buttons.compose(), third * 2, third * 3), quiet);
+}
+
+TEST(the_top_bar_swallows_a_drag_instead_of_scrolling_the_wall) {
+    ScopedDensity density(1.0f);
+    HudLayer hud;
+    hud.setSize(1280.0f, 800.0f);
+
+    // Anywhere along the strip, not only where a crumb happens to be. The path
+    // bar is only as wide as its crumbs, so without the HUD claiming the rest a
+    // drag across the empty part of the bar reached the wall and scrolled it.
+    CHECK(hud.containsPoint(20.0f, 4.0f));
+    CHECK(hud.containsPoint(640.0f, 4.0f));
+    CHECK(hud.containsPoint(1270.0f, 4.0f));
+
+    // And it is a strip, not the window: the wall below it still takes drags.
+    CHECK(!hud.containsPoint(640.0f, 400.0f));
+    CHECK(!hud.containsPoint(640.0f, 799.0f));
+
+    // A drag that lands in the strip is consumed, which is what stops it
+    // reaching the layer behind.
+    MotionEvent down;
+    down.action = MotionEvent::ACTION_DOWN;
+    down.xs[0] = 640.0f;
+    down.ys[0] = 4.0f;
+    CHECK(hud.onTouchEvent(down));
+}
+
+TEST(a_faded_out_bar_swallows_nothing) {
+    ScopedDensity density(1.0f);
+    HudLayer hud;
+    hud.setSize(1280.0f, 800.0f);
+    CHECK(hud.containsPoint(640.0f, 4.0f));
+
+    // In fullscreen the chrome fades away and the photo underneath wants the
+    // whole window. A strip that kept eating drags after it went invisible
+    // would be a dead band across the top of the picture.
+    hud.setAlpha(0.0f);
+    CHECK(!hud.containsPoint(640.0f, 4.0f));
+}
+
+TEST(the_selection_bar_starts_below_the_window_buttons) {
+    // It spans the whole width, so where the path bar only reaches its own
+    // crumbs this one reaches the corner. Drawn at the very top it would cover
+    // the close button, which is the only way to shut the window with a
+    // pointer.
+    CHECK_NEAR(HudLayer::selectionBarTop(0.0f, 34.0f), 34.0f, 0.001f);
+
+    // With an ordinary title bar there is no caption of ours to clear, so it
+    // sits where it always did.
+    CHECK_NEAR(HudLayer::selectionBarTop(0.0f, 0.0f), 0.0f, 0.001f);
+
+    // And a cutout deeper than the caption wins, because a control under a
+    // notch is one you cannot reliably touch.
+    CHECK_NEAR(HudLayer::selectionBarTop(50.0f, 34.0f), 50.0f, 0.001f);
 }

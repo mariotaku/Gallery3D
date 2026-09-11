@@ -48,6 +48,9 @@ HudLayer::HudLayer() {
 
 void HudLayer::generate(RenderView *view, RenderLists &lists) {
     lists.updateList.push_back(this);
+    // First into the hit test list, which makes it last to be asked: the bars
+    // and buttons below all go in after it and so get the pointer first.
+    lists.hitTestList.push_back(this);
     // Before the bars, not after: renderBlended sets the alpha they are then
     // drawn with, so the whole HUD fades as one.
     lists.blendedList.push_back(this);
@@ -65,6 +68,41 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     // Last, so it is on top of the bars and sees input before them: the hit
     // test walks the list backwards.
     mPopupMenu.generate(view, lists);
+}
+
+float HudLayer::selectionBarTop(float safeTop, float captionHeight) {
+    // Whichever is lower: a phone's cutout, or the caption the app now draws.
+    return std::max(safeTop, captionHeight);
+}
+
+float HudLayer::topBarBottom() const {
+    // As tall as whatever is up there: the path bar, and the caption strip when
+    // the window's content runs under the title bar.
+    const float inset = 3.0f * App::UI_DENSITY;
+    float bottom = App::SAFE_AREA.top + inset * 2.0f + PathBarLayer::preferredHeight();
+    if (WindowFrame::isExtended()) {
+        bottom = std::max(bottom, WindowFrame::captionHeight());
+    }
+    return bottom;
+}
+
+bool HudLayer::containsPoint(float x, float y) {
+    (void)x;
+    // Nothing to swallow input for when the bar is not on screen. In fullscreen
+    // the chrome fades out and the photo underneath wants the whole window.
+    if (mAlpha <= 0.0f) {
+        return false;
+    }
+    return y >= 0.0f && y < topBarBottom();
+}
+
+bool HudLayer::onTouchEvent(const MotionEvent &event) {
+    // Swallowed rather than acted on. Anything up here worth pressing - a
+    // crumb, the mode button, a window button - is its own layer and was asked
+    // first, because the hit test walks the list backwards and this went in
+    // before them.
+    (void)event;
+    return true;
 }
 
 void HudLayer::onPointerMoved(float x, float y) {
@@ -118,7 +156,12 @@ void HudLayer::onSizeChanged() {
 
     // The top selection bar takes the whole top edge, where the path bar sits
     // the rest of the time. They are never both up.
-    mSelectionMenuTop.setPosition(safeLeft, safeTop);
+    //
+    // It starts below the caption though. It runs the full width, so unlike the
+    // path bar it reaches the window buttons, and a bar drawn across them hides
+    // the only way to close the window with the pointer.
+    const float captionHeight = WindowFrame::isExtended() ? WindowFrame::captionHeight() : 0.0f;
+    mSelectionMenuTop.setPosition(safeLeft, selectionBarTop(safeTop, captionHeight));
     mSelectionMenuTop.setSize(safeWidth, MenuBar::preferredHeight());
 
     // The window buttons sit in the top right corner of the window, not the
