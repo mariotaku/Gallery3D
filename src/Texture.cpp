@@ -54,11 +54,30 @@ Bitmap decodeItem(MediaItem *item, int maxEdge) {
 
 // What to key the thumbnail cache on. A remote item has no path, so it falls
 // back to the uri it was addressed by.
+// Whether this item's bytes come off the network. The same walk decodeItem
+// does: the set an item belongs to knows which source made it.
+bool itemLoadsOverNetwork(const MediaItem *item) {
+    if (item == nullptr) {
+        return false;
+    }
+    MediaSet *set = item->mParentMediaSet;
+    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
+    return source != nullptr && source->readsBlockOnNetwork();
+}
+
 const std::string &cacheIdentity(const MediaItem *item) {
     return item->mFilePath.empty() ? item->mContentUri : item->mFilePath;
 }
 
 }  // namespace
+
+bool FileTexture::loadsOverNetwork() const {
+    return itemLoadsOverNetwork(mItem);
+}
+
+bool MediaItemTexture::loadsOverNetwork() const {
+    return itemLoadsOverNetwork(mItem);
+}
 
 Bitmap ResourceTexture::load(RenderView *view) {
     (void)view;

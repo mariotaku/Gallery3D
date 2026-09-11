@@ -219,6 +219,21 @@ void RenderView::shutdown() {
             }
         }
         mLoadThreads.clear();
+
+        // However many of these are alive, which may be none.
+        mNetworkCondition.notify_all();
+        std::vector<std::thread> networkThreads;
+        {
+            std::lock_guard<std::mutex> lock(mNetworkMutex);
+            networkThreads.swap(mNetworkThreads);
+            mNetworkFinished.clear();
+            mNetworkQueue.clear();
+        }
+        for (std::thread &thread : networkThreads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
     }
     mRootLayer = nullptr;
     mLists.clear();
@@ -515,6 +530,25 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
     texture->mState = Texture::STATE_LOADING;
     texture->mOwner = this;
 
+    // A read that goes over the network is nearly all waiting, so it goes to
+    // the elastic pool instead of the decode threads. A stalled download there
+    // costs one waiting thread; here it used to cost a quarter of the wall.
+    if (texture->loadsOverNetwork()) {
+        {
+            std::lock_guard<std::mutex> lock(mNetworkMutex);
+            if (highPriority) {
+                mNetworkQueue.push_front(texture);
+            } else {
+                mNetworkQueue.push_back(texture);
+            }
+            reapNetworkThreadsLocked();
+            growNetworkPoolLocked();
+        }
+        mNetworkCondition.notify_one();
+        ++mLoadingCount;
+        return;
+    }
+
     {
         std::lock_guard<std::mutex> lock(mQueueMutex);
         std::deque<TexturePtr> &inputQueue = texture->isUncachedVideo() ? mLoadInputQueueVideo
@@ -747,6 +781,82 @@ void RenderView::textureLoadThread(int index) {
         }
         loadTextureAsync(texture);
         mThreadIsLoading[index].store(false);
+
+        {
+            std::lock_guard<std::mutex> lock(mQueueMutex);
+            mLoadOutputQueue.push_back(texture);
+        }
+        requestRender();
+    }
+}
+
+void RenderView::reapNetworkThreadsLocked() {
+    if (mNetworkFinished.empty()) {
+        return;
+    }
+    for (const std::thread::id &id : mNetworkFinished) {
+        for (size_t i = 0; i < mNetworkThreads.size(); ++i) {
+            if (mNetworkThreads[i].get_id() == id) {
+                if (mNetworkThreads[i].joinable()) {
+                    mNetworkThreads[i].join();
+                }
+                mNetworkThreads.erase(mNetworkThreads.begin() + (long)i);
+                break;
+            }
+        }
+    }
+    mNetworkFinished.clear();
+}
+
+void RenderView::growNetworkPoolLocked() {
+    // Only when every thread already has something to do. Downloads are
+    // latency, so the way to go faster is more of them in flight, but the
+    // ceiling is politeness to whatever is serving them.
+    if (mNetworkIdleCount > 0) {
+        return;
+    }
+    if (mNetworkThreadCount >= MAX_NETWORK_LOAD_THREADS) {
+        return;
+    }
+    if (!mLoadThreadsRunning.load()) {
+        return;
+    }
+    ++mNetworkThreadCount;
+    mNetworkThreads.emplace_back([this]() { networkLoadThread(); });
+    SDL_Log("Network pool grew to %d thread%s", mNetworkThreadCount, mNetworkThreadCount == 1 ? "" : "s");
+}
+
+void RenderView::networkLoadThread() {
+    const auto idleTimeout = std::chrono::seconds(NETWORK_THREAD_IDLE_SECONDS);
+    for (;;) {
+        TexturePtr texture;
+        {
+            std::unique_lock<std::mutex> lock(mNetworkMutex);
+            ++mNetworkIdleCount;
+            const bool woken = mNetworkCondition.wait_for(lock, idleTimeout, [this]() {
+                return !mNetworkQueue.empty() || !mLoadThreadsRunning.load();
+            });
+            --mNetworkIdleCount;
+
+            if (!mLoadThreadsRunning.load()) {
+                mNetworkFinished.push_back(std::this_thread::get_id());
+                --mNetworkThreadCount;
+                return;
+            }
+            if (!woken || mNetworkQueue.empty()) {
+                // Nothing to do for long enough to stop being worth a thread.
+                // Leaving the handle behind because a thread cannot join
+                // itself; whoever queues the next fetch picks it up.
+                mNetworkFinished.push_back(std::this_thread::get_id());
+                --mNetworkThreadCount;
+                SDL_Log("Network pool retired an idle thread, %d left", mNetworkThreadCount);
+                return;
+            }
+            texture = mNetworkQueue.front();
+            mNetworkQueue.pop_front();
+        }
+
+        loadTextureAsync(texture);
 
         {
             std::lock_guard<std::mutex> lock(mQueueMutex);

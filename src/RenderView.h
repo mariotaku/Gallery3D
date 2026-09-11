@@ -51,6 +51,15 @@ class RenderLists {
 class RenderView {
   public:
     static const int NUM_TEXTURE_LOAD_THREADS = 4;
+    // The network pool is elastic, so this is a ceiling rather than a count.
+    // Those threads are nearly all latency, so several can be in flight for
+    // what one decode costs; the ceiling is politeness to the server at the
+    // other end rather than a limit of ours.
+    static const int MAX_NETWORK_LOAD_THREADS = 6;
+    // How long an idle network thread waits before retiring. Long enough to
+    // survive scrolling from one album to the next, short enough that an app
+    // left alone is not holding threads and sockets open.
+    static const int NETWORK_THREAD_IDLE_SECONDS = 45;
     static const int MAX_LOADING_COUNT = 8;
 
     RenderView();
@@ -181,6 +190,14 @@ class RenderView {
     void updateLists();
     Layer *hitTest(float x, float y);
     void textureLoadThread(int index);
+    // One elastic worker. Returns, and so retires, when it has had nothing to
+    // do for NETWORK_THREAD_IDLE_SECONDS.
+    void networkLoadThread();
+    // Starts a thread if every one of them is busy and there is room. Call with
+    // mNetworkMutex held.
+    void growNetworkPoolLocked();
+    // Joins whatever has retired since last time. Call with mNetworkMutex held.
+    void reapNetworkThreadsLocked();
 
     SDL_Window *mWindow = nullptr;
     int mViewWidth = 0;
@@ -246,6 +263,22 @@ class RenderView {
     std::vector<std::thread> mLoadThreads;
     std::atomic<bool> mLoadThreadsRunning{false};
     std::atomic<bool> mThreadIsLoading[NUM_TEXTURE_LOAD_THREADS];
+
+    // The network pool. Kept apart from the decode pool because the work is a
+    // different kind: a decode is busy, a download is waiting, and one stalled
+    // download used to be able to hold up a quarter of the wall.
+    //
+    // It starts at nothing and grows only when there is something to fetch, so
+    // a session that never touches a remote source never starts a thread here.
+    std::deque<TexturePtr> mNetworkQueue;
+    std::mutex mNetworkMutex;
+    std::condition_variable mNetworkCondition;
+    // Threads that have retired and are waiting to be joined. A thread cannot
+    // join itself, so it leaves its handle here for the next one through.
+    std::vector<std::thread> mNetworkThreads;
+    std::vector<std::thread::id> mNetworkFinished;
+    int mNetworkThreadCount = 0;
+    int mNetworkIdleCount = 0;
 
     std::deque<MotionEvent> mTouchEventQueue;
     // The pointer's last position, and whether it has moved since the render

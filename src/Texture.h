@@ -35,6 +35,14 @@ class Texture {
         return true;
     }
 
+    // Whether loading this one goes over the network, which decides which pool
+    // it is queued on. Per texture rather than per wall: one wall can hold a
+    // local album and a remote one side by side, through
+    // ConcatenatedDataSource.
+    virtual bool loadsOverNetwork() const {
+        return false;
+    }
+
     // Whether to build a mip chain. Worth it only for something drawn much
     // smaller than it is stored, which on this wall means the grid thumbnails:
     // zoomed out they minify hard, and one bilinear tap out of a full size
@@ -117,6 +125,8 @@ class FileTexture : public Texture {
     explicit FileTexture(std::string path, int maxEdge = MAX_RESOLUTION, MediaItem *item = nullptr)
         : mPath(std::move(path)), mMaxEdge(maxEdge), mItem(item) {}
 
+    bool loadsOverNetwork() const override;
+
     Bitmap load(RenderView *view) override;
 
   private:
@@ -134,6 +144,8 @@ class MediaItemTexture : public Texture {
     };
 
     MediaItemTexture(const Config *config, MediaItem *item) : mConfig(config), mItem(item) {}
+
+    bool loadsOverNetwork() const override;
 
     // Only the grid thumbnails. The fullscreen path draws close to one to one.
     bool wantsMipmaps() const override {

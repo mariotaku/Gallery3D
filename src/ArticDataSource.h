@@ -49,6 +49,9 @@ class ArticDataSource : public DataSource {
     void loadMediaSets(MediaFeed *feed) override;
     void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
+    bool readsBlockOnNetwork() const override {
+        return true;
+    }
     // supportsOperation is left alone. A museum's catalogue is not ours to
     // delete from, and the default already says no to everything.
 

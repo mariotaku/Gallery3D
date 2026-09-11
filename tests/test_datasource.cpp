@@ -17,6 +17,7 @@
 #include "MediaFeed.h"
 #include "MediaItem.h"
 #include "MediaSet.h"
+#include "Texture.h"
 
 namespace {
 
@@ -200,4 +201,75 @@ TEST(decoding_rubbish_from_memory_fails_rather_than_crashes) {
     const uint8_t rubbish[] = {0x00, 0x01, 0x02, 0x03, 0x04};
     CHECK(!Bitmap::loadFromMemory(rubbish, sizeof(rubbish), 0).valid());
     CHECK(!Bitmap::loadFromMemory(nullptr, 0, 0).valid());
+}
+
+namespace {
+
+// Stands in for a source whose reads go over the wire.
+class NetworkSource : public ReadOnlySource {
+  public:
+    bool readsBlockOnNetwork() const override {
+        return true;
+    }
+};
+
+}  // namespace
+
+TEST(only_a_network_source_says_its_reads_block) {
+    // The default has to be no. A source that forgets to say so gets its reads
+    // decoded on the pool sized for local work, which is the safe way round:
+    // the other way, a local decode would sit in the elastic pool waiting for
+    // a thread that exists to absorb latency.
+    LocalDataSource local("nowhere");
+    CHECK(!local.readsBlockOnNetwork());
+
+    ReadOnlySource plain;
+    CHECK(!plain.readsBlockOnNetwork());
+
+    NetworkSource network;
+    CHECK(network.readsBlockOnNetwork());
+}
+
+TEST(concatenated_says_yes_if_either_side_is_remote) {
+    NetworkSource network;
+    ReadOnlySource local;
+
+    ConcatenatedDataSource mixed(&local, &network);
+    CHECK(mixed.readsBlockOnNetwork());
+
+    ConcatenatedDataSource allLocal(&local, &local);
+    CHECK(!allLocal.readsBlockOnNetwork());
+}
+
+TEST(a_texture_is_routed_by_the_source_that_made_its_item) {
+    // Per item, not per wall. ConcatenatedDataSource puts a local album and a
+    // remote one on the same wall, and each item has to go to the right pool.
+    NetworkSource network;
+    Fixture remote(&network);
+
+    ReadOnlySource local;
+    Fixture nearby(&local);
+
+    FileTexture remoteTexture("nowhere.jpg", 256, remote.item);
+    CHECK(remoteTexture.loadsOverNetwork());
+
+    FileTexture localTexture("nowhere.jpg", 256, nearby.item);
+    CHECK(!localTexture.loadsOverNetwork());
+
+    MediaItemTexture::Config config;
+    MediaItemTexture remoteThumb(&config, remote.item);
+    CHECK(remoteThumb.loadsOverNetwork());
+
+    MediaItemTexture localThumb(&config, nearby.item);
+    CHECK(!localThumb.loadsOverNetwork());
+}
+
+TEST(a_texture_with_no_item_is_never_routed_to_the_network) {
+    // Chrome and resource art have no media item behind them. They must not end
+    // up in a pool that may have no threads running at all.
+    FileTexture orphan("nowhere.jpg");
+    CHECK(!orphan.loadsOverNetwork());
+
+    ResourceTexture resource("icon_home_small", false);
+    CHECK(!resource.loadsOverNetwork());
 }

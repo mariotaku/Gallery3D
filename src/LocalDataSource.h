@@ -49,6 +49,14 @@ class DataSource {
     // not files on this disk. Returning false means the item is a local file
     // and mFilePath should be read instead, which is what keeps the local
     // source free of any copying. Called on a loader thread.
+    // True when reading an item's bytes goes over the network. Such a read is
+    // nearly all waiting rather than work, so it belongs in a pool of its own:
+    // a handful can be in flight for what one decode costs in cpu, and a
+    // stalled one must not be able to hold up a decode.
+    virtual bool readsBlockOnNetwork() const {
+        return false;
+    }
+
     virtual bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
         (void)item;
         (void)bytes;
