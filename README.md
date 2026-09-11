@@ -271,21 +271,31 @@ time bar. Timeline clustering is the real thing, delete and rotate work, the
 details sheet says what is known about a selection, and a video opens in
 whatever the desktop plays it with.
 
-Still missing, and wanted: reverse geocoding, which needs a service the port
-does not have, and a build on anything other than Windows. Location filtering
-is written and wired - the button, the crumb, the filter - but the place name
-it filters on is what the geocoder would have supplied, so it is the one
-control here with nothing behind it.
+Still missing and wanted: a build on anything other than Windows. That is the
+whole list.
 
-Deliberately not ported: the crop screen and the wallpaper service, since this
-gallery shows pictures rather than edits them. Picasa sync, whose service is
-long gone, though the `DataSource` interface it implemented is still the seam
-another storage backend would use. The home screen widget, which has no desktop
-equivalent. And the `ImageManager` content provider plumbing, which is Android
-specific throughout.
+Deliberately not ported, and closed rather than pending:
 
-Share is gone for the same reason as crop: the original opened Android's share
-sheet, and a desktop has nothing to open in its place.
+- The crop screen, set as wallpaper, and share. This gallery shows pictures
+  rather than edits them, and the share sheet has no desktop counterpart.
+- The wallpaper service and the home screen widget, neither of which a desktop
+  has anywhere to put.
+- Picasa sync, whose service is long gone. The `DataSource` interface it
+  implemented is still the seam another storage backend would use.
+- Reverse geocoding, which would mean sending someone else's coordinates to a
+  third party. `LocationMediaFilter` and the filtering behind it stay unported
+  with it. The slot's location button and the filter it opens are here and
+  correct, but both are reached only through a place name, so without a
+  geocoder neither ever appears.
+- `ImageManager` and the content provider plumbing, which is Android specific
+  throughout.
+- `MovieView`, the video player. It was a separate activity with a `VideoView`,
+  never part of the wall: 2.3 had no way to put video in a GL texture, since
+  `SurfaceTexture` arrived in the release after this code was frozen. The wall
+  showed a still and a play triangle and handed the file to a player, which is
+  what this does.
+- `GridQuadMesh`, `VirtualFeed`, `PagedFeed` and `ContextMenu`, which nothing
+  in the original references either.
 
 ## Licence
 
