@@ -381,23 +381,15 @@ bool ArticDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes
     if (item == nullptr || item->mContentUri.empty()) {
         return false;
     }
-    {
-        std::lock_guard<std::mutex> lock(mImageCacheMutex);
-        auto cached = mImageCache.find(item->mContentUri);
-        if (cached != mImageCache.end()) {
-            *bytes = cached->second;
-            return true;
-        }
+    if (mImageCache.get(item->mContentUri, bytes)) {
+        return true;
     }
 
     std::vector<uint8_t> downloaded;
     if (!fetch(item->mContentUri, &downloaded) || downloaded.empty()) {
         return false;
     }
-    {
-        std::lock_guard<std::mutex> lock(mImageCacheMutex);
-        mImageCache[item->mContentUri] = downloaded;
-    }
+    mImageCache.put(item->mContentUri, downloaded);
     *bytes = std::move(downloaded);
     return true;
 }

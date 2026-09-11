@@ -36,6 +36,7 @@
 
 #include <nlohmann/json_fwd.hpp>
 
+#include "ByteCache.h"
 #include "LocalDataSource.h"
 
 class ArticDataSource : public DataSource {
@@ -52,6 +53,11 @@ class ArticDataSource : public DataSource {
     // delete from, and the default already says no to everything.
 
   private:
+    // How much of the downloaded jpeg to keep. Enough for a couple of albums
+    // being browsed at once, and small next to what the textures themselves
+    // take on the card.
+    static constexpr size_t kImageCacheBudget = 32 * 1024 * 1024;
+
     // A category worth putting on the wall. Small and copyable, because it is
     // kept until the album is opened.
     struct Album {
@@ -88,9 +94,9 @@ class ArticDataSource : public DataSource {
     std::set<int64_t> mFullyLoaded;
     std::mutex mAlbumMutex;
 
-    // Every image, keyed by the url it came from. A thumbnail, a screennail and
-    // a zoomed view are three reads of the same picture, and without this each
-    // would be its own download.
-    std::map<std::string, std::vector<uint8_t>> mImageCache;
-    std::mutex mImageCacheMutex;
+    // The images, keyed by the url they came from. A thumbnail, a screennail
+    // and a zoomed view are three reads of the same picture, and without this
+    // each would be its own download. Bounded, because an album is a hundred
+    // artworks and the wall holds twelve of them.
+    ByteCache mImageCache{kImageCacheBudget};
 };
