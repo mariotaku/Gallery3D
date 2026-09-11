@@ -7,11 +7,10 @@
 // where, and adding a third source is another wrapper rather than a change
 // here.
 //
-// The one thing a second source cannot do yet is serve pixels from anywhere but
-// the filesystem. MediaItemTexture and FileTexture both read mFilePath through
-// SDL_image, so a remote source has to put a file on disk and point mFilePath
-// at it. Giving MediaItem a way to hand back bytes instead is the next step,
-// and SDL_image can already load from memory.
+// Pixels route the same way. A source hands back the encoded bytes of an item
+// through requestItemBytes, so nothing has to be a file on this disk, and the
+// tiled fullscreen view asks the item's own source for a rectangle of the
+// original. Both go to the source that made the set, not through here.
 #pragma once
 
 #include "LocalDataSource.h"

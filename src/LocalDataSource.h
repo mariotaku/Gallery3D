@@ -78,6 +78,45 @@ class DataSource {
         (void)bytes;
         return false;
     }
+
+    // Whether this source can hand over one rectangle of an original rather
+    // than the whole of it. That is what the tiled fullscreen view is built
+    // on: it draws a picture as a grid of pieces and only ever asks for the
+    // pieces on screen.
+    //
+    // Few can. SDL_image decodes a whole file or nothing - there is no
+    // sub-rectangle in the api, and the web build's stb backend has none
+    // either - so a source whose pictures are files on this disk says no here
+    // and the fullscreen view keeps to the screennail it already had.
+    //
+    // A source that fetches is a different matter. IIIF puts the rectangle in
+    // the url, so the museum's server does the cropping and the scaling and
+    // sends back a piece the size of a tile. The region decoder is on the
+    // other end of the wire.
+    virtual bool supportsRegions() const {
+        return false;
+    }
+
+    // The encoded bytes of the rectangle (x, y, width, height) of the item's
+    // original, scaled to outWidth by outHeight. The rectangle is in the
+    // original's own pixels, which is what MediaItem::mFullWidth counts.
+    //
+    // Only called on a source that said yes above. Answers the same way
+    // requestItemBytes does: before it returns, or long after.
+    virtual void requestRegionBytes(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                                    BytesCallback done) {
+        (void)x;
+        (void)y;
+        (void)width;
+        (void)height;
+        (void)outWidth;
+        (void)outHeight;
+        (void)item;
+        if (done) {
+            done(false, std::vector<uint8_t>());
+        }
+    }
+
     virtual void shutdown() {}
 };
 

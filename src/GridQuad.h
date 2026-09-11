@@ -33,6 +33,16 @@ class GridQuad {
         return mHeight;
     }
 
+    // Places the quad over one rectangle instead of the whole picture, and
+    // maps one rectangle of a texture onto it. For the tiled fullscreen view,
+    // which draws the same quad once per tile.
+    //
+    // The corner naming follows the quad's own axes, not the screen's. Local
+    // +x is screen left and local +y is screen up, which is why the base quad
+    // hands its rightmost vertex the texture coordinate zero.
+    void setCorners(float xMin, float yMin, float xMax, float yMax, float uAtXMin, float vAtYMin, float uAtXMax,
+                    float vAtYMax);
+
     void update(float timeElapsed);
     void commit();
     void recomputeQuad();

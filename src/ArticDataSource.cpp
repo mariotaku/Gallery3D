@@ -25,7 +25,12 @@ const int kItemsPerPage = 100;
 
 // The fields an artwork needs to become a MediaItem. Asking for only these
 // keeps the responses small enough to parse without noticing.
-const char *const kArtworkFields = "id,title,image_id,artist_title,date_end";
+// thumbnail is asked for because of its width and height, which are the
+// original's own, not the thumbnail's. The tiled fullscreen view needs the size
+// of the picture before it can work out which part of it is on screen, and this
+// way it costs nothing: the field rides along with the search that was being
+// made anyway, rather than a second request per artwork to iiif info.json.
+const char *const kArtworkFields = "id,title,image_id,artist_title,date_end,thumbnail";
 
 // One json request. Like Http::getAsync, the callback runs inline natively and
 // from the browser on the web.
@@ -73,6 +78,13 @@ std::unique_ptr<MediaItem> ArticDataSource::makeItem(const nlohmann::json &artwo
     item->mThumbnailUri = item->mContentUri;
     item->mScreennailUri = item->mContentUri;
     item->mMimeType = "image/jpeg";
+    // The original's pixels. A Seurat here is 9310 by 6237, against the 843 the
+    // wall asks for, so the zoomed view has somewhere to go.
+    if (artwork.contains("thumbnail") && artwork["thumbnail"].is_object()) {
+        const nlohmann::json &thumbnail = artwork["thumbnail"];
+        item->mFullWidth = (int)intOr(thumbnail, "width", 0);
+        item->mFullHeight = (int)intOr(thumbnail, "height", 0);
+    }
     // The catalogue's year, so the timeline has something to cluster on.
     //
     // Negative is BC and there are a couple of thousand of those here with
@@ -193,7 +205,13 @@ void ArticDataSource::fetchAlbums(MediaFeed *feed, std::function<void(std::vecto
                             "&aggs[categories][aggs][covers][top_hits][_source][includes][]=title"
                             "&aggs[categories][aggs][covers][top_hits][_source][includes][]=image_id"
                             "&aggs[categories][aggs][covers][top_hits][_source][includes][]=artist_title"
-                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=date_end";
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=date_end"
+                            // Carries the original's width and height, which is
+                            // what the tiled fullscreen view lays its grid out
+                            // over. Without it a cover opens to the screennail
+                            // and stays there, while everything else in the
+                            // same album sharpens.
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=thumbnail";
 
     fetchJson(url, [this, feed, done](bool ok, nlohmann::json parsed) {
         if (!ok) {
@@ -455,6 +473,67 @@ void ArticDataSource::requestItemBytes(MediaItem *item, BytesCallback done) {
             return;
         }
         mImageCache.put(url, bytes);
+        done(true, std::move(bytes));
+    });
+}
+
+void ArticDataSource::requestRegionBytes(MediaItem *item, int x, int y, int width, int height, int outWidth,
+                                         int outHeight, BytesCallback done) {
+    if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
+        done(false, std::vector<uint8_t>());
+        return;
+    }
+    // Clamp to the picture. The server answers 502 for a rectangle that runs
+    // off the edge rather than trimming it, so an edge tile asked for at its
+    // full size comes back as a gap. The caller sizes the output for what it
+    // actually gets.
+    if (x < 0) {
+        x = 0;
+    }
+    if (y < 0) {
+        y = 0;
+    }
+    if (x + width > item->mFullWidth) {
+        width = item->mFullWidth - x;
+    }
+    if (y + height > item->mFullHeight) {
+        height = item->mFullHeight - y;
+    }
+    if (width <= 0 || height <= 0) {
+        done(false, std::vector<uint8_t>());
+        return;
+    }
+
+    // The image id is the one path segment of the content url the wall already
+    // holds, between the iiif base and the parameters. Pulled back out rather
+    // than kept alongside, so there is one place that knows how these urls are
+    // put together.
+    const std::string &uri = item->mContentUri;
+    const size_t idStart = uri.rfind('/', uri.find("/full/") - 1);
+    const size_t idEnd = uri.find("/full/");
+    if (idEnd == std::string::npos || idStart == std::string::npos || idStart + 1 >= idEnd) {
+        done(false, std::vector<uint8_t>());
+        return;
+    }
+    const std::string imageId = uri.substr(idStart + 1, idEnd - idStart - 1);
+
+    // region / size / rotation / quality.format, which is the whole of the IIIF
+    // image api. "!w,h" fits inside the box without distorting, the same form
+    // the whole-picture url uses.
+    char parameters[160];
+    SDL_snprintf(parameters, sizeof(parameters), "/%d,%d,%d,%d/!%d,%d/0/default.jpg", x, y, width, height, outWidth,
+                 outHeight);
+    const std::string url = mIiifBase + "/" + imageId + parameters;
+
+    // Not put in mImageCache. A tile is only wanted while one picture is on
+    // screen, and a zoomed walk over a large one would push every thumbnail the
+    // wall is still showing out of a cache sized for thumbnails. The decoded
+    // tiles are the cache, and the texture budget already bounds those.
+    Http::getAsync(url, [done](bool ok, std::vector<uint8_t> bytes) {
+        if (!ok || bytes.empty()) {
+            done(false, std::vector<uint8_t>());
+            return;
+        }
         done(true, std::move(bytes));
     });
 }

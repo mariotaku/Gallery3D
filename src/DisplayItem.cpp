@@ -101,11 +101,26 @@ TexturePtr DisplayItem::getHiResImage() {
     return mHiResImage;
 }
 
+TiledImage *DisplayItem::getTiledImage() {
+    if (!TiledImage::canTile(mItemRef)) {
+        return nullptr;
+    }
+    if (!mTiledImage) {
+        mTiledImage = std::make_unique<TiledImage>(mItemRef);
+    }
+    return mTiledImage.get();
+}
+
 void DisplayItem::clearScreennailImage() {
     if (mScreennailImage) {
         mScreennailImage.reset();
         mHiResImage.reset();
     }
+    mTiledImage.reset();
+}
+
+void DisplayItem::clearTiledImage() {
+    mTiledImage.reset();
 }
 
 void DisplayItem::clearHiResImage() {

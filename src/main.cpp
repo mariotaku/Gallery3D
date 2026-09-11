@@ -337,9 +337,10 @@ void printUsage() {
     SDL_Log("  --frames N           how many frames to render first");
     SDL_Log("  --open N             open album N on the way");
     SDL_Log("  --timeline           switch to the timeline");
-    SDL_Log("  --fullscreen         open a photo fullscreen");
-    SDL_Log("  --zoom               zoom that photo, which is what reaches for the");
-    SDL_Log("                       full resolution texture (needs --fullscreen)");
+    SDL_Log("  --fullscreen [N]     open photo N of the album fullscreen");
+    SDL_Log("  --zoom [N]           zoom that photo N times, which is what reaches for");
+    SDL_Log("                       the tiles or the full resolution texture");
+    SDL_Log("                       (needs --fullscreen)");
     SDL_Log("  --select             enter selection mode and pick one item");
     SDL_Log("  --rotate             rotate the selection (needs --select)");
     SDL_Log("  --delete             delete the selection (needs --select)");
@@ -379,6 +380,9 @@ int main(int argc, char **argv) {
     bool timeline = false;
     // Fullscreen is reached by tapping a photo, so this is the headless way in.
     bool fullscreen = false;
+    // Which photo of the opened album to look at. Sizes differ enough between
+    // artworks that the tiled view behaves differently on one and the next.
+    int fullscreenSlot = 0;
     // Select mode is entered by long pressing a stack, so this is the headless
     // way in. It is also the only thing that exercises the checkmark drawing.
     bool select = false;
@@ -400,6 +404,9 @@ int main(int argc, char **argv) {
     // Zooms the fullscreen photo, which is the only thing that reaches for the
     // hi-res texture. Needs --fullscreen, and fires after it.
     bool zoom = false;
+    // How many times to zoom in. Each step is the same one the double tap
+    // makes, and the tiled view only has somewhere to go past the first.
+    int zoomSteps = 1;
     // Taps a button on the bottom selection bar, so the popup it opens can be
     // captured. Needs --select. -1 for off.
     int popupButton = -1;
@@ -415,6 +422,9 @@ int main(int argc, char **argv) {
             timeline = true;
         } else if (arg == "--fullscreen") {
             fullscreen = true;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                fullscreenSlot = std::max(0, std::atoi(argv[++i]));
+            }
         } else if (arg == "--select") {
             select = true;
         } else if (arg == "--rotate") {
@@ -425,6 +435,9 @@ int main(int argc, char **argv) {
             popupButton = std::atoi(argv[++i]);
         } else if (arg == "--zoom") {
             zoom = true;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                zoomSteps = std::max(1, std::atoi(argv[++i]));
+            }
         } else if (arg == "--tilt" && i + 1 < argc) {
             tilted = true;
             tiltTo = (float)std::atof(argv[++i]);
@@ -903,7 +916,7 @@ int main(int argc, char **argv) {
             gridLayer.setState(GridLayer::STATE_TIMELINE);
         }
         if (fullscreen && frameNumber == (screenshotFrames * 3) / 4) {
-            gridLayer.getInputProcessor()->setCurrentSelectedSlot(0);
+            gridLayer.getInputProcessor()->setCurrentSelectedSlot(fullscreenSlot);
         }
         if (select && frameNumber == (screenshotFrames * 3) / 4) {
             // Not GridLayer::enterSelectionMode: that selects the focused slot,
@@ -925,8 +938,14 @@ int main(int argc, char **argv) {
             press.action = MotionEvent::ACTION_UP;
             bar->onTouchEvent(press);
         }
-        if (zoom && frameNumber == (screenshotFrames * 7) / 8) {
-            gridLayer.zoomInToSelectedItem();
+        // Just after the photo goes fullscreen, rather than near the end. The
+        // tiles of a zoomed picture are fetched over the network, and a
+        // screenshot taken a frame after the zoom would only ever catch the
+        // screennail underneath them.
+        if (zoom && frameNumber == (screenshotFrames * 13) / 16) {
+            for (int step = 0; step < zoomSteps; ++step) {
+                gridLayer.zoomInToSelectedItem();
+            }
         }
         if (scrub && frameNumber == (screenshotFrames * 7) / 8) {
             // Straight at the bar rather than through the hit test list: a

@@ -23,6 +23,15 @@ class GridDrawables {
     static GridQuad *sLocationGrid;
     static GridQuad *sSourceIconGrid;
     static GridQuad *sFullscreenGrid[3];
+    // Drawn once per tile of the zoomed fullscreen picture, moved between
+    // draws. One quad rather than one per tile because a tile is four vertices
+    // and there are a dozen of them: a buffer upload each is cheaper than
+    // keeping a grid of buffers in step with a grid that changes with the zoom.
+    //
+    // Deliberately not in GridLayer's per frame update list. That call
+    // recomputes a quad from its width and height, which would undo the corners
+    // set for the tile being drawn.
+    static GridQuad *sTileGrid;
 
     // Text labels are cached by string, exactly as before.
     static std::map<std::string, std::shared_ptr<StringTexture>> sStringTextureTable;

@@ -67,6 +67,20 @@ class MediaItem {
 
     float mRotation = 0.0f;
 
+    // The original's pixel dimensions, when the source knows them. Zero means
+    // it does not, and nothing may assume a size from the screennail: that one
+    // is fitted to a box and is not the picture's own shape at full size.
+    //
+    // The tiled view needs these before it has seen a single pixel. It has to
+    // lay out a grid over the whole picture to decide which parts of it are on
+    // screen, and it cannot ask an image it has not loaded.
+    int mFullWidth = 0;
+    int mFullHeight = 0;
+
+    bool hasFullSize() const {
+        return mFullWidth > 0 && mFullHeight > 0;
+    }
+
     MediaSet *mParentMediaSet = nullptr;
 
     bool isDateTakenValid() const {

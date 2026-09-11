@@ -146,6 +146,39 @@ class FileTexture : public Texture {
     MediaItem *mItem;
 };
 
+// One rectangle of an item's original, scaled down to a tile.
+//
+// The rectangle is in the original's own pixels. Nothing decodes it here: the
+// source is asked for that rectangle and hands back the encoded bytes of just
+// that piece, which is why only a source that can crop gets one of these. See
+// DataSource::supportsRegions.
+class RegionTexture : public Texture {
+  public:
+    RegionTexture(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight)
+        : mItem(item), mX(x), mY(y), mWidth(width), mHeight(height), mOutWidth(outWidth), mOutHeight(outHeight) {}
+
+    bool loadsOverNetwork() const override;
+    void startLoad(RenderView *view, const TexturePtr &self) override;
+
+    // Drawn at close to one texel per pixel, which is the whole point of
+    // picking the tile's scale from the zoom. A mip chain would be memory spent
+    // on levels nothing samples.
+    bool wantsMipmaps() const override {
+        return false;
+    }
+
+    Bitmap load(RenderView *view) override;
+
+  private:
+    MediaItem *mItem;
+    int mX;
+    int mY;
+    int mWidth;
+    int mHeight;
+    int mOutWidth;
+    int mOutHeight;
+};
+
 // The grid thumbnail for one media item. Replaces MediaItemTexture.
 class MediaItemTexture : public Texture {
   public:

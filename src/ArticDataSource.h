@@ -53,6 +53,13 @@ class ArticDataSource : public DataSource {
     bool readsBlockOnNetwork() const override {
         return true;
     }
+    // The museum serves IIIF, where the rectangle wanted is part of the url, so
+    // a tile is one request and the server does the cropping.
+    bool supportsRegions() const override {
+        return true;
+    }
+    void requestRegionBytes(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                            BytesCallback done) override;
     // supportsOperation is left alone. A museum's catalogue is not ours to
     // delete from, and the default already says no to everything.
 

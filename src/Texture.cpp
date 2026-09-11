@@ -154,6 +154,39 @@ void FileTexture::startLoad(RenderView *view, const TexturePtr &self) {
     decodeItem(mItem, mMaxEdge, [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
 }
 
+bool RegionTexture::loadsOverNetwork() const {
+    return itemLoadsOverNetwork(mItem);
+}
+
+Bitmap RegionTexture::load(RenderView *view) {
+    // Never used: startLoad does the work, because the source may answer later.
+    (void)view;
+    return Bitmap();
+}
+
+void RegionTexture::startLoad(RenderView *view, const TexturePtr &self) {
+    MediaSet *set = (mItem != nullptr) ? mItem->mParentMediaSet : nullptr;
+    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
+    if (source == nullptr || !source->supportsRegions()) {
+        view->finishLoad(self, Bitmap());
+        return;
+    }
+    source->requestRegionBytes(mItem, mX, mY, mWidth, mHeight, mOutWidth, mOutHeight,
+                               [view, self](bool ok, std::vector<uint8_t> bytes) {
+                                   if (!ok || bytes.empty()) {
+                                       view->finishLoad(self, Bitmap());
+                                       return;
+                                   }
+                                   // No size limit here. The source was asked
+                                   // for a tile sized piece and that is what
+                                   // came back, so capping it again would only
+                                   // throw away pixels that were paid for.
+                                   ImageDecode::decode(std::move(bytes), 0, [view, self](Bitmap bitmap) {
+                                       view->finishLoad(self, std::move(bitmap));
+                                   });
+                               });
+}
+
 Bitmap MediaItemTexture::load(RenderView *view) {
     // Never used: startLoad below does the work, because a decode may not
     // answer on this thread. Here because the base class still declares it.

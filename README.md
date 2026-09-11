@@ -154,6 +154,25 @@ gallery3d --screenshot out.png --frames 400
 gallery3d --open 3 --select --popup 1 --screenshot out.png --frames 400
 ```
 
+## The fullscreen picture
+
+Zoomed in, the fullscreen view draws the picture as a grid of tiles, after
+[subsampling-scale-image-view](https://github.com/davemorrissey/subsampling-scale-image-view).
+Only the tiles on screen are fetched, and the grid is rebuilt whenever the zoom
+crosses a power of two, so a tile stays close to one texel per pixel and the
+memory a picture costs follows the screen rather than the original. The
+screennail stays underneath as the bottom layer, so a tile that has not arrived
+yet shows the blurry version of itself rather than a hole.
+
+There is no region decoder in the port, because there is nowhere to get one:
+SDL_image takes a whole file and gives a whole surface, and the web build's stb
+backend is no different. So the cropping belongs to whoever holds the original.
+A `DataSource` says whether it can crop, and `ArticDataSource` can, because IIIF
+puts the wanted rectangle in the url and the museum's server answers with a
+tile. A source whose pictures are files on this disk says no, and the view
+loads the whole picture once at a higher resolution instead, which is what it
+did before tiles existed.
+
 ## Graphics context
 
 It asks SDL for an **ES 2.0** context and falls back to a desktop GL 2.1

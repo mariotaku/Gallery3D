@@ -112,6 +112,15 @@ void GridQuad::recomputeQuad() {
     mQuadChanged = true;
 }
 
+void GridQuad::setCorners(float xMin, float yMin, float xMax, float yMax, float uAtXMin, float vAtYMin,
+                          float uAtXMax, float vAtYMax) {
+    set(0, 0, xMin, yMin, 0.0f, uAtXMin, vAtYMin, true, 0);
+    set(1, 0, xMax, yMin, 0.0f, uAtXMax, vAtYMin, true, 0);
+    set(0, 1, xMin, yMax, 0.0f, uAtXMin, vAtYMax, true, 0);
+    set(1, 1, xMax, yMax, 0.0f, uAtXMax, vAtYMax, true, 0);
+    mQuadChanged = true;
+}
+
 void GridQuad::resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight) {
     // Given u and v we know the aspect ratio of the image, so one axis has to
     // move depending on the image and viewport aspect ratios.

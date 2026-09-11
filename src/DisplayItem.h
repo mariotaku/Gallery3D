@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "Texture.h"
+#include "TiledImage.h"
 #include "Vector3f.h"
 
 class MediaItem;
@@ -24,9 +25,14 @@ class DisplayItem {
     TexturePtr getThumbnailImage(const MediaItemTexture::Config *config);
     TexturePtr getScreennailImage();
     TexturePtr getHiResImage();
+    // The picture as a grid of pieces, for the zoomed fullscreen view. Null
+    // where the item cannot be drawn that way - see TiledImage::canTile - and
+    // the screennail is then all there is.
+    TiledImage *getTiledImage();
 
     void clearScreennailImage();
     void clearHiResImage();
+    void clearTiledImage();
     void clearThumbnail();
 
     bool isAnimating() const;
@@ -70,6 +76,7 @@ class DisplayItem {
     std::shared_ptr<MediaItemTexture> mThumbnailImage;
     TexturePtr mScreennailImage;
     TexturePtr mHiResImage;
+    std::unique_ptr<TiledImage> mTiledImage;
     float mConvergenceSpeed = 1.0f;
 
     bool mPerformingScale = false;

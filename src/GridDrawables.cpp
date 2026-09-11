@@ -14,6 +14,7 @@ GridQuad *GridDrawables::sVideoGrid = nullptr;
 GridQuad *GridDrawables::sLocationGrid = nullptr;
 GridQuad *GridDrawables::sSourceIconGrid = nullptr;
 GridQuad *GridDrawables::sFullscreenGrid[3] = {nullptr, nullptr, nullptr};
+GridQuad *GridDrawables::sTileGrid = nullptr;
 std::map<std::string, std::shared_ptr<StringTexture>> GridDrawables::sStringTextureTable;
 
 void GridDrawables::releaseStringTextures() {
@@ -41,6 +42,8 @@ void GridDrawables::buildQuads(int itemWidth, int itemHeight) {
         sFullscreenGrid[i] = GridQuad::createGridQuad(width, height, 0, 0, 1.0f, oneByAspect, false);
         sFullscreenGrid[i]->setDynamic(true);
     }
+    sTileGrid = GridQuad::createGridQuad(width, height, 0, 0, 1.0f, oneByAspect, false);
+    sTileGrid->setDynamic(true);
 
     // Supplementary quads for the checkmarks, video overlay and location button.
     float sizeOfSelectedIcon = 32.0f * App::PIXEL_DENSITY / (float)itemHeight;
@@ -68,7 +71,7 @@ void GridDrawables::releaseQuads() {
     // The GL buffers go back by hand: these types have no destructor, so delete
     // alone would leak one set of buffers per density change.
     GridQuad *quads[] = {sGrid,         sFullscreenGrid[0], sFullscreenGrid[1], sFullscreenGrid[2], sSelectedGrid,
-                         sVideoGrid,    sLocationGrid,      sSourceIconGrid,    sTextGrid};
+                         sVideoGrid,    sLocationGrid,      sSourceIconGrid,    sTextGrid,          sTileGrid};
     for (GridQuad *quad : quads) {
         if (quad != nullptr) {
             quad->freeHardwareBuffers();
@@ -79,6 +82,7 @@ void GridDrawables::releaseQuads() {
     for (int i = 0; i < 3; ++i) {
         sFullscreenGrid[i] = nullptr;
     }
+    sTileGrid = nullptr;
     sSelectedGrid = nullptr;
     sVideoGrid = nullptr;
     sLocationGrid = nullptr;
@@ -100,6 +104,9 @@ void GridDrawables::onSurfaceCreated(RenderView *view) {
         sFullscreenGrid[i]->freeHardwareBuffers();
         sFullscreenGrid[i]->generateHardwareBuffers();
     }
+
+    sTileGrid->freeHardwareBuffers();
+    sTileGrid->generateHardwareBuffers();
 
     sSelectedGrid->freeHardwareBuffers();
     sVideoGrid->freeHardwareBuffers();
