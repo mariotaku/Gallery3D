@@ -1,6 +1,17 @@
 build/
 # A second build tree, for building while the app from the first one is open.
 build-verify/
+
+# SDL's official Android archives, fetched by android/fetch-deps.sh. They carry
+# prefab modules, so find_package(SDL3 CONFIG) works the same as on the desktop,
+# and the org.libsdl.app Java classes the activity extends.
+android/app/libs/
+android/.gradle/
+android/build/
+android/local.properties
+# Gradle keeps the native build tree under the module, not the project root.
+android/app/build/
+android/app/.cxx/
 .claude/worktrees/
 out/
 vcpkg_installed/

@@ -105,6 +105,19 @@ cmake --build build
 ctest --test-dir build
 ```
 
+Android builds the same CMakeLists through Gradle. It needs the SDK, an NDK and
+a JDK, then:
+
+```sh
+sh android/fetch-deps.sh
+cd android && ./gradlew installDebug
+```
+
+`fetch-deps.sh` downloads SDL's official Android archives, which are not on
+Maven Central. They carry prefab modules, so `find_package(SDL3 CONFIG)` finds
+them the same way it finds vcpkg's copy. minSdk is 24 and the build is
+arm64-v8a. The catalogue and the region decoder are not wired up there yet.
+
 The vcpkg manifest supplies SDL3, SDL3_image (PNG, JPEG, WebP, TIFF), SDL3_ttf
 and other dependencies. Assets are copied next to the binary. Tests run without a window.
 To build and run the Debug tests directly:

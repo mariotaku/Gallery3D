@@ -46,6 +46,20 @@ if(EMSCRIPTEN)
     FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
                               GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(SDL3 SDL3_image SDL3_ttf nlohmann_json)
+elseif(ANDROID)
+    # SDL's own aar archives carry prefab modules, so the same find_package the
+    # desktop uses works here too. android/fetch-deps.sh puts them in app/libs.
+    find_package(SDL3 CONFIG REQUIRED)
+    find_package(SDL3_image CONFIG REQUIRED)
+    find_package(SDL3_ttf CONFIG REQUIRED)
+    # No curl: Http.cpp goes through the platform instead. No libjpeg either,
+    # because cropping a region is BitmapRegionDecoder's job here.
+    # nlohmann/json is a header, so it comes from source as it does on the web.
+    include(FetchContent)
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+    FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
+                              GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(nlohmann_json)
 else()
     find_package(SDL3 CONFIG REQUIRED)
     find_package(SDL3_image CONFIG REQUIRED)
@@ -98,7 +112,14 @@ file(GLOB GALLERY_SOURCES CONFIGURE_DEPENDS
 set(GALLERY_LIB_SOURCES ${GALLERY_SOURCES})
 list(REMOVE_ITEM GALLERY_LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
-add_executable(gallery3d ${GALLERY_SOURCES})
+if(ANDROID)
+    # Android has no process to start. SDLActivity loads this and calls the
+    # main() inside it, and it looks for the library by the name below.
+    add_library(gallery3d SHARED ${GALLERY_SOURCES})
+    set_target_properties(gallery3d PROPERTIES OUTPUT_NAME "main")
+else()
+    add_executable(gallery3d ${GALLERY_SOURCES})
+endif()
 
 target_include_directories(gallery3d PRIVATE "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(gallery3d PRIVATE
@@ -106,9 +127,14 @@ target_link_libraries(gallery3d PRIVATE
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
     nlohmann_json::nlohmann_json)
-if(NOT EMSCRIPTEN)
+if(NOT EMSCRIPTEN AND NOT ANDROID)
     target_link_libraries(gallery3d PRIVATE CURL::libcurl JPEG::JPEG)
     target_compile_definitions(gallery3d PRIVATE GALLERY3D_HAVE_JPEG)
+endif()
+if(ANDROID)
+    # log for SDL's own output, android for the asset manager and the JNI the
+    # media sources go through.
+    target_link_libraries(gallery3d PRIVATE log android)
 endif()
 
 gallery3d_add_warnings(gallery3d)
@@ -137,6 +163,9 @@ if(EMSCRIPTEN)
         # The art and the fonts, baked into a file the runtime mounts.
         --preload-file "${CMAKE_SOURCE_DIR}/assets@/assets"
         --shell-file "${CMAKE_SOURCE_DIR}/tools/web/shell.html")
+elseif(ANDROID)
+    # Nothing to copy. Gradle packs assets/ into the apk, and SDL's file
+    # functions read that through the asset manager.
 else()
     # Assets live next to the binary so the app can find them when run from
     # anywhere.
@@ -148,9 +177,9 @@ endif()
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
-# Native only. They are a console binary that runs to completion, which is not
-# a shape the browser has.
-if(NOT EMSCRIPTEN)
+# Desktop only. They are a console binary that runs to completion, which is
+# neither the browser's shape nor Android's.
+if(NOT EMSCRIPTEN AND NOT ANDROID)
 # Only the parts that hold still: decoding, geometry and layout arithmetic.
 # Anything needing a GL context stays with the screenshot checks instead.
 enable_testing()

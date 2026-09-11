@@ -3,6 +3,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
+#if defined(__ANDROID__)
+// There is no process to start: SDLActivity loads this library and calls in.
+// The header renames main() to the entry point SDL looks for.
+#include <SDL3/SDL_main.h>
+#endif
+
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
 #endif
@@ -62,6 +68,10 @@ std::string assetRoot() {
     // Preloaded into the runtime's filesystem at this path, by the
     // --preload-file in CMakeLists. There is no binary to sit next to.
     return "/assets";
+#elif defined(__ANDROID__)
+    // Packed into the apk. SDL's file functions read a relative path through
+    // the asset manager, so this is the path inside assets/ and not on disk.
+    return "assets";
 #else
     // Assets are copied next to the binary at build time.
     const char *base = SDL_GetBasePath();
