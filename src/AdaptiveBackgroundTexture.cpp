@@ -1,8 +1,10 @@
 #include "AdaptiveBackgroundTexture.h"
 
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
+#include "App.h"
 #include "FloatUtils.h"
 #include "LocalDataSource.h"
 #include "MediaItem.h"
@@ -50,14 +52,26 @@ Bitmap resizeBitmap(const Bitmap &bitmap, int maxSize) {
     return bitmap;
 }
 
-// A box blur is separable, so this runs the kernel along each row and writes
-// the output transposed. Run it twice and the image comes back the right way
-// round, blurred on both axes. The source alpha is discarded; the second pass
-// writes the horizontal fade instead.
+// How opaque this row of the output is. The fade runs along the output's rows,
+// which is this pass's height because of the transpose: full at the first row
+// of the fade and nothing at the last.
 //
-// `fadeFrom` counts along the output's rows, which is this pass's height
-// because of the transpose. Pass `height` itself to mean no fade, which is what
-// the first pass wants.
+// Pass `height` as `fadeFrom` to mean no fade, which is what the first pass
+// wants.
+int fadeAlpha(int y, int height, int fadeFrom) {
+    if (y < fadeFrom || height - 1 <= fadeFrom) {
+        return MAX_COLOR_VALUE;
+    }
+    // The original divided by the width of the fade rather than the number of
+    // steps across it, which starts a few percent down from opaque - enough to
+    // leave a faint line where the copies meet.
+    return (height - 1 - y) * MAX_COLOR_VALUE / (height - 1 - fadeFrom);
+}
+
+// A blur is separable, so this runs the kernel along each row and writes the
+// output transposed. Run it twice and the image comes back the right way round,
+// blurred on both axes. The source alpha is discarded; whichever pass carries
+// the fade puts its own there.
 void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int fadeFrom) {
     int inPos = 0;
     int maxX = width - 1;
@@ -72,14 +86,7 @@ void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int
             green += (int)((argb >> 8) & 0xff);
             blue += (int)(argb & 0xff);
         }
-        int alpha = MAX_COLOR_VALUE;
-        if (y >= fadeFrom && height - 1 > fadeFrom) {
-            // Full at the first row of the fade and nothing at the last. The
-            // original divided by the width of the fade rather than the number
-            // of steps across it, which starts a few percent down from opaque -
-            // enough to leave a faint line where the copies meet.
-            alpha = (height - 1 - y) * MAX_COLOR_VALUE / (height - 1 - fadeFrom);
-        }
+        const int alpha = fadeAlpha(y, height, fadeFrom);
         int outPos = y;
         for (int x = 0; x < width; ++x) {
             out[outPos] = ((uint32_t)alpha << 24) | ((uint32_t)(red / KERNEL_SIZE) << 16) |
@@ -91,6 +98,64 @@ void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int
             red += (int)((nextArgb >> 16) & 0xff) - (int)((prevArgb >> 16) & 0xff);
             green += (int)((nextArgb >> 8) & 0xff) - (int)((prevArgb >> 8) & 0xff);
             blue += (int)(nextArgb & 0xff) - (int)(prevArgb & 0xff);
+            outPos += height;
+        }
+        inPos += width;
+    }
+}
+
+// The weights of a gaussian, normalised, out to three standard deviations. Past
+// that a tap carries less than a two hundredth of the centre one and cannot
+// move an eight bit channel.
+std::vector<float> gaussianKernel(float sigma) {
+    if (sigma < 0.05f) {
+        return std::vector<float>{1.0f};
+    }
+    const int half = (int)std::ceil(sigma * 3.0f);
+    std::vector<float> kernel((size_t)(half * 2 + 1));
+    const float twoSigmaSquared = 2.0f * sigma * sigma;
+    float total = 0.0f;
+    for (int i = -half; i <= half; ++i) {
+        const float weight = std::exp(-(float)(i * i) / twoSigmaSquared);
+        kernel[(size_t)(i + half)] = weight;
+        total += weight;
+    }
+    for (float &weight : kernel) {
+        weight /= total;
+    }
+    return kernel;
+}
+
+// The same shape as boxBlurFilter - along the rows, transposing as it writes -
+// with a gaussian instead of a box.
+//
+// It convolves outright rather than sliding a sum along. A box can add one tap
+// and drop another because all its weights are equal, and these are not. At
+// this size that is a few hundred thousand multiplies for a whole backdrop,
+// which does not show against the two rescales either side of it.
+void gaussianBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int fadeFrom,
+                        const std::vector<float> &kernel) {
+    const int half = (int)(kernel.size() / 2);
+    const int maxX = width - 1;
+    int inPos = 0;
+    for (int y = 0; y < height; ++y) {
+        const int alpha = fadeAlpha(y, height, fadeFrom);
+        int outPos = y;
+        for (int x = 0; x < width; ++x) {
+            float red = 0.0f;
+            float green = 0.0f;
+            float blue = 0.0f;
+            for (int i = -half; i <= half; ++i) {
+                // Clamped at the edges, the same as the box does, so the border
+                // does not fade towards a colour that is not in the photo.
+                const uint32_t argb = in[inPos + FloatUtils::clamp(x + i, 0, maxX)];
+                const float weight = kernel[(size_t)(i + half)];
+                red += weight * (float)((argb >> 16) & 0xff);
+                green += weight * (float)((argb >> 8) & 0xff);
+                blue += weight * (float)(argb & 0xff);
+            }
+            out[outPos] = ((uint32_t)alpha << 24) | ((uint32_t)(int)(red + 0.5f) << 16) |
+                          ((uint32_t)(int)(green + 0.5f) << 8) | (uint32_t)(int)(blue + 0.5f);
             outPos += height;
         }
         inPos += width;
@@ -188,8 +253,14 @@ Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidt
     // it. The first says no fade by passing its own height; either way its
     // alpha is thrown away, since each pass reads only colour and writes its
     // own.
-    boxBlurFilter(in.data(), tmp.data(), cropWidth, cropHeight, cropHeight);
-    boxBlurFilter(tmp.data(), in.data(), cropHeight, cropWidth, fadeFromFor(cropWidth));
+    if (App::BACKDROP_BLUR == App::BACKDROP_BLUR_GAUSSIAN) {
+        const std::vector<float> kernel = gaussianKernel(App::BACKDROP_BLUR_SIGMA);
+        gaussianBlurFilter(in.data(), tmp.data(), cropWidth, cropHeight, cropHeight, kernel);
+        gaussianBlurFilter(tmp.data(), in.data(), cropHeight, cropWidth, fadeFromFor(cropWidth), kernel);
+    } else {
+        boxBlurFilter(in.data(), tmp.data(), cropWidth, cropHeight, cropHeight);
+        boxBlurFilter(tmp.data(), in.data(), cropHeight, cropWidth, fadeFromFor(cropWidth));
+    }
 
     Bitmap filtered(cropWidth, cropHeight);
     uint8_t *out = filtered.pixels();

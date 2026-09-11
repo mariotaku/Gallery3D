@@ -82,12 +82,31 @@
     errorsEl.textContent += text + String.fromCharCode(10);
   }
 
+  // Settings worth trying on the device rather than in a build. The backdrop
+  // blur is the one that matters here: on the web the blur runs on the page's
+  // own thread, so a phone is where a heavier one would be felt, and a phone is
+  // also where rebuilding to try it is the most trouble.
+  //
+  // ?blur=box|gaussian and ?sigma=N.
+  function argumentsFromQuery() {
+    var args = ['--artic'];
+    var blur = /[?&]blur=(box|gaussian)\b/.exec(window.location.search);
+    if (blur) {
+      args.push('--backdrop-blur', blur[1]);
+    }
+    var sigma = /[?&]sigma=([0-9.]+)/.exec(window.location.search);
+    if (sigma) {
+      args.push('--backdrop-sigma', sigma[1]);
+    }
+    return args;
+  }
+
   var Module = {
     canvas: canvas,
     showError: showError,
     // The app reads its own arguments, and the web build browses the museum:
     // there is no local directory to point it at.
-    arguments: ['--artic'],
+    arguments: argumentsFromQuery(),
     print: function (text) { console.log(text); },
     printErr: function (text) { console.error(text); },
     setStatus: function (text) {

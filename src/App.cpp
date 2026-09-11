@@ -26,6 +26,11 @@ float UI_DENSITY = 1.0f;
 float CONTENT_SCALE = 1.5f;
 int SCREEN_NAIL_MAX_EDGE = 1024;
 int HI_RES_MAX_EDGE = 2048;
+int BACKDROP_BLUR = BACKDROP_BLUR_GAUSSIAN;
+// The box blur this replaces is nine taps wide, whose variance is (81 - 1) / 12.
+// The square root of that is 2.58, so a gaussian of this strength spreads a
+// colour about as far and the wall sits on the same amount of wash.
+float BACKDROP_BLUR_SIGMA = 2.58f;
 SafeAreaInsets SAFE_AREA;
 std::string ASSET_ROOT = "assets";
 

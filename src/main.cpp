@@ -327,6 +327,11 @@ void printUsage() {
     SDL_Log("  --also DIR           show a second directory on the same wall");
     SDL_Log("  --scale N            how much bigger the wall is than the phone it was");
     SDL_Log("                       laid out for; raise for bigger stacks, fewer on screen");
+    SDL_Log("  --backdrop-blur KIND how the wash behind the wall is blurred: gaussian");
+    SDL_Log("                       (the default) or box, which is what the original did");
+    SDL_Log("  --backdrop-sigma N   how strong the gaussian is, in pixels of the cropped");
+    SDL_Log("                       photo. 2.58 matches the box it replaces; higher is");
+    SDL_Log("                       a softer wash");
     SDL_Log("  --safe-area L,T,R,B  pretend the window has cutouts, so the layout that");
     SDL_Log("                       keeps controls clear of a notch can be seen here");
     SDL_Log("  --help               this");
@@ -433,6 +438,23 @@ int main(int argc, char **argv) {
             deleteSelection = true;
         } else if (arg == "--popup" && i + 1 < argc) {
             popupButton = std::atoi(argv[++i]);
+        } else if (arg == "--backdrop-blur" && i + 1 < argc) {
+            const std::string kind = argv[++i];
+            if (kind == "box") {
+                App::BACKDROP_BLUR = App::BACKDROP_BLUR_BOX;
+            } else if (kind == "gaussian") {
+                App::BACKDROP_BLUR = App::BACKDROP_BLUR_GAUSSIAN;
+            } else {
+                SDL_Log("Unknown --backdrop-blur %s, wanted box or gaussian", kind.c_str());
+                return 1;
+            }
+        } else if (arg == "--backdrop-sigma" && i + 1 < argc) {
+            const float sigma = (float)std::atof(argv[++i]);
+            if (sigma < 0.0f || sigma > 32.0f) {
+                SDL_Log("--backdrop-sigma %s is outside 0 to 32", argv[i]);
+                return 1;
+            }
+            App::BACKDROP_BLUR_SIGMA = sigma;
         } else if (arg == "--zoom") {
             zoom = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {

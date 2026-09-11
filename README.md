@@ -173,6 +173,31 @@ tile. A source whose pictures are files on this disk says no, and the view
 loads the whole picture once at a higher resolution instead, which is what it
 did before tiles existed.
 
+## The backdrop
+
+The wall sits on a blurred, darkened copy of the photo under the cursor,
+stitched three times across the screen with a quarter of each copy overlapping
+the next, and faded out on its right so the joins disappear.
+
+The blur runs on the cropped photo, about 89 by 44 pixels, before it is scaled
+up - so a whole backdrop costs well under a millisecond and at most sixteen are
+kept. Two kernels:
+
+```sh
+gallery3d --backdrop-blur gaussian          # the default
+gallery3d --backdrop-blur gaussian --backdrop-sigma 6
+gallery3d --backdrop-blur box               # what the original did
+```
+
+A box is one nine tap pass per axis. It is cheap, and on a step between two
+colours it gives a straight ramp with a corner at each end. The gaussian
+defaults to the same spread - 2.58, which is the root of a nine tap box's
+variance - so turning it on changes the shape of the falloff and not the amount
+of wash. Raising the sigma is the way to a softer one.
+
+On the web the same two arrive as `?blur=box` and `?sigma=6`, since a phone is
+where a heavier blur would be felt and the hardest place to rebuild.
+
 ## Graphics context
 
 It asks SDL for an **ES 2.0** context and falls back to a desktop GL 2.1

@@ -41,6 +41,30 @@ extern int SCREEN_NAIL_MAX_EDGE;
 // be larger than the screennail.
 extern int HI_RES_MAX_EDGE;
 
+// How the backdrop behind the wall is blurred.
+//
+// The backdrop is built small - the photo is cropped to about 89 by 44 before
+// anything touches it - so the choice costs almost nothing either way. A whole
+// backdrop, blur and both rescales, takes a fifth of a millisecond, and at most
+// sixteen are kept. This is a knob for how it looks, not for how fast it runs.
+enum BackdropBlur {
+    // What the original did: one nine tap box per axis. Cheap, and a box has a
+    // hard shoulder - on a step between two colours it gives a straight ramp
+    // with a corner at each end.
+    BACKDROP_BLUR_BOX = 0,
+    // A real gaussian. The same amount of blur by default, but the falloff is
+    // smooth, so where two areas of colour meet there is no line to catch on.
+    BACKDROP_BLUR_GAUSSIAN = 1,
+};
+
+extern int BACKDROP_BLUR;
+
+// How strong the gaussian is, as a standard deviation in pixels of the cropped
+// photo. The default matches the spread of the box blur it replaces, so turning
+// it on changes the shape of the falloff and not the amount, and raising it is
+// the way to a softer wash.
+extern float BACKDROP_BLUR_SIGMA;
+
 // The part of the window it is safe to put controls in, as insets in pixels
 // from each edge.
 //
