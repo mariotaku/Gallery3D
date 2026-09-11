@@ -10,10 +10,25 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux, system SDL3",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "linux-debug",
+      "inherits": "linux",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     }
   ],
   "buildPresets": [
     { "name": "debug", "configurePreset": "default", "configuration": "Debug" },
-    { "name": "release", "configurePreset": "default", "configuration": "Release" }
+    { "name": "release", "configurePreset": "default", "configuration": "Release" },
+    { "name": "linux", "configurePreset": "linux" },
+    { "name": "linux-debug", "configurePreset": "linux-debug" }
   ]
 }

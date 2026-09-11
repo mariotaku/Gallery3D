@@ -1,5 +1,6 @@
 // File operations: recycle-bin deletion and in-place EXIF orientation updates.
-// Deletion fails where recycling is unsupported; rotation does not re-encode pixels.
+// Deletion uses the Windows recycle bin and the freedesktop.org trash.
+// Rotation does not re-encode pixels.
 #pragma once
 
 #include <string>
@@ -7,8 +8,7 @@
 namespace FileOperations {
 
 // Moves the file to the desktop's recycle bin. Returns false if it could not,
-// including on platforms where this is not implemented yet - in which case
-// nothing is deleted.
+// in which case nothing is deleted.
 bool moveToTrash(const std::string &path);
 
 // Rewrites EXIF orientation. Without an orientation tag (PNG or EXIF-free JPEG),

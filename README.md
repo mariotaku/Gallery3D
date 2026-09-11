@@ -17,9 +17,10 @@ gallery3d --help
 
 The app scans your Pictures directory, with one album per folder containing images.
 `--help` lists all settings and run options. Videos open in the desktop's default
-player. Delete uses the recycle bin; rotation persists when an EXIF orientation tag
-can be rewritten. Crop, wallpaper, share, Picasa sync and reverse geocoding are
-unavailable; location controls remain hidden without place names.
+player. Delete uses the recycle bin on Windows and the freedesktop.org trash on
+Linux. Rotation persists when an EXIF orientation tag can be rewritten. Crop,
+wallpaper, share, Picasa sync and reverse geocoding are unavailable; location
+controls remain hidden without place names.
 
 Settings precedence is compiled defaults, then INI file, then environment.
 The app searches for `gallery3d.ini` in the working directory, then its platform
@@ -78,14 +79,28 @@ gallery3d --window-size 320x320 --screenshot out.png
 
 ## Building
 
-Requires CMake 3.21+, a C++17 compiler and vcpkg with `VCPKG_ROOT` set.
-Windows is the validated native platform. Graphics require OpenGL ES 2.0 or the
-fallback desktop OpenGL 2.1 compatibility context.
+Requires CMake 3.21+ and a C++17 compiler. Windows and Linux are the validated
+native platforms. Graphics require OpenGL ES 2.0 or the fallback desktop
+OpenGL 2.1 compatibility context.
+
+Windows takes its dependencies from vcpkg, with `VCPKG_ROOT` set:
 
 ```sh
 cmake --preset default
 cmake --build build --config Release
 ctest --test-dir build -C Release
+```
+
+Linux takes them from the distro, so it needs one that packages SDL3 —
+Debian 13 or newer, or an equivalent:
+
+```sh
+sudo apt install build-essential cmake ninja-build pkg-config \
+    libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
+    libcurl4-openssl-dev nlohmann-json3-dev
+cmake --preset linux
+cmake --build build
+ctest --test-dir build
 ```
 
 The vcpkg manifest supplies SDL3, SDL3_image (PNG, JPEG, WebP, TIFF), SDL3_ttf

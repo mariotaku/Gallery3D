@@ -41,6 +41,12 @@
 namespace {
 
 std::string defaultPhotoDirectory() {
+    // Reads the Known Folder on Windows and the XDG user directory on Linux,
+    // so a relocated or translated Pictures folder still resolves.
+    if (const char *pictures = SDL_GetUserFolder(SDL_FOLDER_PICTURES)) {
+        return pictures;
+    }
+    // No XDG config, or a platform SDL has no folder for.
     const char *home = SDL_getenv("USERPROFILE");
     if (home == nullptr) {
         home = SDL_getenv("HOME");
@@ -333,34 +339,39 @@ void applyMinimumSize(SDL_Window *window) {
     SDL_SetWindowMinimumSize(window, minimum, minimum);
 }
 
+// SDL_Log takes a printf format, and GCC rejects an empty one.
+void logBlankLine() {
+    SDL_Log("%s", "");
+}
+
 void printUsage() {
     SDL_Log("Usage: gallery3d [options]");
-    SDL_Log("");
+    logBlankLine();
     SDL_Log("  Browses a directory of photos as a 3D wall, one stack per folder.");
     SDL_Log("  Set library.photos to choose it; the default is your Pictures folder.");
-    SDL_Log("");
+    logBlankLine();
     SDL_Log("Options");
     SDL_Log("  --config PATH        read settings from this file instead of looking");
     SDL_Log("  --help               this");
-    SDL_Log("");
+    logBlankLine();
     SDL_Log("Settings live in an ini file or the environment, not on the command line.");
     SDL_Log("Each is written section.key, and the environment variable follows from the");
     SDL_Log("name:");
-    SDL_Log("");
+    logBlankLine();
     for (const Settings::Known &setting : Settings::known()) {
         SDL_Log("  %-18s %s", setting.name, setting.summary);
         SDL_Log("  %-18s %s", "", Settings::environmentNameFor(setting.name).c_str());
     }
-    SDL_Log("");
+    logBlankLine();
     SDL_Log("The file is looked for in order, first one found wins:");
     for (const std::string &path : Settings::searchPaths()) {
         SDL_Log("  %s", path.c_str());
     }
-    SDL_Log("");
+    logBlankLine();
     SDL_Log("  [backdrop]");
     SDL_Log("  blur = gaussian");
     SDL_Log("  sigma = 4.0");
-    SDL_Log("");
+    logBlankLine();
     SDL_Log("Checking a build without a hand on the mouse. These drive the app to a");
     SDL_Log("state and render a fixed number of frames, so a screenshot is repeatable.");
     SDL_Log("  --window-size WxH    open the window at this size, to see the layout");

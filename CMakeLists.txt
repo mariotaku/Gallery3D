@@ -50,7 +50,9 @@ else()
     find_package(SDL3 CONFIG REQUIRED)
     find_package(SDL3_image CONFIG REQUIRED)
     find_package(SDL3_ttf CONFIG REQUIRED)
-    find_package(CURL CONFIG REQUIRED)
+    # Module mode, not CONFIG. Distro libcurl ships no CMake config package,
+    # and FindCURL looks for one before falling back. Both give CURL::libcurl.
+    find_package(CURL REQUIRED)
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
 
@@ -69,6 +71,19 @@ function(gallery3d_add_backtrace target)
         target_link_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/DEBUG>
                                               $<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
                                               $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
+    endif()
+endfunction()
+
+# The same warning level on every compiler, so a warning that appears on one
+# platform is not a surprise on the next.
+function(gallery3d_add_warnings target)
+    if(MSVC)
+        # 4244 and 4267 are narrowing conversions, which the port does
+        # constantly with float and int sizes.
+        target_compile_options(${target} PRIVATE /W4 /wd4244 /wd4267)
+        target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-unused-parameter)
     endif()
 endfunction()
 
@@ -91,10 +106,7 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(gallery3d PRIVATE CURL::libcurl)
 endif()
 
-if(MSVC)
-    target_compile_options(gallery3d PRIVATE /W4 /wd4244 /wd4267)
-    target_compile_definitions(gallery3d PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
-endif()
+gallery3d_add_warnings(gallery3d)
 gallery3d_add_backtrace(gallery3d)
 
 if(EMSCRIPTEN)
@@ -151,10 +163,7 @@ target_link_libraries(gallery3d_tests PRIVATE
 target_compile_definitions(gallery3d_tests PRIVATE
     GALLERY3D_ASSET_ROOT="${CMAKE_SOURCE_DIR}/assets")
 
-if(MSVC)
-    target_compile_options(gallery3d_tests PRIVATE /W4 /wd4244 /wd4267)
-    target_compile_definitions(gallery3d_tests PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
-endif()
+gallery3d_add_warnings(gallery3d_tests)
 gallery3d_add_backtrace(gallery3d_tests)
 
 add_test(NAME gallery3d_tests COMMAND gallery3d_tests)

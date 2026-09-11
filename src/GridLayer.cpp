@@ -138,7 +138,7 @@ void GridLayer::updateRowsForLayout() {
 }
 
 GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view)
-    : mBackground(this), mLoading(this), mView(view), mLayoutInterface(layoutInterface) {
+    : mLayoutInterface(layoutInterface), mBackground(this), mLoading(this), mView(view) {
     mBufferedVisibleRange.set(Shared::INVALID, Shared::INVALID);
     mVisibleRange.set(Shared::INVALID, Shared::INVALID);
     mCompleteRange.set(Shared::INVALID, Shared::INVALID);

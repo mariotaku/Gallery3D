@@ -193,7 +193,8 @@ Mat4 Mat4::lookAt(float eyeX, float eyeY, float eyeZ, float centerX, float cente
     return result;
 }
 
-MatrixStack::MatrixStack(int maxDepth) : mStack((size_t)maxDepth) {
+// The stack always holds the top matrix, so a depth below one has no meaning.
+MatrixStack::MatrixStack(int maxDepth) : mStack(maxDepth > 1 ? (size_t)maxDepth : 1) {
     glLoadIdentity();
 }
 
