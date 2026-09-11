@@ -75,6 +75,9 @@
   // On a phone there is no console to open, so anything that goes wrong has to
   // say so on the page or it does not get reported at all.
   function showError(text) {
+    // The console as well as the page: the page is for a phone, the console is
+    // for whatever is driving the browser from outside.
+    console.log(text);
     if (!errorsEl) return;
     errorsEl.textContent += text + String.fromCharCode(10);
   }
@@ -128,6 +131,31 @@
               ' dpr ' + (window.devicePixelRatio || 1));
     Module.print = function (text) { console.log(text); showError(text); };
     Module.printErr = function (text) { console.error(text); showError(text); };
+    probeImageServer();
+  }
+
+  // Fetches one artwork four ways and reports what came back.
+  //
+  // The app only ever sees status 0 for a refused request, which says nothing
+  // about why. A plain fetch here gives the browser's own answer, and varying
+  // referrerPolicy says whether the Referer is what the server is weighing -
+  // something that cannot be settled from another machine, because browsers
+  // differ on what they send by default.
+  function probeImageServer() {
+    var url = 'https://www.artic.edu/iiif/2/' +
+              'b34de958-1cbe-065f-4941-c34f64d2b366/full/!200,200/0/default.jpg';
+    var policies = ['default', 'origin', 'unsafe-url', 'no-referrer'];
+    policies.forEach(function (policy) {
+      var options = { mode: 'cors', cache: 'no-store' };
+      if (policy !== 'default') {
+        options.referrerPolicy = policy;
+      }
+      fetch(url, options).then(function (response) {
+        showError('probe ' + policy + ': HTTP ' + response.status + ' (' + response.type + ')');
+      }).catch(function (error) {
+        showError('probe ' + policy + ': FAILED ' + error.message);
+      });
+    });
   }
 </script>
 {{{ SCRIPT }}}
