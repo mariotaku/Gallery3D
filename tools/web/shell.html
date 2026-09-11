@@ -34,18 +34,45 @@
     letter-spacing: 0.02em;
   }
   #status.done { display: none; }
+  /* Errors have to be readable on a phone, where there is no console to open. */
+  #errors {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 40%;
+    overflow: auto;
+    margin: 0;
+    padding: 8px 12px;
+    background: rgba(120, 20, 16, 0.92);
+    color: #fff;
+    font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+  }
+  #errors:empty { display: none; }
 </style>
 </head>
 <body>
 <canvas id="canvas" tabindex="-1"></canvas>
 <div id="status">Loading the wall…</div>
+<pre id="errors"></pre>
 
 <script>
   var statusEl = document.getElementById('status');
   var canvas = document.getElementById('canvas');
 
+  var errorsEl = document.getElementById('errors');
+
+  // On a phone there is no console to open, so anything that goes wrong has to
+  // say so on the page or it does not get reported at all.
+  function showError(text) {
+    if (!errorsEl) return;
+    errorsEl.textContent += text + String.fromCharCode(10);
+  }
+
   var Module = {
     canvas: canvas,
+    showError: showError,
     // The app reads its own arguments, and the web build browses the museum:
     // there is no local directory to point it at.
     arguments: ['--artic'],
@@ -73,9 +100,26 @@
   window.addEventListener('resize', resize);
   resize();
 
-  window.onerror = function (message) {
-    Module.setStatus('Failed: ' + message);
+  window.onerror = function (message, source, line) {
+    showError('error: ' + message + ' (' + (source || '?') + ':' + (line || 0) + ')');
   };
+  window.addEventListener('unhandledrejection', function (event) {
+    showError('unhandled rejection: ' + (event.reason && event.reason.message ? event.reason.message
+                                                                              : event.reason));
+  });
+
+  // Add ?log to the address to see the app's own output on the page. A phone
+  // has no console to open, so without this a fault there can only be described
+  // rather than read.
+  if (/(^|[?&])log($|[&=])/.test(window.location.search)) {
+    showError('WebAssembly: ' + (!!window.WebAssembly) +
+              '  OffscreenCanvas: ' + (typeof OffscreenCanvas !== 'undefined') +
+              '  createImageBitmap: ' + (typeof createImageBitmap === 'function'));
+    showError('screen: ' + window.innerWidth + 'x' + window.innerHeight +
+              ' dpr ' + (window.devicePixelRatio || 1));
+    Module.print = function (text) { console.log(text); showError(text); };
+    Module.printErr = function (text) { console.error(text); showError(text); };
+  }
 </script>
 {{{ SCRIPT }}}
 </body>
