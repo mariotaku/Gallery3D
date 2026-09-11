@@ -1,5 +1,7 @@
 #include "TimeBar.h"
 
+#include "Dates.h"
+
 #include <algorithm>
 #include <cmath>
 #include <ctime>
@@ -151,16 +153,13 @@ void TimeBar::layout() {
             if (item == nullptr) {
                 break;
             }
-            time_t seconds = (time_t)(item->mDateTakenInMs / 1000);
-            struct tm parts;
-#ifdef _WIN32
-            localtime_s(&parts, &seconds);
-#else
-            localtime_r(&seconds, &parts);
-#endif
-            int year = parts.tm_year + 1900;
-            int month = parts.tm_mon;
-            int dayBlock = parts.tm_mday;
+            // Not localtime: it cannot answer for anything before 1970, and
+            // where it fails it hands back a struct of -1, which this read
+            // without noticing and marked the bar up as year 1899 month -1.
+            const Dates::Civil date = Dates::civilFromMs(item->mDateTakenInMs);
+            int year = date.year;
+            int month = date.month;
+            int dayBlock = date.day;
 
             if (year != lastYear) {
                 lastYear = year;

@@ -1,5 +1,7 @@
 #include "MediaFeed.h"
 
+#include <SDL3/SDL.h>
+
 #include <algorithm>
 #include <cstdlib>
 

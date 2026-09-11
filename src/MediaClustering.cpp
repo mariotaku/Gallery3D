@@ -1,5 +1,9 @@
 #include "MediaClustering.h"
 
+#include <SDL3/SDL.h>
+
+#include "Dates.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -28,20 +32,66 @@ MediaItem *lastItemOf(const MediaSet &set) {
     return items.empty() ? nullptr : items.back();
 }
 
-// Formats one timestamp. Local time, because that is how a camera wrote it.
-std::string formatTime(int64_t millis, const char *format) {
-    std::time_t seconds = (std::time_t)(millis / 1000);
-    std::tm parts {};
+// Breaks a timestamp into a date.
+//
+// Local time where the C library can answer, because that is how a camera wrote
+// it, and this is the case every photograph falls into.
+//
+// Its own arithmetic otherwise. localtime refuses anything before 1970 - and on
+// Windows it does so by filling the tm with -1 and returning an error, which
+// this code used to ignore, after which strftime saw tm_mon == -1 and took the
+// process down with it. A museum's catalogue is almost entirely before 1970.
+Dates::Civil dateOf(int64_t millis) {
+    const std::time_t seconds = (std::time_t)(millis / 1000);
+    if (seconds >= 0) {
+        std::tm parts {};
 #if defined(_WIN32)
-    localtime_s(&parts, &seconds);
+        const bool ok = localtime_s(&parts, &seconds) == 0;
 #else
-    localtime_r(&seconds, &parts);
+        const bool ok = localtime_r(&seconds, &parts) != nullptr;
 #endif
-    char buffer[64];
-    if (std::strftime(buffer, sizeof(buffer), format, &parts) == 0) {
-        return std::string();
+        if (ok) {
+            Dates::Civil civil;
+            civil.year = parts.tm_year + 1900;
+            civil.month = parts.tm_mon + 1;
+            civil.day = parts.tm_mday;
+            return civil;
+        }
     }
+    return Dates::civilFromMs(millis);
+}
+
+std::string dayMonthYear(int64_t millis) {
+    const Dates::Civil date = dateOf(millis);
+    char buffer[64];
+    SDL_snprintf(buffer, sizeof(buffer), "%02d %s %s", date.day,
+                 Dates::monthAbbreviation(date.month), Dates::yearLabel(date.year).c_str());
     return std::string(buffer);
+}
+
+std::string dayMonth(int64_t millis) {
+    const Dates::Civil date = dateOf(millis);
+    char buffer[32];
+    SDL_snprintf(buffer, sizeof(buffer), "%02d %s", date.day, Dates::monthAbbreviation(date.month));
+    return std::string(buffer);
+}
+
+std::string monthYear(int64_t millis) {
+    const Dates::Civil date = dateOf(millis);
+    char buffer[64];
+    SDL_snprintf(buffer, sizeof(buffer), "%s %s", Dates::monthAbbreviation(date.month),
+                 Dates::yearLabel(date.year).c_str());
+    return std::string(buffer);
+}
+
+// Sortable, for deciding whether two instants share a day or a year.
+int64_t dayKey(int64_t millis) {
+    const Dates::Civil date = dateOf(millis);
+    return (int64_t)date.year * 10000 + date.month * 100 + date.day;
+}
+
+int yearOf(int64_t millis) {
+    return dateOf(millis).year;
 }
 
 }  // namespace
@@ -223,30 +273,36 @@ void MediaClustering::mergeAndAddCurrentCluster() {
 
 void MediaClustering::generateCaptions() {
     for (std::unique_ptr<MediaSet> &cluster : mClusters) {
-        int64_t minTimestamp = -1;
-        int64_t maxTimestamp = -1;
+        // A flag rather than a negative sentinel. Every date before 1970 is
+        // negative, so -1 for "none" quietly meant "ancient" as well, and every
+        // cluster of old work lost its caption.
+        bool dated = false;
+        int64_t minTimestamp = 0;
+        int64_t maxTimestamp = 0;
         if (cluster->areTimestampsAvailable()) {
             minTimestamp = cluster->mMinTimestamp;
             maxTimestamp = cluster->mMaxTimestamp;
-        } else if (cluster->mMinAddedTimestamp <= cluster->mMaxAddedTimestamp && cluster->mMaxAddedTimestamp > 0) {
+            dated = true;
+        } else if (cluster->areAddedTimestampsAvailable()) {
             minTimestamp = cluster->mMinAddedTimestamp;
             maxTimestamp = cluster->mMaxAddedTimestamp;
+            dated = true;
         }
 
-        if (minTimestamp < 0) {
+        if (!dated) {
             cluster->mName.clear();
         } else {
-            std::string minDay = formatTime(minTimestamp, "%Y%m%d");
-            std::string maxDay = formatTime(maxTimestamp, "%Y%m%d");
-            std::string minYear = formatTime(minTimestamp, "%Y");
-            std::string maxYear = formatTime(maxTimestamp, "%Y");
+            const int64_t minDay = dayKey(minTimestamp);
+            const int64_t maxDay = dayKey(maxTimestamp);
+            const int minYear = yearOf(minTimestamp);
+            const int maxYear = yearOf(maxTimestamp);
             if (minDay == maxDay) {
-                cluster->mName = formatTime(minTimestamp, "%d %b %Y");
+                cluster->mName = dayMonthYear(minTimestamp);
             } else if (minYear == maxYear) {
                 // Same year, so the year only needs saying once.
-                cluster->mName = formatTime(minTimestamp, "%d %b") + " - " + formatTime(maxTimestamp, "%d %b %Y");
+                cluster->mName = dayMonth(minTimestamp) + " - " + dayMonthYear(maxTimestamp);
             } else {
-                cluster->mName = formatTime(minTimestamp, "%b %Y") + " - " + formatTime(maxTimestamp, "%b %Y");
+                cluster->mName = monthYear(minTimestamp) + " - " + monthYear(maxTimestamp);
             }
         }
         cluster->updateNumExpectedItems();

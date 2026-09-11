@@ -24,10 +24,13 @@ class MediaSet {
     std::string mName;
     int mType = TYPE_FOLDER;
 
+    // Unset is the pair being the wrong way round, not zero. A set whose
+    // photographs all predate 1970 has a negative maximum, and testing that
+    // against zero called every one of them undated.
     int64_t mMinTimestamp = std::numeric_limits<int64_t>::max();
-    int64_t mMaxTimestamp = 0;
+    int64_t mMaxTimestamp = std::numeric_limits<int64_t>::lowest();
     int64_t mMinAddedTimestamp = std::numeric_limits<int64_t>::max();
-    int64_t mMaxAddedTimestamp = 0;
+    int64_t mMaxAddedTimestamp = std::numeric_limits<int64_t>::lowest();
 
     double mMinLatLatitude = 91.0;
     double mMinLatLongitude = 0.0;
@@ -86,7 +89,11 @@ class MediaSet {
     }
 
     bool areTimestampsAvailable() const {
-        return mMinTimestamp < std::numeric_limits<int64_t>::max() && mMaxTimestamp > 0;
+        return mMinTimestamp <= mMaxTimestamp;
+    }
+
+    bool areAddedTimestampsAvailable() const {
+        return mMinAddedTimestamp <= mMaxAddedTimestamp;
     }
 
     // Takes ownership and folds the item's time and location into the set bounds.

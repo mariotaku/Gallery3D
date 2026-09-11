@@ -7,6 +7,7 @@
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
 
+#include "Dates.h"
 #include "Http.h"
 #include "JsonValue.h"
 #include "MediaFeed.h"
@@ -73,9 +74,17 @@ std::unique_ptr<MediaItem> ArticDataSource::makeItem(const nlohmann::json &artwo
     item->mScreennailUri = item->mContentUri;
     item->mMimeType = "image/jpeg";
     // The catalogue's year, so the timeline has something to cluster on.
-    int year = (int)intOr(artwork, "date_end", 0);
-    if (year > 1000 && year < 2100) {
-        item->mDateTakenInMs = ((int64_t)(year - 1970)) * 365LL * 24LL * 3600LL * 1000LL;
+    //
+    // Negative is BC and there are a couple of thousand of those here with
+    // pictures - a coffin from 889 BC, a stela from 1877 BC. They used to be
+    // excluded along with everything before the year 1000, back when a date
+    // this old could not be carried or printed.
+    //
+    // Zero stays out: the api gives no year rather than the year 1 BC when it
+    // does not know, and that is also what a missing field reads as.
+    const int year = (int)intOr(artwork, "date_end", 0);
+    if (year != 0 && year > -5000 && year < 2100) {
+        item->mDateTakenInMs = Dates::startOfYearMs(year);
     }
     return item;
 }

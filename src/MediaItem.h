@@ -12,8 +12,21 @@ class MediaItem {
     static const int MEDIA_TYPE_IMAGE = 0;
     static const int MEDIA_TYPE_VIDEO = 1;
 
-    static const int64_t MIN_VALID_DATE_IN_MS = 157680000000LL;
-    static const int64_t MAX_VALID_DATE_IN_MS = 2049840000000LL;
+    // The original bounded a valid capture date to between the end of 1974 and
+    // 2034, on the reasoning that nothing it would ever show predates a digital
+    // camera. That is true of a phone's camera roll and false of anything else:
+    // a museum's catalogue runs from antiquity to last year, and under those
+    // bounds every one of its artworks counted as having no date at all - which
+    // left the time bar with no range to scrub and the clusterer with nothing
+    // to group.
+    //
+    // So a taken date is now valid whenever it is set. Zero still means unknown,
+    // which is what an item starts as and what a source leaves it as when it has
+    // no date to give.
+    //
+    // The added date keeps its bounds. It comes from the filesystem rather than
+    // from the picture, so it really is a recent timestamp or a broken one, and
+    // the range is a sanity check rather than an assumption about the subject.
     static const int64_t MIN_VALID_DATE_IN_SEC = 157680000LL;
     static const int64_t MAX_VALID_DATE_IN_SEC = 2049840000LL;
 
@@ -39,7 +52,7 @@ class MediaItem {
     MediaSet *mParentMediaSet = nullptr;
 
     bool isDateTakenValid() const {
-        return mDateTakenInMs > MIN_VALID_DATE_IN_MS && mDateTakenInMs < MAX_VALID_DATE_IN_MS;
+        return mDateTakenInMs != 0;
     }
 
     bool isDateAddedValid() const {
