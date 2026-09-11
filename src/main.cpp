@@ -1,8 +1,9 @@
 // Entry point, replacing com.cooliris.media.Gallery.
 //
-// Usage: gallery3d [photo directory] [--also directory] [--scale N]
+// Usage: gallery3d [photo directory] [--also directory] [--scale N] [--bordered]
 // Defaults to the user's Pictures folder. --also shows a second directory
-// alongside the first, through ConcatenatedDataSource.
+// alongside the first, through ConcatenatedDataSource. --bordered puts the
+// system title bar back.
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
@@ -106,12 +107,75 @@ bool saveFramebuffer(int width, int height, const std::string &path) {
     return true;
 }
 
+// Where the window can be grabbed once it has no frame of its own.
+//
+// The blurred backdrop is the whole point of the wall, and a title bar sitting
+// on top of it cuts the picture off. Without a frame the backdrop runs to the
+// edge of the window, and this gives back the two things the frame was doing:
+// a strip to drag by, and borders to resize from.
+//
+// Windows will not draw caption buttons for a frameless window, so there are
+// none. Alt+F4 closes, and Escape still does from the album wall.
+SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void *data) {
+    (void)data;
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(window, &width, &height);
+
+    // Wide enough to hit comfortably, and it follows the display scale so it
+    // is the same physical size everywhere.
+    const int border = (int)(6.0f * App::UI_DENSITY + 0.5f);
+    const bool left = area->x < border;
+    const bool right = area->x >= width - border;
+    const bool top = area->y < border;
+    const bool bottom = area->y >= height - border;
+
+    if (top && left) {
+        return SDL_HITTEST_RESIZE_TOPLEFT;
+    }
+    if (top && right) {
+        return SDL_HITTEST_RESIZE_TOPRIGHT;
+    }
+    if (bottom && left) {
+        return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+    }
+    if (bottom && right) {
+        return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+    }
+    if (top) {
+        return SDL_HITTEST_RESIZE_TOP;
+    }
+    if (bottom) {
+        return SDL_HITTEST_RESIZE_BOTTOM;
+    }
+    if (left) {
+        return SDL_HITTEST_RESIZE_LEFT;
+    }
+    if (right) {
+        return SDL_HITTEST_RESIZE_RIGHT;
+    }
+
+    // A strip along the top to drag by, between the two things that already
+    // live up there. A draggable region swallows the click, so it has to stop
+    // short of the path bar on the left and the mode button on the right or
+    // neither would be usable.
+    const int captionHeight = (int)(44.0f * App::UI_DENSITY + 0.5f);
+    const int pathBarWidth = (int)(560.0f * App::UI_DENSITY + 0.5f);
+    const int topRightWidth = (int)(100.0f * App::UI_DENSITY + 0.5f);
+    if (area->y < captionHeight && area->x > pathBarWidth && area->x < width - topRightWidth) {
+        return SDL_HITTEST_DRAGGABLE;
+    }
+    return SDL_HITTEST_NORMAL;
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
     std::string photoDirectory;
     // A second library, shown after the first. Two sources behind one feed.
     std::string alsoDirectory;
+    // The system title bar, off by default so the backdrop reaches the top.
+    bool bordered = false;
     std::string screenshotPath;
     int screenshotFrames = 240;
     // Opens the given album part way through, so the grid view can be captured
@@ -168,6 +232,8 @@ int main(int argc, char **argv) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 scrubAt = (float)std::atof(argv[++i]);
             }
+        } else if (arg == "--bordered") {
+            bordered = true;
         } else if (arg == "--also" && i + 1 < argc) {
             alsoDirectory = argv[++i];
         } else if (arg == "--scale" && i + 1 < argc) {
@@ -196,8 +262,11 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-    SDL_Window *window =
-        SDL_CreateWindow("Gallery3D", 1280, 800, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    SDL_WindowFlags windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    if (!bordered) {
+        windowFlags |= SDL_WINDOW_BORDERLESS;
+    }
+    SDL_Window *window = SDL_CreateWindow("Gallery3D", 1280, 800, windowFlags);
     if (window == nullptr) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
@@ -244,6 +313,10 @@ int main(int argc, char **argv) {
     // The chrome follows the display and not the wall, so a button is the size
     // the screen asks for rather than that times the wall's enlargement.
     App::UI_DENSITY = displayScale;
+    if (!bordered) {
+        // After the density is known, since the hit test regions follow it.
+        SDL_SetWindowHitTest(window, windowHitTest, nullptr);
+    }
     SDL_Log("PIXEL_DENSITY %.3f (display %.3f x content %.3f), UI_DENSITY %.3f, drawables from the %.1fx bucket",
             App::PIXEL_DENSITY, displayScale, App::CONTENT_SCALE, App::UI_DENSITY, App::drawableBucketDensity());
     Canvas::initFonts();
