@@ -11,6 +11,7 @@
 #include "Canvas.h"
 #include "DiskCache.h"
 #include "LocalDataSource.h"
+#include "ImageDecode.h"
 #include "MediaItem.h"
 #include "MediaSet.h"
 #include "RenderView.h"
@@ -34,22 +35,31 @@ void Texture::clear() {
 
 namespace {
 
-// Gets an item's pixels, wherever they live. A source that keeps its photos
-// somewhere other than this disk hands over the encoded bytes; everything else
-// reads the file. Runs on a loader thread either way.
-Bitmap decodeItem(MediaItem *item, int maxEdge) {
+// Gets an item's encoded bytes, wherever they live. A source that keeps its
+// photos somewhere other than this disk hands them over; everything else reads
+// the file. Runs on a loader thread either way, and blocks: a file read is
+// quick, and a network read is already on a thread that exists to wait.
+bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
     if (item == nullptr) {
-        return Bitmap();
+        return false;
     }
     MediaSet *set = item->mParentMediaSet;
     DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
-    if (source != nullptr) {
-        std::vector<uint8_t> bytes;
-        if (source->readItemBytes(item, &bytes) && !bytes.empty()) {
-            return Bitmap::loadFromMemory(bytes.data(), bytes.size(), maxEdge);
-        }
+    if (source != nullptr && source->readItemBytes(item, bytes) && !bytes->empty()) {
+        return true;
     }
-    return Bitmap::load(item->mFilePath, maxEdge);
+    return Bitmap::readFile(item->mFilePath, bytes);
+}
+
+// Bytes to pixels, through the platform's decoder. The callback may run before
+// this returns, which is what happens natively, or later from the browser.
+void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
+    std::vector<uint8_t> bytes;
+    if (!readItemBytes(item, &bytes)) {
+        done(Bitmap());
+        return;
+    }
+    ImageDecode::decode(std::move(bytes), maxEdge, std::move(done));
 }
 
 // What to key the thumbnail cache on. A remote item has no path, so it falls
@@ -70,6 +80,10 @@ const std::string &cacheIdentity(const MediaItem *item) {
 }
 
 }  // namespace
+
+void Texture::startLoad(RenderView *view, const TexturePtr &self) {
+    view->finishLoad(self, load(view));
+}
 
 bool FileTexture::loadsOverNetwork() const {
     return itemLoadsOverNetwork(mItem);
@@ -109,58 +123,80 @@ Bitmap ResourceTexture::load(RenderView *view) {
 
 Bitmap FileTexture::load(RenderView *view) {
     (void)view;
-    if (mItem != nullptr) {
-        return decodeItem(mItem, mMaxEdge);
-    }
+    // Only reached where there is no item behind it, which means a plain path
+    // and a decoder that answers at once.
     return Bitmap::load(mPath, mMaxEdge);
 }
 
-Bitmap MediaItemTexture::load(RenderView *view) {
-    (void)view;
-    if (!mItem) {
-        return Bitmap();
+void FileTexture::startLoad(RenderView *view, const TexturePtr &self) {
+    if (mItem == nullptr) {
+        view->finishLoad(self, Bitmap::load(mPath, mMaxEdge));
+        return;
     }
-    if (mConfig) {
-        // Grid thumbnail. The original pulled a pre-baked, centre cropped
-        // thumbnail out of the disk cache, always 128x96, which the loader then
-        // padded to 128x128. That is why GridDrawables gives the grid quad
-        // texture extents of (1.0, oneByAspect): it expects the image to fill
-        // the full width and exactly oneByAspect of the height of a square
-        // power of two texture. The shipped grid_placeholder.png is 128x96 for
-        // the same reason.
-        //
-        // So pick a power of two side and crop to that ratio, whatever the
-        // display density. Anything else leaves the quad sampling the padding.
-        int side = Shared::nextPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
-        int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
+    decodeItem(mItem, mMaxEdge, [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
+}
 
-        // Decoding a few hundred originals costs seconds on every launch, so
-        // keep the cropped result on disk. The key carries the modification
-        // time and the crop size, because the size follows the display density
-        // and can differ between runs.
-        char suffix[64];
-        SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d", (long long)mItem->mDateModifiedInSec,
-                     side, height);
-        std::string key = cacheIdentity(mItem) + suffix;
-        DiskCache &cache = DiskCache::thumbnails();
-        Bitmap cached = cache.get(key);
-        if (cached.valid() && cached.width() == side && cached.height() == height) {
-            return cached;
-        }
+Bitmap MediaItemTexture::load(RenderView *view) {
+    // Never used: startLoad below does the work, because a decode may not
+    // answer on this thread. Here because the base class still declares it.
+    (void)view;
+    return Bitmap();
+}
 
-        Bitmap decoded = decodeItem(mItem, std::max(side, height) * 2);
+void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
+    if (!mItem) {
+        view->finishLoad(self, Bitmap());
+        return;
+    }
+    if (!mConfig) {
+        // Screennail, used once an item fills the screen, so it is sized to the
+        // window rather than to the original's handset era cap.
+        decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE,
+                   [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
+        return;
+    }
+
+    // Grid thumbnail. The original pulled a pre-baked, centre cropped
+    // thumbnail out of the disk cache, always 128x96, which the loader then
+    // padded to 128x128. That is why GridDrawables gives the grid quad
+    // texture extents of (1.0, oneByAspect): it expects the image to fill
+    // the full width and exactly oneByAspect of the height of a square
+    // power of two texture. The shipped grid_placeholder.png is 128x96 for
+    // the same reason.
+    //
+    // So pick a power of two side and crop to that ratio, whatever the
+    // display density. Anything else leaves the quad sampling the padding.
+    const int side = Shared::nextPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
+    const int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
+
+    // Decoding a few hundred originals costs seconds on every launch, so
+    // keep the cropped result on disk. The key carries the modification
+    // time and the crop size, because the size follows the display density
+    // and can differ between runs.
+    char suffix[64];
+    SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d", (long long)mItem->mDateModifiedInSec, side, height);
+    const std::string key = cacheIdentity(mItem) + suffix;
+    DiskCache &cache = DiskCache::thumbnails();
+    Bitmap cached = cache.get(key);
+    if (cached.valid() && cached.width() == side && cached.height() == height) {
+        view->finishLoad(self, std::move(cached));
+        return;
+    }
+
+    // The cropping and the caching happen after the decode now, wherever that
+    // finishes. Everything the continuation needs is copied into it, since the
+    // texture may outlive this call by a long way.
+    decodeItem(mItem, std::max(side, height) * 2, [view, self, side, height, key](Bitmap decoded) {
         if (!decoded.valid()) {
-            return decoded;
+            view->finishLoad(self, std::move(decoded));
+            return;
         }
         Bitmap cropped = decoded.coverCropped(side, height);
         if (cropped.valid()) {
-            cache.put(key, cropped);
+            DiskCache::thumbnails().put(key, cropped);
         }
-        return cropped;
-    }
-    // Screennail, used once an item fills the screen, so it is sized to the
-    // window rather than to the original's handset era cap.
-    return decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE);
+        view->finishLoad(self, std::move(cropped));
+    });
 }
 
 // ---------------------------------------------------------------------------

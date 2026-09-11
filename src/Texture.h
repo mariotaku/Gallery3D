@@ -10,6 +10,9 @@
 class RenderView;
 class MediaItem;
 
+class Texture;
+using TexturePtr = std::shared_ptr<Texture>;
+
 class Texture {
   public:
     enum State {
@@ -42,6 +45,15 @@ class Texture {
     virtual bool loadsOverNetwork() const {
         return false;
     }
+
+    // Begins a load. May finish before it returns, or much later from another
+    // thread or a browser callback; either way it ends at
+    // RenderView::finishLoad. `self` is the caller's own reference, which keeps
+    // the texture alive for as long as the load takes.
+    //
+    // The default is the synchronous one: load() on this thread, done. That is
+    // every texture whose pixels are already to hand.
+    virtual void startLoad(RenderView *view, const TexturePtr &self);
 
     // Whether to build a mip chain. Worth it only for something drawn much
     // smaller than it is stored, which on this wall means the grid thumbnails:
@@ -96,8 +108,6 @@ class Texture {
     uint64_t mLastUsedFrame = 0;
 };
 
-using TexturePtr = std::shared_ptr<Texture>;
-
 // Loads a PNG out of assets/drawable.
 class ResourceTexture : public Texture {
   public:
@@ -128,6 +138,7 @@ class FileTexture : public Texture {
     bool loadsOverNetwork() const override;
 
     Bitmap load(RenderView *view) override;
+    void startLoad(RenderView *view, const TexturePtr &self) override;
 
   private:
     std::string mPath;
@@ -146,6 +157,7 @@ class MediaItemTexture : public Texture {
     MediaItemTexture(const Config *config, MediaItem *item) : mConfig(config), mItem(item) {}
 
     bool loadsOverNetwork() const override;
+    void startLoad(RenderView *view, const TexturePtr &self) override;
 
     // Only the grid thumbnails. The fullscreen path draws close to one to one.
     bool wantsMipmaps() const override {

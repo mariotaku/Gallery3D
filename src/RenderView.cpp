@@ -584,8 +584,7 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
     ++mLoadingCount;
 }
 
-void RenderView::loadTextureAsync(const TexturePtr &texture) {
-    Bitmap bitmap = texture->load(this);
+void RenderView::applyBitmap(const TexturePtr &texture, Bitmap bitmap) {
     if (bitmap.valid()) {
         int width = bitmap.width();
         int height = bitmap.height();
@@ -605,6 +604,23 @@ void RenderView::loadTextureAsync(const TexturePtr &texture) {
         }
     }
     texture->mBitmap = std::move(bitmap);
+}
+
+void RenderView::loadTextureAsync(const TexturePtr &texture) {
+    applyBitmap(texture, texture->load(this));
+}
+
+void RenderView::finishLoad(const TexturePtr &texture, Bitmap bitmap) {
+    // Where every finished load lands, whoever finished it: a decode thread, a
+    // network thread, or a callback from the browser. The pixels are shaped
+    // here and the render thread picks them up from the queue, which is the one
+    // place that may touch GL.
+    applyBitmap(texture, std::move(bitmap));
+    {
+        std::lock_guard<std::mutex> lock(mQueueMutex);
+        mLoadOutputQueue.push_back(texture);
+    }
+    requestRender();
 }
 
 void RenderView::uploadTexture(const TexturePtr &texture) {
@@ -792,14 +808,8 @@ void RenderView::textureLoadThread(int index) {
         if (index != 0) {
             mThreadIsLoading[index].store(true);
         }
-        loadTextureAsync(texture);
+        texture->startLoad(this, texture);
         mThreadIsLoading[index].store(false);
-
-        {
-            std::lock_guard<std::mutex> lock(mQueueMutex);
-            mLoadOutputQueue.push_back(texture);
-        }
-        requestRender();
     }
 }
 
@@ -869,13 +879,7 @@ void RenderView::networkLoadThread() {
             mNetworkQueue.pop_front();
         }
 
-        loadTextureAsync(texture);
-
-        {
-            std::lock_guard<std::mutex> lock(mQueueMutex);
-            mLoadOutputQueue.push_back(texture);
-        }
-        requestRender();
+        texture->startLoad(this, texture);
     }
 }
 

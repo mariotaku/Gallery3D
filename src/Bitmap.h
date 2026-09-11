@@ -43,6 +43,16 @@ class Bitmap {
     // be written out just to be read straight back.
     static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge);
 
+    // Copies straight (unpremultiplied) RGBA and premultiplies it, which is
+    // what the rest of this draws with. For pixels that came from somewhere
+    // other than SDL_image - a browser's decoder hands back straight alpha.
+    static Bitmap fromStraightRGBA(const uint8_t *pixels, int width, int height);
+
+    // Reads a file whole, without decoding it. The decoder may be somewhere
+    // else entirely - a browser's - so the bytes have to be separable from the
+    // decode.
+    static bool readFile(const std::string &path, std::vector<uint8_t> *bytes);
+
     // Scales into a new bitmap. Uses SDL's linear scaler.
     Bitmap scaled(int newWidth, int newHeight) const;
 

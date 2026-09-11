@@ -182,7 +182,18 @@ class RenderView {
     Program buildProgram(const char *vertexSource, const char *fragmentSource);
     void useProgram(const Program &program);
     void applyUniforms();
+    // Loads on the calling thread and shapes the pixels, without queueing. The
+    // chrome path uses this: it is already on the render thread and uploads
+    // straight away.
     void loadTextureAsync(const TexturePtr &texture);
+    void applyBitmap(const TexturePtr &texture, Bitmap bitmap);
+
+  public:
+    // Hands a finished load back from whichever thread produced it. Safe to
+    // call from a decode thread, a network thread, or a browser callback.
+    void finishLoad(const TexturePtr &texture, Bitmap bitmap);
+
+  private:
     void uploadTexture(const TexturePtr &texture);
     void processTextures(bool processAll);
     // Drops the least recently bound textures once the total passes the

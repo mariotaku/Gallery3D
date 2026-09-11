@@ -129,6 +129,35 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     return finishDecode(IMG_Load_IO(stream, true), maxEdge);
 }
 
+bool Bitmap::readFile(const std::string &path, std::vector<uint8_t> *bytes) {
+    if (path.empty() || bytes == nullptr) {
+        return false;
+    }
+    size_t size = 0;
+    void *data = SDL_LoadFile(path.c_str(), &size);
+    if (data == nullptr) {
+        return false;
+    }
+    const uint8_t *start = (const uint8_t *)data;
+    bytes->assign(start, start + size);
+    SDL_free(data);
+    return !bytes->empty();
+}
+
+Bitmap Bitmap::fromStraightRGBA(const uint8_t *pixels, int width, int height) {
+    if (pixels == nullptr || width <= 0 || height <= 0) {
+        return Bitmap();
+    }
+    Bitmap result(width, height);
+    if (!result.valid()) {
+        return result;
+    }
+    const size_t count = (size_t)width * (size_t)height;
+    std::memcpy(result.pixels(), pixels, count * 4);
+    premultiply(result.pixels(), count);
+    return result;
+}
+
 namespace {
 
 Bitmap finishDecode(SDL_Surface *surface, int maxEdge) {
