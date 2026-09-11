@@ -56,7 +56,7 @@ class Bitmap {
     // Scales to cover the box and centre-crops it.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 
-    // What one pass over a JPEG's EXIF header yields. Either field stays at its
+    // What one pass over a JPEG's header yields. Every field stays at its
     // default when the tag is missing or the file is not a JPEG.
     struct ExifInfo {
         float rotationDegrees = 0.0f;
@@ -66,9 +66,15 @@ class Bitmap {
         // treats as absent.
         double latitude = 0.0;
         double longitude = 0.0;
+        // The frame's pixel size, which comes from the start-of-frame marker
+        // rather than from EXIF. Both stay at zero for a file whose header did
+        // not fit the first pass.
+        int pixelWidth = 0;
+        int pixelHeight = 0;
     };
 
-    // Reads the EXIF orientation, capture date and position of a JPEG in one pass.
+    // Reads the orientation, capture date, position and pixel size of a JPEG in
+    // one pass over its header.
     static ExifInfo readExif(const std::string &path);
 
   private:

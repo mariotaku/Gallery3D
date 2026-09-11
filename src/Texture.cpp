@@ -159,22 +159,12 @@ Bitmap RegionTexture::load(RenderView *view) {
 void RegionTexture::startLoad(RenderView *view, const TexturePtr &self) {
     MediaSet *set = (mItem != nullptr) ? mItem->mParentMediaSet : nullptr;
     DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
-    if (source == nullptr || !source->supportsRegions()) {
+    if (source == nullptr || !source->supportsRegions(mItem)) {
         view->finishLoad(self, Bitmap());
         return;
     }
-    source->requestRegionBytes(mItem, mX, mY, mWidth, mHeight, mOutWidth, mOutHeight,
-                               [view, self](bool ok, std::vector<uint8_t> bytes) {
-                                   if (!ok || bytes.empty()) {
-                                       view->finishLoad(self, Bitmap());
-                                       return;
-                                   }
-                                   // Keep the requested tile resolution; the source already
-                                   // sized it.
-                                   ImageDecode::decode(std::move(bytes), 0, [view, self](Bitmap bitmap) {
-                                       view->finishLoad(self, std::move(bitmap));
-                                   });
-                               });
+    source->requestRegion(mItem, mX, mY, mWidth, mHeight, mOutWidth, mOutHeight,
+                          [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
 }
 
 Bitmap MediaItemTexture::load(RenderView *view) {

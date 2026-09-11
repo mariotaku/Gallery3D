@@ -8,7 +8,9 @@
 #include "Bitmap.h"
 #include "FileOperations.h"
 #include "MediaFeed.h"
+#include "MediaItem.h"
 #include "MediaSet.h"
+#include "RegionDecoder.h"
 
 namespace fs = std::filesystem;
 
@@ -124,6 +126,10 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             item->mRotation = exif.rotationDegrees;
             item->mLatitude = exif.latitude;
             item->mLongitude = exif.longitude;
+            // The full size is what tells the fullscreen view a photo is worth
+            // tiling, and how many tiles it takes.
+            item->mFullWidth = exif.pixelWidth;
+            item->mFullHeight = exif.pixelHeight;
 
             std::error_code error;
             auto writeTime = fs::last_write_time(file, error);
@@ -186,4 +192,47 @@ bool LocalDataSource::performOperation(int operation, MediaItem *item, const voi
 bool LocalDataSource::supportsOperation(int operation) const {
     // Local files support recycling and EXIF rotation.
     return operation == MediaFeed::OPERATION_DELETE || operation == MediaFeed::OPERATION_ROTATE;
+}
+
+bool LocalDataSource::supportsRegions(const MediaItem *item) const {
+    // Asked once per frame while a photo is fullscreen, so it reads no file.
+    // Opening the decoder is what decides for certain, and requestRegion falls
+    // back to nothing if that fails.
+    return item != nullptr && !item->mFilePath.empty() && RegionDecoder::looksSupported(item->mMimeType);
+}
+
+RegionDecoderPtr LocalDataSource::decoderFor(const std::string &path) {
+    std::lock_guard<std::mutex> lock(mDecoderMutex);
+    if (mDecoderPath != path) {
+        // Held across the open so that the decode threads starting on the same
+        // photo together read the file once between them rather than each.
+        mDecoder = RegionDecoder::open(path);
+        mDecoderPath = path;
+    }
+    return mDecoder;
+}
+
+void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth,
+                                    int outHeight, RegionCallback done) {
+    if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
+        done(Bitmap());
+        return;
+    }
+    // Clamp to the image. The caller sizes the output for the trimmed region.
+    x = std::max(0, x);
+    y = std::max(0, y);
+    width = std::min(width, item->mFullWidth - x);
+    height = std::min(height, item->mFullHeight - y);
+    if (width <= 0 || height <= 0) {
+        done(Bitmap());
+        return;
+    }
+    RegionDecoderPtr decoder = decoderFor(item->mFilePath);
+    if (!decoder) {
+        done(Bitmap());
+        return;
+    }
+    // The decode pool already runs this off the render thread, so it answers
+    // before returning rather than queueing work of its own.
+    done(decoder->decodeRegion(x, y, width, height, outWidth, outHeight));
 }

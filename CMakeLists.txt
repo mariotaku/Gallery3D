@@ -53,6 +53,10 @@ else()
     # Module mode, not CONFIG. Distro libcurl ships no CMake config package,
     # and FindCURL looks for one before falling back. Both give CURL::libcurl.
     find_package(CURL REQUIRED)
+    # RegionDecoder crops a tile out of a large JPEG without decoding the rest,
+    # which SDL_image cannot do. SDL_image already links this, so asking for the
+    # headers adds no library.
+    find_package(JPEG REQUIRED)
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
 
@@ -103,7 +107,8 @@ target_link_libraries(gallery3d PRIVATE
     SDL3_ttf::SDL3_ttf
     nlohmann_json::nlohmann_json)
 if(NOT EMSCRIPTEN)
-    target_link_libraries(gallery3d PRIVATE CURL::libcurl)
+    target_link_libraries(gallery3d PRIVATE CURL::libcurl JPEG::JPEG)
+    target_compile_definitions(gallery3d PRIVATE GALLERY3D_HAVE_JPEG)
 endif()
 
 gallery3d_add_warnings(gallery3d)
@@ -159,8 +164,10 @@ target_link_libraries(gallery3d_tests PRIVATE
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
     CURL::libcurl
+    JPEG::JPEG
     nlohmann_json::nlohmann_json)
 target_compile_definitions(gallery3d_tests PRIVATE
+    GALLERY3D_HAVE_JPEG
     GALLERY3D_ASSET_ROOT="${CMAKE_SOURCE_DIR}/assets")
 
 gallery3d_add_warnings(gallery3d_tests)

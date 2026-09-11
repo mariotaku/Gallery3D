@@ -4,8 +4,12 @@
 
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
+
+#include "Bitmap.h"
+#include "RegionDecoder.h"
 
 class MediaFeed;
 class MediaSet;
@@ -44,6 +48,10 @@ class DataSource {
     // returns or long after, so the caller has to be written for both.
     using BytesCallback = std::function<void(bool ok, std::vector<uint8_t> bytes)>;
 
+    // Called with a decoded region, or with an invalid Bitmap. Answers inline
+    // or later, the same as BytesCallback.
+    using RegionCallback = std::function<void(Bitmap bitmap)>;
+
     // Texture-loader entry point; defaults to an inline blocking read and callback.
     virtual void requestItemBytes(MediaItem *item, BytesCallback done) {
         std::vector<uint8_t> bytes;
@@ -59,16 +67,22 @@ class DataSource {
         return false;
     }
 
-    // Whether the source can supply cropped regions for tiled fullscreen rendering.
-    // SDL_image and web stb decode whole files only; IIIF performs cropping on the server.
-    virtual bool supportsRegions() const {
+    // Whether this item can be drawn from cropped regions rather than one
+    // downscaled decode. It takes the item because a local source answers per
+    // file: only some formats have a region decoder behind them.
+    virtual bool supportsRegions(const MediaItem *item) const {
+        (void)item;
         return false;
     }
 
-    // Requests an encoded region in original-image pixels, scaled to outWidth by outHeight.
+    // Requests a region in original-image pixels, decoded at outWidth by outHeight.
     // Only used with supportsRegions; callback may run inline or later.
-    virtual void requestRegionBytes(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
-                                    BytesCallback done) {
+    //
+    // This hands back pixels rather than encoded bytes so each source can reach
+    // them its own way: the museum decodes what the server sends, and a local
+    // file is cropped straight out of the original.
+    virtual void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                               RegionCallback done) {
         (void)x;
         (void)y;
         (void)width;
@@ -77,7 +91,7 @@ class DataSource {
         (void)outHeight;
         (void)item;
         if (done) {
-            done(false, std::vector<uint8_t>());
+            done(Bitmap());
         }
     }
 
@@ -96,6 +110,10 @@ class LocalDataSource : public DataSource {
     bool performOperation(int operation, MediaItem *item, const void *data) override;
     bool supportsOperation(int operation) const override;
 
+    bool supportsRegions(const MediaItem *item) const override;
+    void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                       RegionCallback done) override;
+
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);
 
@@ -108,5 +126,14 @@ class LocalDataSource : public DataSource {
 
     void scan(const std::string &path, std::vector<Folder> &folders) const;
 
+    // The decoder for the photo being zoomed. Opening one reads the whole file,
+    // and a zoom asks for dozens of tiles from the same picture, so it is kept
+    // until another photo needs it. One entry is enough: only one photo is
+    // fullscreen at a time.
+    RegionDecoderPtr decoderFor(const std::string &path);
+
     std::string mRootPath;
+    std::mutex mDecoderMutex;
+    std::string mDecoderPath;
+    RegionDecoderPtr mDecoder;
 };

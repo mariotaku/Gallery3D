@@ -9,6 +9,7 @@
 
 #include "Dates.h"
 #include "Http.h"
+#include "ImageDecode.h"
 #include "JsonValue.h"
 #include "MediaFeed.h"
 #include "MediaItem.h"
@@ -396,10 +397,10 @@ void ArticDataSource::requestItemBytes(MediaItem *item, BytesCallback done) {
     });
 }
 
-void ArticDataSource::requestRegionBytes(MediaItem *item, int x, int y, int width, int height, int outWidth,
-                                         int outHeight, BytesCallback done) {
+void ArticDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth,
+                                    int outHeight, RegionCallback done) {
     if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
-        done(false, std::vector<uint8_t>());
+        done(Bitmap());
         return;
     }
     // Clamp to the image: the server returns 502 for rectangles past its edge.
@@ -417,7 +418,7 @@ void ArticDataSource::requestRegionBytes(MediaItem *item, int x, int y, int widt
         height = item->mFullHeight - y;
     }
     if (width <= 0 || height <= 0) {
-        done(false, std::vector<uint8_t>());
+        done(Bitmap());
         return;
     }
 
@@ -426,7 +427,7 @@ void ArticDataSource::requestRegionBytes(MediaItem *item, int x, int y, int widt
     const size_t idStart = uri.rfind('/', uri.find("/full/") - 1);
     const size_t idEnd = uri.find("/full/");
     if (idEnd == std::string::npos || idStart == std::string::npos || idStart + 1 >= idEnd) {
-        done(false, std::vector<uint8_t>());
+        done(Bitmap());
         return;
     }
     const std::string imageId = uri.substr(idStart + 1, idEnd - idStart - 1);
@@ -441,10 +442,11 @@ void ArticDataSource::requestRegionBytes(MediaItem *item, int x, int y, int widt
     // budget.
     Http::getAsync(url, [done](bool ok, std::vector<uint8_t> bytes) {
         if (!ok || bytes.empty()) {
-            done(false, std::vector<uint8_t>());
+            done(Bitmap());
             return;
         }
-        done(true, std::move(bytes));
+        // The server already sized the tile, so the decode keeps what it sent.
+        ImageDecode::decode(std::move(bytes), 0, [done](Bitmap bitmap) { done(std::move(bitmap)); });
     });
 }
 

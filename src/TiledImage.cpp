@@ -25,7 +25,7 @@ bool TiledImage::canTile(const MediaItem *item) {
     }
     MediaSet *set = item->mParentMediaSet;
     DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
-    return source != nullptr && source->supportsRegions();
+    return source != nullptr && source->supportsRegions(item);
 }
 
 int64_t TiledImage::keyFor(int sampleSize, int column, int row) {

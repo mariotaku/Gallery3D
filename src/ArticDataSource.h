@@ -31,12 +31,14 @@ class ArticDataSource : public DataSource {
         return true;
     }
     // The museum serves IIIF, where the rectangle wanted is part of the url, so
-    // a tile is one request and the server does the cropping.
-    bool supportsRegions() const override {
+    // a tile is one request and the server does the cropping. Every artwork
+    // comes from the same server, so the item does not change the answer.
+    bool supportsRegions(const MediaItem *item) const override {
+        (void)item;
         return true;
     }
-    void requestRegionBytes(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
-                            BytesCallback done) override;
+    void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                       RegionCallback done) override;
     // Default supportsOperation disables delete and rotate.
 
     // Maps an artwork record to an item, or null if it has no picture.

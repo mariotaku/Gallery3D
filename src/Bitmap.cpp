@@ -447,7 +447,14 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                 info.latitude = (latitude == 0.0) ? 1e-9 : latitude;
                 info.longitude = (longitude == 0.0) ? 1e-9 : longitude;
             }
-            break;
+        }
+        // A start-of-frame marker carries the pixel size. The range holds the
+        // baseline and progressive frames; the three gaps in it are the huffman
+        // and arithmetic coding tables, which are not frames.
+        if (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC &&
+            length >= 7) {
+            info.pixelHeight = (int)(((unsigned)header[pos + 5] << 8) | header[pos + 6]);
+            info.pixelWidth = (int)(((unsigned)header[pos + 7] << 8) | header[pos + 8]);
         }
         if (marker == 0xDA) {
             break;

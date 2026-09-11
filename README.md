@@ -67,7 +67,9 @@ Environment names follow the setting: `backdrop.sigma` becomes
 
 The minimum window size is 320x320 display units. On Windows, content extends
 under app-drawn caption buttons while the system retains snapping and resize borders.
-Zoomed museum images load visible tiles; local images load at higher resolution.
+Zoomed images load only the tiles on screen. The museum crops on its server;
+a local JPEG is cropped by libjpeg-turbo, which reads the file once per photo
+rather than once per tile. Other formats stay on one downscaled decode.
 
 For scripted screenshots:
 

@@ -1,6 +1,7 @@
 // Tiled image rendering after davemorrissey/subsampling-scale-image-view.
 // Fetch visible regions at power-of-two sample levels over a fallback screennail.
-// Cropping requires DataSource::supportsRegions; SDL_image/stb cannot decode regions.
+// Cropping requires DataSource::supportsRegions: the museum crops on the server,
+// and a local JPEG goes through RegionDecoder.
 #pragma once
 
 #include <cstdint>
