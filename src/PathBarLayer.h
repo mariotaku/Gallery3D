@@ -50,6 +50,13 @@ class PathBarLayer : public Layer {
     bool onTouchEvent(const MotionEvent &event) override;
     bool containsPoint(float x, float y) override;
 
+    // How far the crumbs actually reach, which is nothing like the room the bar
+    // is allowed. The window's drag region starts where this ends, so guessing
+    // a worst case here costs the pointer somewhere to grab.
+    float barRightEdge() const {
+        return mX + mBarWidth;
+    }
+
   protected:
     void onSizeChanged() override;
 

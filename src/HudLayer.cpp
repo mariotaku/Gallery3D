@@ -75,6 +75,21 @@ float HudLayer::selectionBarTop(float safeTop, float captionHeight) {
     return std::max(safeTop, captionHeight);
 }
 
+float HudLayer::draggableLeft() const {
+    // Past the crumbs, with a little clearance so a grab meant for the bar does
+    // not land on the window instead.
+    return mPathBar.barRightEdge() + 4.0f * App::UI_DENSITY;
+}
+
+float HudLayer::draggableRight() const {
+    // The mode button, and the window buttons where they are drawn.
+    float right = mWidth - App::SAFE_AREA.right - TOP_RIGHT_WIDTH * App::UI_DENSITY;
+    if (WindowFrame::isExtended()) {
+        right -= CaptionButtons::preferredWidth();
+    }
+    return right;
+}
+
 float HudLayer::topBarBottom() const {
     // As tall as whatever is up there: the path bar, and the caption strip when
     // the window's content runs under the title bar.

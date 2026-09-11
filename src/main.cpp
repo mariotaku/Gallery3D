@@ -179,17 +179,20 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
     // The caption strip, which is the app's to drag by now that it is inside
     // the client area. A draggable region swallows the click before the app
     // ever sees it, so it has to stop short of everything up there that is
-    // meant to be clicked: the path bar on the left, and the mode button and
-    // the window buttons on the right.
-    const int safeLeft = (int)App::SAFE_AREA.left;
+    // meant to be pressed: the crumbs on the left, the mode button and the
+    // window buttons on the right.
+    //
+    // The HUD is asked where those actually are. Reserving a fixed width for
+    // the path bar instead left an eighty pixel strip to grab on a window this
+    // wide, because the bar is allowed far more room than one crumb uses.
+    HudLayer *hud = (HudLayer *)data;
+    if (hud == nullptr) {
+        return SDL_HITTEST_NORMAL;
+    }
     const int safeTop = (int)App::SAFE_AREA.top;
-    const int safeRight = width - (int)App::SAFE_AREA.right;
     const int captionBottom = safeTop + (int)(44.0f * App::UI_DENSITY + 0.5f);
-    const int pathBarWidth = safeLeft + (int)(560.0f * App::UI_DENSITY + 0.5f);
-    const int modeButtonWidth = (int)(100.0f * App::UI_DENSITY + 0.5f);
-    const int windowButtonsWidth = (int)(CaptionButtons::preferredWidth() + 0.5f);
-    if (area->y >= safeTop && area->y < captionBottom && area->x > pathBarWidth &&
-        area->x < safeRight - modeButtonWidth - windowButtonsWidth) {
+    if (area->y >= safeTop && area->y < captionBottom && area->x > (int)hud->draggableLeft() &&
+        area->x < (int)hud->draggableRight()) {
         return SDL_HITTEST_DRAGGABLE;
     }
     return SDL_HITTEST_NORMAL;
@@ -567,12 +570,7 @@ int main(int argc, char **argv) {
     applyDisplayScale(window);
     applySafeArea(window, safeAreaOverridden, safeAreaOverride);
 
-    if (WindowFrame::install(window)) {
-        // After the density is known, since the hit test regions follow it. The
-        // top edge and the caption strip now sit inside the client area, so the
-        // app answers for them; the other three edges are still the frame's.
-        SDL_SetWindowHitTest(window, windowHitTest, nullptr);
-    }
+    const bool extendedFrame = WindowFrame::install(window);
     Canvas::initFonts();
 
     RenderView renderView;
@@ -619,6 +617,14 @@ int main(int argc, char **argv) {
         if (accelerometer != nullptr) {
             SDL_Log("Accelerometer open, the wall will lean with the device");
         }
+    }
+
+    if (extendedFrame) {
+        // After the HUD exists, because the hit test asks it where the crumbs
+        // end and where the buttons begin. The top edge and the caption strip
+        // are inside the client area now, so the app answers for them; the
+        // other three edges are still the frame's.
+        SDL_SetWindowHitTest(window, windowHitTest, gridLayer.getHud());
     }
 
     renderView.setRootLayer(&gridLayer);

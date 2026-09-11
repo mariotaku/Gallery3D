@@ -48,6 +48,11 @@ class HudLayer : public Layer {
     // it can be checked without a window to ask.
     static float selectionBarTop(float safeTop, float captionHeight);
 
+    // Where the top bar's contents end on the left, and where the controls at
+    // the right begin. Between them is the window's to drag by.
+    float draggableLeft() const;
+    float draggableRight() const;
+
     CaptionButtons *getCaptionButtons() {
         return &mCaptionButtons;
     }
