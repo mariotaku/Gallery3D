@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 
 #include "App.h"
+#include "Backtrace.h"
 #include "Canvas.h"
 
 namespace {
@@ -40,6 +41,10 @@ void reportFailure(const char *file, int line, const char *expression, const std
 }
 
 int main() {
+    // A test that crashes reports an exit code and nothing else, which says
+    // less than the assertion it was about to make.
+    Backtrace::install();
+
     // Bitmap decodes through SDL_image and Canvas measures through SDL_ttf, so
     // both have to be up even though nothing here opens a window.
     if (!SDL_Init(0)) {

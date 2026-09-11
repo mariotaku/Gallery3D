@@ -26,9 +26,13 @@ MediaSet *MediaFeed::addMediaSet(int64_t setId, DataSource *source) {
 }
 
 void MediaFeed::loadItemsForSet(MediaSet *set) {
-    if (set == nullptr || set->getNumItems() > 0) {
+    if (set == nullptr) {
         return;
     }
+    // Asked every time, even for a set that already has items. Only the source
+    // knows whether it is finished: one that shows a few covers on the first
+    // page and fetches the album when it is opened would never be asked again
+    // if the count decided it.
     DataSource *source = (set->mDataSource != nullptr) ? set->mDataSource : mDataSource;
     if (source == nullptr) {
         return;
@@ -55,6 +59,13 @@ void MediaFeed::start() {
 }
 
 void MediaFeed::shutdown() {
+    // Called twice: once on the way out of main, and again from the destructor.
+    // The second time the source may already be gone, so do the work once.
+    if (mShutDown) {
+        return;
+    }
+    mShutDown = true;
+
     // Set before waking anyone, so a source polling isCancelled sees it and a
     // slow fetch does not hold the quit up.
     mShuttingDown.store(true);

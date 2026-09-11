@@ -66,9 +66,9 @@ class MediaFeed {
 
     // Asks whoever created the set for its items, on the loader thread. Returns
     // at once: the set fills in later and the listener hears about it, which is
-    // the same shape the first scan already has. A set that has its items
-    // already is not queued at all, so a source that loads everything up front
-    // costs nothing here.
+    // the same shape the first scan already has. The source is asked even when
+    // the set already holds items, because only it knows whether there are more
+    // to come; one that loads everything up front just returns.
     void loadItemsForSet(MediaSet *set);
 
     // True once shutdown has begun. A data source doing slow work should poll
@@ -173,6 +173,8 @@ class MediaFeed {
     std::mutex mDeletedMutex;
 
     std::atomic<bool> mLoading{false};
+    // shutdown() runs once, however many times it is called.
+    bool mShutDown = false;
     std::atomic<bool> mShuttingDown{false};
     std::atomic<bool> mListenerNeedsUpdate{false};
     std::atomic<bool> mListenerNeedsLayout{false};

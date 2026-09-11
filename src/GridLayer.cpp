@@ -82,6 +82,8 @@ void GridLayer::shutdown() {
     if (mMediaFeed) {
         mMediaFeed->shutdown();
     }
+    // While the view is still alive to take the GL names back.
+    GridDrawables::releaseStringTextures();
     mSelectedBucketList.clear();
     mView = nullptr;
 }

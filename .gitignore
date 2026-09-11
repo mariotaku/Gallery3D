@@ -5,3 +5,6 @@ build-verify/
 out/
 vcpkg_installed/
 *.user
+
+# Crash dumps, written next to the binary.
+*.dmp

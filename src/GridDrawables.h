@@ -27,6 +27,12 @@ class GridDrawables {
     // Text labels are cached by string, exactly as before.
     static std::map<std::string, std::shared_ptr<StringTexture>> sStringTextureTable;
 
+    // Drops that cache. Being static, it would otherwise be destroyed at exit,
+    // by which time the RenderView each texture asks to free its GL name is
+    // long gone. The layer calls this on the way down, while the view is still
+    // there to hear it.
+    static void releaseStringTextures();
+
     TexturePtr mTextureFrame;
     TexturePtr mTextureGridFrame;
     TexturePtr mTextureFrameFocus;

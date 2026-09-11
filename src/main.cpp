@@ -12,10 +12,18 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <stdexcept>
+
+#if defined(_WIN32)
+#include <windows.h>
+#include <intrin.h>
+#endif
 #include <string>
 #include <vector>
 
 #include "App.h"
+#include "ArticDataSource.h"
+#include "Backtrace.h"
 #include "Canvas.h"
 #include "ConcatenatedDataSource.h"
 #include "GridLayer.h"
@@ -183,6 +191,9 @@ void printUsage() {
     SDL_Log("  Defaults to your Pictures folder.");
     SDL_Log("");
     SDL_Log("Options");
+    SDL_Log("  --artic              browse the Art Institute of Chicago instead of a");
+    SDL_Log("                       directory, over its public api. Read only, so the");
+    SDL_Log("                       delete and rotate buttons do not appear");
     SDL_Log("  --also DIR           show a second directory on the same wall");
     SDL_Log("  --scale N            how much bigger the wall is than the phone it was");
     SDL_Log("                       laid out for; raise for bigger stacks, fewer on screen");
@@ -206,16 +217,24 @@ void printUsage() {
     SDL_Log("  --delete             delete the selection (needs --select)");
     SDL_Log("  --popup N            tap button N on the selection bar (needs --select)");
     SDL_Log("  --scrub [0..1]       hold a drag on the time bar (needs --open)");
+    SDL_Log("  --crash KIND         die on purpose, to check the stack trace comes out.");
+    SDL_Log("                       KIND is read, write, throw, abort, crt or");
+    SDL_Log("                       fastfail");
 }
 
 }  // namespace
 
 int main(int argc, char **argv) {
+    // First thing, so a crash while parsing arguments still names itself.
+    Backtrace::install();
+
     std::string photoDirectory;
     // A second library, shown after the first. Two sources behind one feed.
     std::string alsoDirectory;
     // The system title bar, off by default so the backdrop reaches the top.
     bool bordered = false;
+    // A museum catalogue over http, rather than a directory.
+    bool artic = false;
     // Stands in for a notch and a home indicator. Desktops report no insets, so
     // without this the safe area layout is never exercised here.
     bool safeAreaOverridden = false;
@@ -280,6 +299,47 @@ int main(int argc, char **argv) {
             // Before SDL_Init, so there is nothing to tear down.
             printUsage();
             return 0;
+        } else if (arg == "--crash" && i + 1 < argc) {
+            // The handler is only worth having if it fires, and the way to know
+            // is to break the process on purpose. Each kind leaves by a
+            // different door: fastfail is the one that skips every handler but
+            // the vectored one, and it is what an out of range container does.
+            std::string kind = argv[++i];
+            volatile int *nowhere = nullptr;
+            if (kind == "read") {
+                SDL_Log("crash: reading through a null pointer");
+                return *nowhere;
+            } else if (kind == "write") {
+                SDL_Log("crash: writing through a null pointer");
+                *nowhere = 1;
+            } else if (kind == "throw") {
+                SDL_Log("crash: throwing with nothing to catch it");
+                throw std::runtime_error("a deliberate crash");
+            } else if (kind == "abort") {
+                SDL_Log("crash: abort");
+                std::abort();
+            } else if (kind == "crt") {
+                SDL_Log("crash: handing the CRT an argument it refuses");
+                char room[4];
+                // Deliberately too long. This is what a container going out of
+                // range looks like from the outside: a bare 0xC0000409.
+                strcpy_s(room, sizeof(room), "far too long for this");
+                SDL_Log("crash: the CRT let that through, which it should not");
+            } else if (kind == "fastfail") {
+                SDL_Log("crash: fail fast");
+                // Nothing catches this one. It leaves through the kernel
+                // without raising an exception, so no handler sees it. Here to
+                // show what an unreadable exit looks like, next to the rest.
+#if defined(_WIN32)
+                __fastfail(FAST_FAIL_FATAL_APP_EXIT);
+#else
+                std::abort();
+#endif
+            }
+            SDL_Log("crash: no such kind: %s", kind.c_str());
+            return 2;
+        } else if (arg == "--artic") {
+            artic = true;
         } else if (arg == "--bordered") {
             bordered = true;
         } else if (arg == "--safe-area" && i + 1 < argc) {
@@ -305,6 +365,10 @@ int main(int argc, char **argv) {
     if (photoDirectory.empty()) {
         photoDirectory = defaultPhotoDirectory();
     }
+
+    // Again, because SDL_Init puts its own exception filter in during startup
+    // and ours has to be the one on top.
+    Backtrace::install();
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -409,21 +473,29 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    GridLayoutInterface layoutInterface(4);
-    GridLayer gridLayer((int)(96.0f * App::PIXEL_DENSITY), (int)(72.0f * App::PIXEL_DENSITY), &layoutInterface,
-                        &renderView);
     LocalDataSource dataSource(photoDirectory);
-    // Held out here so they outlive the feed. Only used when --also was given.
+    // Declared before the layer, so they are destroyed after it. The feed holds
+    // a bare pointer to whichever of these it was given, and shutting the layer
+    // down reaches through that pointer - which has to still be there.
+    std::unique_ptr<ArticDataSource> articSource;
     std::unique_ptr<LocalDataSource> alsoSource;
     std::unique_ptr<ConcatenatedDataSource> combinedSource;
     DataSource *feedSource = &dataSource;
+    if (artic) {
+        articSource = std::make_unique<ArticDataSource>();
+        feedSource = articSource.get();
+        SDL_Log("Browsing api.artic.edu");
+    }
     if (!alsoDirectory.empty()) {
         alsoSource = std::make_unique<LocalDataSource>(alsoDirectory);
-        combinedSource = std::make_unique<ConcatenatedDataSource>(&dataSource, alsoSource.get());
+        combinedSource = std::make_unique<ConcatenatedDataSource>(feedSource, alsoSource.get());
         feedSource = combinedSource.get();
         SDL_Log("Also showing %s", alsoDirectory.c_str());
     }
 
+    GridLayoutInterface layoutInterface(4);
+    GridLayer gridLayer((int)(96.0f * App::PIXEL_DENSITY), (int)(72.0f * App::PIXEL_DENSITY), &layoutInterface,
+                        &renderView);
     renderView.setRootLayer(&gridLayer);
     renderView.onSurfaceCreated();
 
@@ -445,7 +517,9 @@ int main(int argc, char **argv) {
     }
 
     gridLayer.setDataSource(feedSource);
-    SDL_Log("Scanning %s", photoDirectory.c_str());
+    if (!artic) {
+        SDL_Log("Scanning %s", photoDirectory.c_str());
+    }
 
     // Pointer state, turned into the MotionEvents the ported gesture code wants.
     // SDL reports pointer positions in window units; the renderer works in

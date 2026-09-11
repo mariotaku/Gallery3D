@@ -5,8 +5,20 @@
     "sdl3",
     {
       "name": "sdl3-image",
-      "features": ["png", "jpeg", "webp", "tiff"]
+      "features": [
+        "png",
+        "jpeg",
+        "webp",
+        "tiff"
+      ]
     },
-    "sdl3-ttf"
+    "sdl3-ttf",
+    {
+      "name": "curl",
+      "features": [
+        "ssl"
+      ]
+    },
+    "nlohmann-json"
   ]
 }

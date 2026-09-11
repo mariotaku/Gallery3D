@@ -16,6 +16,10 @@ GridQuad *GridDrawables::sSourceIconGrid = nullptr;
 GridQuad *GridDrawables::sFullscreenGrid[3] = {nullptr, nullptr, nullptr};
 std::map<std::string, std::shared_ptr<StringTexture>> GridDrawables::sStringTextureTable;
 
+void GridDrawables::releaseStringTextures() {
+    sStringTextureTable.clear();
+}
+
 GridDrawables::GridDrawables(int itemWidth, int itemHeight) {
     if (sGrid != nullptr) {
         return;
