@@ -35,31 +35,49 @@ void Texture::clear() {
 
 namespace {
 
-// Gets an item's encoded bytes, wherever they live. A source that keeps its
-// photos somewhere other than this disk hands them over; everything else reads
-// the file. Runs on a loader thread either way, and blocks: a file read is
-// quick, and a network read is already on a thread that exists to wait.
-bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
-    if (item == nullptr) {
-        return false;
-    }
-    MediaSet *set = item->mParentMediaSet;
-    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
-    if (source != nullptr && source->readItemBytes(item, bytes) && !bytes->empty()) {
-        return true;
-    }
-    return Bitmap::readFile(item->mFilePath, bytes);
-}
-
-// Bytes to pixels, through the platform's decoder. The callback may run before
-// this returns, which is what happens natively, or later from the browser.
+// An item's pixels, wherever they live and whenever they arrive. A source that
+// keeps its photos somewhere other than this disk hands over the bytes;
+// everything else reads the file. Then the platform's decoder turns them into
+// pixels. Both halves may answer before this returns, which is what happens
+// natively, or much later from the browser.
 void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
-    std::vector<uint8_t> bytes;
-    if (!readItemBytes(item, &bytes)) {
+    if (item == nullptr) {
         done(Bitmap());
         return;
     }
-    ImageDecode::decode(std::move(bytes), maxEdge, std::move(done));
+    MediaSet *set = item->mParentMediaSet;
+    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
+    const std::string path = item->mFilePath;
+
+    auto decodeBytes = [maxEdge, done](std::vector<uint8_t> bytes) {
+        ImageDecode::decode(std::move(bytes), maxEdge, done);
+    };
+
+    if (source == nullptr) {
+        std::vector<uint8_t> bytes;
+        if (!Bitmap::readFile(path, &bytes)) {
+            done(Bitmap());
+            return;
+        }
+        decodeBytes(std::move(bytes));
+        return;
+    }
+
+    source->requestItemBytes(item, [path, decodeBytes, done](bool ok, std::vector<uint8_t> bytes) {
+        if (ok && !bytes.empty()) {
+            decodeBytes(std::move(bytes));
+            return;
+        }
+        // The source had nothing, so fall back to the path. A local source
+        // answers false here by design: its photos are files, and this is the
+        // read.
+        std::vector<uint8_t> fromFile;
+        if (!Bitmap::readFile(path, &fromFile)) {
+            done(Bitmap());
+            return;
+        }
+        decodeBytes(std::move(fromFile));
+    });
 }
 
 // What to key the thumbnail cache on. A remote item has no path, so it falls

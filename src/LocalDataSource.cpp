@@ -153,6 +153,9 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
         set->generateTitle(true);
         feed->updateListener(true);
     }
+    // Everything is on this disk, so the page is complete the moment the scan
+    // is.
+    feed->finishLoadingMediaSets();
 }
 
 void LocalDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {

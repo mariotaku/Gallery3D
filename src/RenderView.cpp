@@ -204,9 +204,11 @@ bool RenderView::init(SDL_Window *window) {
             mMaxAnisotropy);
 
     mLoadThreadsRunning.store(true);
+#if !defined(__EMSCRIPTEN__)
     for (int i = 0; i < NUM_TEXTURE_LOAD_THREADS; ++i) {
         mLoadThreads.emplace_back([this, i]() { textureLoadThread(i); });
     }
+#endif
     return true;
 }
 
@@ -542,6 +544,15 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
     }
     texture->mState = Texture::STATE_LOADING;
     texture->mOwner = this;
+
+#if defined(__EMSCRIPTEN__)
+    // No pools here. Fetching and decoding are both callbacks, so starting the
+    // load costs about as much as queueing it would, and the browser does its
+    // own scheduling of the requests behind it.
+    ++mLoadingCount;
+    texture->startLoad(this, texture);
+    return;
+#endif
 
     // A read that goes over the network is nearly all waiting, so it goes to
     // the elastic pool instead of the decode threads. A stalled download there

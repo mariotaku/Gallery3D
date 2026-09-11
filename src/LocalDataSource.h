@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,21 @@ class DataSource {
     // stalled one must not be able to hold up a decode.
     virtual bool readsBlockOnNetwork() const {
         return false;
+    }
+
+    // Called with the item's encoded bytes, or with false. May answer before it
+    // returns or long after, so the caller has to be written for both.
+    using BytesCallback = std::function<void(bool ok, std::vector<uint8_t> bytes)>;
+
+    // The form the texture loader uses. The default runs the blocking read
+    // below and answers at once, which is right for anything already on this
+    // disk; a source that fetches has something to override.
+    virtual void requestItemBytes(MediaItem *item, BytesCallback done) {
+        std::vector<uint8_t> bytes;
+        const bool ok = readItemBytes(item, &bytes);
+        if (done) {
+            done(ok, std::move(bytes));
+        }
     }
 
     virtual bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {

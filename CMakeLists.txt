@@ -12,13 +12,6 @@ if(EMSCRIPTEN)
     #
     # No curl: a page cannot open a socket, so Http.cpp uses the Fetch API
     # instead. See Http.h.
-    # Before anything is fetched, because SDL and its friends have to be
-    # compiled with threads too. A wasm object built without the atomics
-    # feature cannot be linked into a module with shared memory, and the linker
-    # says so by naming whichever SDL file it noticed first.
-    add_compile_options(-pthread)
-    add_link_options(-pthread)
-
     include(FetchContent)
     set(FETCHCONTENT_QUIET OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -119,11 +112,10 @@ if(EMSCRIPTEN)
         -sALLOW_MEMORY_GROWTH=1
         # Http.cpp talks to the museum through this.
         -sFETCH=1
-        # The loader threads, the decode pool and the elastic network pool are
-        # all real threads here. This needs the page to be served with the
-        # COOP and COEP headers, since shared memory is what pthreads are built
-        # on; tools/web/serve.py sets them.
-        -sPTHREAD_POOL_SIZE=8
+        # No threads. Fetching and decoding both go through the browser and
+        # answer in callbacks, so there is nothing here that would block a
+        # thread if it had one. That also means the page needs no COOP and COEP
+        # headers and will run from any static host.
         -sEXIT_RUNTIME=0
         # The art and the fonts, baked into a file the runtime mounts.
         --preload-file "${CMAKE_SOURCE_DIR}/assets@/assets"

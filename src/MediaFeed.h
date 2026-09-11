@@ -119,6 +119,12 @@ class MediaFeed {
     // False for an empty selection, and false if even one item's source cannot,
     // since a partial delete is worse than none. The HUD asks before offering
     // the button.
+    // Told by the source when the first page is complete. It used to be assumed
+    // the moment loadMediaSets returned, which only held while that call
+    // blocked until it had everything. A source that starts a fetch and answers
+    // later has to say so itself.
+    void finishLoadingMediaSets();
+
     bool selectionSupports(int operation, const std::vector<MediaBucket> *mediaBuckets) const;
     void setFilter(void *filter);
     void removeFilter();

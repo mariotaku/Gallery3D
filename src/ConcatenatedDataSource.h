@@ -25,6 +25,7 @@ class ConcatenatedDataSource : public DataSource {
     bool performOperation(int operation, MediaItem *item, const void *data) override;
     bool supportsOperation(int operation) const override;
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
+    void requestItemBytes(MediaItem *item, BytesCallback done) override;
     // Asked without an item in hand, so this is "could anything behind here
     // block on the network". A wall can hold sets from both at once, so the
     // routing that matters is per item, in Texture::loadsOverNetwork.

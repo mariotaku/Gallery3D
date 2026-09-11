@@ -49,6 +49,7 @@ class ArticDataSource : public DataSource {
     void loadMediaSets(MediaFeed *feed) override;
     void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
+    void requestItemBytes(MediaItem *item, BytesCallback done) override;
     bool readsBlockOnNetwork() const override {
         return true;
     }
@@ -75,13 +76,17 @@ class ArticDataSource : public DataSource {
         std::vector<std::unique_ptr<MediaItem>> covers;
     };
 
-    // The two requests that make the whole first page.
-    std::vector<AlbumPage> fetchAlbums(MediaFeed *feed);
+    // The two requests that make the whole first page. Answers through the
+    // callback, which may run before this returns or long after.
+    void fetchAlbums(MediaFeed *feed, std::function<void(std::vector<AlbumPage>)> done);
 
     // Artworks from one category, skipping the first `from`. For opening an
     // album; the first page already has its covers.
-    std::vector<std::unique_ptr<MediaItem>> fetchArtworks(MediaFeed *feed, const std::string &categoryId, int from,
-                                                          int limit);
+    void fetchArtworks(MediaFeed *feed, const std::string &categoryId, int from, int limit,
+                       std::function<void(std::vector<std::unique_ptr<MediaItem>>)> done);
+
+    // Turns one artworks/search response into items.
+    std::vector<std::unique_ptr<MediaItem>> itemsFromResponse(const nlohmann::json &parsed) const;
 
     // One artwork record to one item, or null when it has no picture.
     std::unique_ptr<MediaItem> makeItem(const nlohmann::json &artwork) const;

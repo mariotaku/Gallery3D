@@ -26,17 +26,22 @@ const int kMaxItemsPerAlbum = 100;
 // keeps the responses small enough to parse without noticing.
 const char *const kArtworkFields = "id,title,image_id,artist_title,date_end";
 
-bool fetchJson(const std::string &url, nlohmann::json *out) {
-    std::vector<uint8_t> response;
-    if (!Http::get(url, &response)) {
-        return false;
-    }
-    *out = nlohmann::json::parse(response.begin(), response.end(), nullptr, false);
-    if (out->is_discarded()) {
-        SDL_Log("artic: could not parse %s", url.c_str());
-        return false;
-    }
-    return true;
+// One json request. Like Http::getAsync, the callback runs inline natively and
+// from the browser on the web.
+void fetchJson(const std::string &url, std::function<void(bool, nlohmann::json)> done) {
+    Http::getAsync(url, [url, done](bool ok, std::vector<uint8_t> response) {
+        if (!ok || response.empty()) {
+            done(false, nlohmann::json());
+            return;
+        }
+        nlohmann::json parsed = nlohmann::json::parse(response.begin(), response.end(), nullptr, false);
+        if (parsed.is_discarded()) {
+            SDL_Log("artic: could not parse %s", url.c_str());
+            done(false, nlohmann::json());
+            return;
+        }
+        done(true, std::move(parsed));
+    });
 }
 
 }  // namespace
@@ -75,25 +80,9 @@ std::unique_ptr<MediaItem> ArticDataSource::makeItem(const nlohmann::json &artwo
     return item;
 }
 
-std::vector<std::unique_ptr<MediaItem>> ArticDataSource::fetchArtworks(MediaFeed *feed,
-                                                                      const std::string &categoryId, int from,
-                                                                      int limit) {
+std::vector<std::unique_ptr<MediaItem>> ArticDataSource::itemsFromResponse(const nlohmann::json &parsed) const {
     std::vector<std::unique_ptr<MediaItem>> items;
-    if (categoryId.empty() || limit <= 0) {
-        return items;
-    }
-    // In this category, and having a picture: both halves of a bool query.
-    // Without the second half this pages through records that can never be
-    // drawn, and an album comes up short for no visible reason.
-    std::string url = std::string(kApi) + "/artworks/search?fields=" + kArtworkFields +
-                      "&limit=" + std::to_string(limit) + "&from=" + std::to_string(from) +
-                      "&query[bool][must][0][term][category_ids]=" + categoryId +
-                      "&query[bool][must][1][exists][field]=image_id";
-    nlohmann::json parsed;
-    if (!fetchJson(url, &parsed) || !parsed.contains("data")) {
-        return items;
-    }
-    if (feed->isCancelled()) {
+    if (!parsed.contains("data")) {
         return items;
     }
     for (const nlohmann::json &artwork : parsed["data"]) {
@@ -104,9 +93,29 @@ std::vector<std::unique_ptr<MediaItem>> ArticDataSource::fetchArtworks(MediaFeed
     return items;
 }
 
-std::vector<ArticDataSource::AlbumPage> ArticDataSource::fetchAlbums(MediaFeed *feed) {
-    std::vector<AlbumPage> pages;
+void ArticDataSource::fetchArtworks(MediaFeed *feed, const std::string &categoryId, int from, int limit,
+                                    std::function<void(std::vector<std::unique_ptr<MediaItem>>)> done) {
+    if (categoryId.empty() || limit <= 0) {
+        done({});
+        return;
+    }
+    // In this category, and having a picture: both halves of a bool query.
+    // Without the second half this pages through records that can never be
+    // drawn, and an album comes up short for no visible reason.
+    const std::string url = std::string(kApi) + "/artworks/search?fields=" + kArtworkFields +
+                            "&limit=" + std::to_string(limit) + "&from=" + std::to_string(from) +
+                            "&query[bool][must][0][term][category_ids]=" + categoryId +
+                            "&query[bool][must][1][exists][field]=image_id";
+    fetchJson(url, [this, feed, done](bool ok, nlohmann::json parsed) {
+        if (!ok || feed->isCancelled()) {
+            done({});
+            return;
+        }
+        done(itemsFromResponse(parsed));
+    });
+}
 
+void ArticDataSource::fetchAlbums(MediaFeed *feed, std::function<void(std::vector<AlbumPage>)> done) {
     // Request one, and the whole wall comes out of it.
     //
     // The terms aggregation ranks the categories by how many artworks in them
@@ -114,149 +123,165 @@ std::vector<ArticDataSource::AlbumPage> ArticDataSource::fetchAlbums(MediaFeed *
     // per category, with the fields an item needs, so the covers arrive in the
     // same response rather than in a request each. Twelve albums used to be
     // thirteen round trips before anything could be drawn; now it is this one.
-    std::string covers = std::to_string(mCoversPerAlbum);
-    std::string url = std::string(kApi) +
-                      "/artworks/search?limit=0&query[exists][field]=image_id"
-                      "&aggs[categories][terms][field]=category_ids"
-                      "&aggs[categories][terms][size]=60"
-                      "&aggs[categories][aggs][covers][top_hits][size]=" +
-                      covers +
-                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=id"
-                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=title"
-                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=image_id"
-                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=artist_title"
-                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=date_end";
-    nlohmann::json parsed;
-    if (!fetchJson(url, &parsed)) {
-        return pages;
-    }
-    if (parsed.contains("config")) {
-        // The IIIF endpoint is advertised rather than assumed. Read before any
-        // item is made, since every item's url is built from it.
-        mIiifBase = stringOr(parsed["config"], "iiif_url", mIiifBase.c_str());
-    }
-    auto aggregations = parsed.find("aggregations");
-    if (aggregations == parsed.end() || !aggregations->contains("categories")) {
-        SDL_Log("artic: no aggregations came back");
-        return pages;
-    }
-    const nlohmann::json &buckets = (*aggregations)["categories"]["buckets"];
-    if (!buckets.is_array() || buckets.empty()) {
-        return pages;
-    }
-    if (feed->isCancelled()) {
-        return pages;
-    }
+    const std::string covers = std::to_string(mCoversPerAlbum);
+    const std::string url = std::string(kApi) +
+                            "/artworks/search?limit=0&query[exists][field]=image_id"
+                            "&aggs[categories][terms][field]=category_ids"
+                            "&aggs[categories][terms][size]=60"
+                            "&aggs[categories][aggs][covers][top_hits][size]=" +
+                            covers +
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=id"
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=title"
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=image_id"
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=artist_title"
+                            "&aggs[categories][aggs][covers][top_hits][_source][includes][]=date_end";
 
-    std::string ids;
-    for (const nlohmann::json &bucket : buckets) {
-        std::string key = stringOr(bucket, "key", "");
-        if (key.empty()) {
-            continue;
+    fetchJson(url, [this, feed, done](bool ok, nlohmann::json parsed) {
+        if (!ok) {
+            done({});
+            return;
         }
-        if (!ids.empty()) {
-            ids += ",";
+        if (parsed.contains("config")) {
+            // The IIIF endpoint is advertised rather than assumed. Read before
+            // any item is made, since every item's url is built from it.
+            mIiifBase = stringOr(parsed["config"], "iiif_url", mIiifBase.c_str());
         }
-        ids += key;
-    }
-    if (ids.empty()) {
-        return pages;
-    }
+        auto aggregations = parsed.find("aggregations");
+        if (aggregations == parsed.end() || !aggregations->contains("categories")) {
+            SDL_Log("artic: no aggregations came back");
+            done({});
+            return;
+        }
+        if (feed->isCancelled()) {
+            done({});
+            return;
+        }
+        // Copied out, because the response goes away with this callback and the
+        // next one needs the buckets.
+        auto buckets = std::make_shared<nlohmann::json>((*aggregations)["categories"]["buckets"]);
+        if (!buckets->is_array() || buckets->empty()) {
+            done({});
+            return;
+        }
 
-    // Request two: what those ids are called, and which of them are a grouping
-    // rather than a label on one object. Most of the eleven thousand terms
-    // describe a material or a subject. The departments and themes are the ones
-    // somebody curated, and the only ones worth a stack.
-    url = std::string(kApi) + "/category-terms?limit=100&fields=id,title,subtype&ids=" + ids;
-    nlohmann::json terms;
-    if (!fetchJson(url, &terms) || !terms.contains("data")) {
-        return pages;
-    }
-    std::map<std::string, std::string> titles;
-    for (const nlohmann::json &term : terms["data"]) {
-        std::string subtype = stringOr(term, "subtype", "");
-        if (subtype != "department" && subtype != "theme") {
-            continue;
-        }
-        std::string id = stringOr(term, "id", "");
-        if (!id.empty()) {
-            titles[id] = stringOr(term, "title", "Untitled");
-        }
-    }
-
-    // Back in the aggregation's order, so the fullest categories come first.
-    for (const nlohmann::json &bucket : buckets) {
-        if ((int)pages.size() >= mAlbumCount) {
-            break;
-        }
-        std::string key = stringOr(bucket, "key", "");
-        auto title = titles.find(key);
-        if (title == titles.end()) {
-            continue;
-        }
-        auto hits = bucket.find("covers");
-        if (hits == bucket.end()) {
-            continue;
-        }
-        AlbumPage page;
-        for (const nlohmann::json &hit : (*hits)["hits"]["hits"]) {
-            auto source = hit.find("_source");
-            if (source == hit.end()) {
+        std::string ids;
+        for (const nlohmann::json &bucket : *buckets) {
+            const std::string key = stringOr(bucket, "key", "");
+            if (key.empty()) {
                 continue;
             }
-            if (std::unique_ptr<MediaItem> item = makeItem(*source)) {
-                page.covers.push_back(std::move(item));
+            if (!ids.empty()) {
+                ids += ",";
             }
+            ids += key;
         }
-        if (page.covers.empty()) {
-            // A category with no cover cannot be drawn as a stack.
-            continue;
+        if (ids.empty()) {
+            done({});
+            return;
         }
-        page.album.categoryId = key;
-        page.album.title = title->second;
-        page.album.total = (int)intOr(bucket, "doc_count", 0);
-        pages.push_back(std::move(page));
-    }
-    return pages;
+
+        // Request two: what those ids are called, and which of them are a
+        // grouping rather than a label on one object. Most of the eleven
+        // thousand terms describe a material or a subject. The departments and
+        // themes are the ones somebody curated, and the only ones worth a
+        // stack.
+        const std::string termsUrl =
+            std::string(kApi) + "/category-terms?limit=100&fields=id,title,subtype&ids=" + ids;
+        fetchJson(termsUrl, [this, buckets, done](bool termsOk, nlohmann::json terms) {
+            std::vector<AlbumPage> pages;
+            if (!termsOk || !terms.contains("data")) {
+                done(std::move(pages));
+                return;
+            }
+            std::map<std::string, std::string> titles;
+            for (const nlohmann::json &term : terms["data"]) {
+                const std::string subtype = stringOr(term, "subtype", "");
+                if (subtype != "department" && subtype != "theme") {
+                    continue;
+                }
+                const std::string id = stringOr(term, "id", "");
+                if (!id.empty()) {
+                    titles[id] = stringOr(term, "title", "Untitled");
+                }
+            }
+
+            // Back in the aggregation's order, so the fullest categories come
+            // first.
+            for (const nlohmann::json &bucket : *buckets) {
+                if ((int)pages.size() >= mAlbumCount) {
+                    break;
+                }
+                const std::string key = stringOr(bucket, "key", "");
+                auto title = titles.find(key);
+                if (title == titles.end()) {
+                    continue;
+                }
+                auto hits = bucket.find("covers");
+                if (hits == bucket.end()) {
+                    continue;
+                }
+                AlbumPage page;
+                for (const nlohmann::json &hit : (*hits)["hits"]["hits"]) {
+                    auto source = hit.find("_source");
+                    if (source == hit.end()) {
+                        continue;
+                    }
+                    if (std::unique_ptr<MediaItem> item = makeItem(*source)) {
+                        page.covers.push_back(std::move(item));
+                    }
+                }
+                if (page.covers.empty()) {
+                    // A category with no cover cannot be drawn as a stack.
+                    continue;
+                }
+                page.album.categoryId = key;
+                page.album.title = title->second;
+                page.album.total = (int)intOr(bucket, "doc_count", 0);
+                pages.push_back(std::move(page));
+            }
+            done(std::move(pages));
+        });
+    });
 }
 
 void ArticDataSource::loadMediaSets(MediaFeed *feed) {
-    std::vector<AlbumPage> pages = fetchAlbums(feed);
-    if (pages.empty()) {
-        SDL_Log("artic: no categories came back");
-        return;
-    }
-
-    int64_t setId = 0;
-    for (AlbumPage &page : pages) {
-        if (feed->isCancelled()) {
+    fetchAlbums(feed, [this, feed](std::vector<AlbumPage> pages) {
+        if (pages.empty()) {
+            SDL_Log("artic: no categories came back");
+            feed->finishLoadingMediaSets();
             return;
         }
-        // A category id is a string and a set wants a number, so the sets are
-        // numbered as they are made. Nothing outside here reads the number, and
-        // mAlbumsBySet maps it back when the album is opened.
-        ++setId;
-        MediaSet *set = feed->addMediaSet(setId, this);
-        set->mName = page.album.title;
-        set->mIsLocal = false;
-        for (std::unique_ptr<MediaItem> &cover : page.covers) {
-            set->addItem(std::move(cover));
+
+        int64_t setId = 0;
+        for (AlbumPage &page : pages) {
+            if (feed->isCancelled()) {
+                return;
+            }
+            // A category id is a string and a set wants a number, so the sets
+            // are numbered as they are made. Nothing outside here reads the
+            // number, and mAlbumsBySet maps it back when the album is opened.
+            ++setId;
+            MediaSet *set = feed->addMediaSet(setId, this);
+            set->mName = page.album.title;
+            set->mIsLocal = false;
+            for (std::unique_ptr<MediaItem> &cover : page.covers) {
+                set->addItem(std::move(cover));
+            }
+            {
+                std::lock_guard<std::mutex> lock(mAlbumMutex);
+                mAlbumsBySet[setId] = page.album;
+            }
+            // How many the category actually holds. Only the first hundred are
+            // ever fetched, but a stack labelled 100 tells you nothing and
+            // makes every department on the wall look the same size, when one
+            // of them has fifty thousand works in it.
+            set->setNumExpectedItems(page.album.total);
+            set->generateTitle(true);
+            feed->updateListener(true);
         }
-        {
-            std::lock_guard<std::mutex> lock(mAlbumMutex);
-            mAlbumsBySet[setId] = page.album;
-        }
-        // How many the category actually holds. Only the first hundred are
-        // ever fetched, but a stack labelled 100 tells you nothing and makes
-        // every department on the wall look the same size, when one of them has
-        // fifty thousand works in it and another has a few hundred.
-        set->setNumExpectedItems(page.album.total);
-        set->generateTitle(true);
-        // Published as they are made. They all came out of one response, so
-        // this is the wall appearing rather than filling in.
-        feed->updateListener(true);
-    }
-    SDL_Log("artic: %d categories on the wall", (int)pages.size());
+        SDL_Log("artic: %d categories on the wall", (int)pages.size());
+        feed->finishLoadingMediaSets();
+    });
 }
 
 void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
@@ -283,16 +308,43 @@ void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
     if (wanted <= 0) {
         return;
     }
-    std::vector<std::unique_ptr<MediaItem>> items = fetchArtworks(feed, album.categoryId, have, wanted);
-    int added = (int)items.size();
-    for (std::unique_ptr<MediaItem> &item : items) {
-        parentSet->addItem(std::move(item));
+    const std::string name = parentSet->mName;
+    const int total = album.total;
+    fetchArtworks(feed, album.categoryId, have, wanted,
+                  [feed, parentSet, name, total](std::vector<std::unique_ptr<MediaItem>> items) {
+                      const int added = (int)items.size();
+                      for (std::unique_ptr<MediaItem> &item : items) {
+                          parentSet->addItem(std::move(item));
+                      }
+                      // Not updateNumExpectedItems: that would set the count to
+                      // what is loaded and the label would fall from the
+                      // category's real size to a hundred the moment the album
+                      // opened.
+                      parentSet->generateTitle(true);
+                      SDL_Log("artic: %s filled in with %d more of %d", name.c_str(), added, total);
+                      feed->updateListener(true);
+                  });
+}
+
+void ArticDataSource::requestItemBytes(MediaItem *item, BytesCallback done) {
+    if (item == nullptr || item->mContentUri.empty()) {
+        done(false, std::vector<uint8_t>());
+        return;
     }
-    // Not updateNumExpectedItems: that would set the count to what is loaded
-    // and the label would fall from the category's real size to a hundred the
-    // moment the album opened. The count stays what the catalogue says.
-    parentSet->generateTitle(true);
-    SDL_Log("artic: %s filled in with %d more of %d", parentSet->mName.c_str(), added, album.total);
+    std::vector<uint8_t> cached;
+    if (mImageCache.get(item->mContentUri, &cached)) {
+        done(true, std::move(cached));
+        return;
+    }
+    const std::string url = item->mContentUri;
+    Http::getAsync(url, [this, url, done](bool ok, std::vector<uint8_t> bytes) {
+        if (!ok || bytes.empty()) {
+            done(false, std::vector<uint8_t>());
+            return;
+        }
+        mImageCache.put(url, bytes);
+        done(true, std::move(bytes));
+    });
 }
 
 bool ArticDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {

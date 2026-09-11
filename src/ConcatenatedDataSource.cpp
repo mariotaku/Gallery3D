@@ -56,6 +56,18 @@ bool ConcatenatedDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t>
     return owner->readItemBytes(item, bytes);
 }
 
+void ConcatenatedDataSource::requestItemBytes(MediaItem *item, BytesCallback done) {
+    MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
+    DataSource *owner = (set != nullptr) ? set->mDataSource : nullptr;
+    if (owner == nullptr || owner == this) {
+        if (done) {
+            done(false, std::vector<uint8_t>());
+        }
+        return;
+    }
+    owner->requestItemBytes(item, std::move(done));
+}
+
 void ConcatenatedDataSource::shutdown() {
     if (mFirst != nullptr) {
         mFirst->shutdown();

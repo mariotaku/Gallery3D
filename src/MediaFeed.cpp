@@ -51,11 +51,21 @@ MediaFeed::~MediaFeed() {
 }
 
 void MediaFeed::start() {
+    mLoading.store(true);
+#if defined(__EMSCRIPTEN__)
+    // No thread. Everything a source does here returns at once and finishes
+    // through a callback, so there is nothing for a thread to wait on, and a
+    // browser has no thread to spare unless the page is served with the headers
+    // that unlock shared memory.
+    if (mDataSource) {
+        mDataSource->loadMediaSets(this);
+    }
+#else
     if (mLoaderThread.joinable()) {
         return;
     }
-    mLoading.store(true);
     mLoaderThread = std::thread([this]() { loaderThread(); });
+#endif
 }
 
 void MediaFeed::shutdown() {
@@ -78,12 +88,15 @@ void MediaFeed::shutdown() {
     }
 }
 
+void MediaFeed::finishLoadingMediaSets() {
+    mLoading.store(false);
+    updateListener(true);
+}
+
 void MediaFeed::loaderThread() {
     if (mDataSource) {
         mDataSource->loadMediaSets(this);
     }
-    mLoading.store(false);
-    updateListener(true);
 
     // Then stay alive for everything else slow: a set's items, a delete, a
     // rotation. One thread draining in order, so a source is never re-entered.
@@ -103,6 +116,14 @@ void MediaFeed::loaderThread() {
 }
 
 void MediaFeed::postJob(std::function<void()> job) {
+#if defined(__EMSCRIPTEN__)
+    // Straight through. The job's slow parts are all callbacks now, so running
+    // it here returns as quickly as queueing it would have.
+    if (!mShuttingDown.load()) {
+        job();
+    }
+    return;
+#else
     if (mShuttingDown.load()) {
         return;
     }
@@ -111,6 +132,7 @@ void MediaFeed::postJob(std::function<void()> job) {
         mJobs.push_back(std::move(job));
     }
     mJobCondition.notify_one();
+#endif
 }
 
 void MediaFeed::pumpListener() {
