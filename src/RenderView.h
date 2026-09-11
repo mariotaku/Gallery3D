@@ -1,14 +1,5 @@
-// Port of com.cooliris.media.RenderView.
-//
-// The original extended GLSurfaceView and drove the ES 1.1 fixed function
-// pipeline. This class keeps the same public shape - layer lists, texture
-// queues, bind/draw2D/setAlpha - but implements it on ES 2.0:
-//
-//   glMatrixMode / glTranslatef / gluLookAt -> MatrixStack members here
-//   glTexEnv REPLACE and MODULATE           -> the uColor uniform
-//   glTexEnv COMBINE / INTERPOLATE          -> the two texture mix program
-//   glDrawTexfOES (OES_draw_texture)        -> an ortho projected quad
-//   glVertexPointer / glTexCoordPointer     -> vertex attributes 0, 1 and 2
+// Port of com.cooliris.media.RenderView on ES 2.0. MatrixStack, colour/mix shaders,
+// vertex attributes and orthographic quads replace the ES 1.1 fixed-function pipeline.
 #pragma once
 
 #include <atomic>
@@ -51,14 +42,9 @@ class RenderLists {
 class RenderView {
   public:
     static const int NUM_TEXTURE_LOAD_THREADS = 4;
-    // The network pool is elastic, so this is a ceiling rather than a count.
-    // Those threads are nearly all latency, so several can be in flight for
-    // what one decode costs; the ceiling is politeness to the server at the
-    // other end rather than a limit of ours.
+    // Maximum concurrent network workers; the pool grows on demand.
     static const int MAX_NETWORK_LOAD_THREADS = 6;
-    // How long an idle network thread waits before retiring. Long enough to
-    // survive scrolling from one album to the next, short enough that an app
-    // left alone is not holding threads and sockets open.
+    // Idle timeout before a network worker retires.
     static const int NETWORK_THREAD_IDLE_SECONDS = 45;
     static const int MAX_LOADING_COUNT = 8;
 
@@ -278,12 +264,7 @@ class RenderView {
     std::atomic<bool> mLoadThreadsRunning{false};
     std::atomic<bool> mThreadIsLoading[NUM_TEXTURE_LOAD_THREADS];
 
-    // The network pool. Kept apart from the decode pool because the work is a
-    // different kind: a decode is busy, a download is waiting, and one stalled
-    // download used to be able to hold up a quarter of the wall.
-    //
-    // It starts at nothing and grows only when there is something to fetch, so
-    // a session that never touches a remote source never starts a thread here.
+    // On-demand network pool, separate from CPU decoding so stalled downloads cannot block it.
     std::deque<TexturePtr> mNetworkQueue;
     std::mutex mNetworkMutex;
     std::condition_variable mNetworkCondition;

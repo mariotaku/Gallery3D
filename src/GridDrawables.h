@@ -23,28 +23,18 @@ class GridDrawables {
     static GridQuad *sLocationGrid;
     static GridQuad *sSourceIconGrid;
     static GridQuad *sFullscreenGrid[3];
-    // Drawn once per tile of the zoomed fullscreen picture, moved between
-    // draws. One quad rather than one per tile because a tile is four vertices
-    // and there are a dozen of them: a buffer upload each is cheaper than
-    // keeping a grid of buffers in step with a grid that changes with the zoom.
-    //
-    // Deliberately not in GridLayer's per frame update list. That call
-    // recomputes a quad from its width and height, which would undo the corners
-    // set for the tile being drawn.
+    // Shared quad repositioned for each fullscreen tile. Excluded from GridLayer's
+    // per-frame update, which would overwrite the tile corners.
     static GridQuad *sTileGrid;
 
-    // Text labels are cached by string, exactly as before.
+    // Text labels cached by string.
     static std::map<std::string, std::shared_ptr<StringTexture>> sStringTextureTable;
 
-    // Drops that cache. Being static, it would otherwise be destroyed at exit,
-    // by which time the RenderView each texture asks to free its GL name is
-    // long gone. The layer calls this on the way down, while the view is still
-    // there to hear it.
+    // Clear textures before RenderView is destroyed so they can release their GL names.
     static void releaseStringTextures();
 
-    // Builds the shared quads, once. They are sized from the item dimensions
-    // and PIXEL_DENSITY, so releaseQuads has to come first to rebuild them at
-    // a new density - see GridLayer::onDensityChanged.
+    // Build shared quads from item dimensions and PIXEL_DENSITY. Call releaseQuads before
+    // rebuilding.
     static void buildQuads(int itemWidth, int itemHeight);
     static void releaseQuads();
 

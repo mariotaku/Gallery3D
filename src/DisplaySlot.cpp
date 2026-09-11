@@ -89,11 +89,8 @@ std::shared_ptr<StringTexture> DisplaySlot::getLocationImage(
     if (mSetRef == nullptr || mSetRef->mTitleString.empty()) {
         return nullptr;
     }
-    // The original kicked off a reverse geocode here. There is none, because
-    // turning a photograph's coordinates into a place name means handing them
-    // to somebody else. So the name is never filled in, and everything that
-    // hangs off it - this label, the slot's location button, the filter it
-    // opens - is guarded on the name being there and stays out of the way.
+    // No reverse geocoder: location names remain empty, hiding location labels, buttons and
+    // filters.
     if (!mLocationImage && mSetRef->mReverseGeocodedLocationComputed &&
         !mSetRef->mReverseGeocodedLocation.empty()) {
         mLocation = mSetRef->mReverseGeocodedLocation;

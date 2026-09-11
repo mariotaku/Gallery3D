@@ -1,8 +1,4 @@
-// Port of com.cooliris.media.MediaSet.
-//
-// The original owned MediaItems by value in an ArrayList that a background
-// content observer mutated. The port owns them through unique_ptr and builds a
-// set once, so the incremental add/remove/lookup machinery is gone.
+// Port of com.cooliris.media.MediaSet. Owns items through unique_ptr; clusters reference them.
 #pragma once
 
 #include <cstdint>
@@ -24,9 +20,7 @@ class MediaSet {
     std::string mName;
     int mType = TYPE_FOLDER;
 
-    // Unset is the pair being the wrong way round, not zero. A set whose
-    // photographs all predate 1970 has a negative maximum, and testing that
-    // against zero called every one of them undated.
+    // An inverted min/max pair means unset; valid pre-1970 bounds may both be negative.
     int64_t mMinTimestamp = std::numeric_limits<int64_t>::max();
     int64_t mMaxTimestamp = std::numeric_limits<int64_t>::lowest();
     int mDatePrecision = MediaItem::PRECISION_DAY;
@@ -106,18 +100,8 @@ class MediaSet {
     // Takes ownership and folds the item's time and location into the set bounds.
     void addItem(std::unique_ptr<MediaItem> item);
 
-    // Oldest first, which is the order the original's albums came in: its
-    // queries ended in DATE_TAKEN ASC, so the set was already sorted by the
-    // time anything drew it, and the time bar and the clusterer both read the
-    // sequence as a timeline.
-    //
-    // A source here delivers whatever order it has - a directory listing, an
-    // api's idea of relevance - so the sort has to happen after. Call it once a
-    // batch has been added rather than per item.
-    //
-    // Items with no date keep their arrival order and go last. Sorting them to
-    // the front by their zero timestamp would put everything undated before
-    // every dated thing, which for a museum's catalogue is most of the wall.
+    // Sort oldest first after each batch for timeline and clustering.
+    // Undated items go last in stable arrival order.
     void sortItemsByDate();
 
     // References an item owned by another set. Used by the clustering pass.

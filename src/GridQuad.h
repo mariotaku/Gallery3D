@@ -1,9 +1,5 @@
-// Port of com.cooliris.media.GridQuad.
-//
-// A 2x2 textured mesh drawn as a triangle strip out of hardware buffers. When
-// asked for oriented quads it bakes 360 copies of the texture coordinates, one
-// per whole degree of image rotation, and picks one with the index offset at
-// draw time - the same trick the original used to rotate thumbnails for free.
+// Port of com.cooliris.media.GridQuad: 2x2 buffered triangle strip.
+// Oriented quads precompute texture coordinates for 360 whole-degree rotations.
 #pragma once
 
 #include <vector>
@@ -33,13 +29,8 @@ class GridQuad {
         return mHeight;
     }
 
-    // Places the quad over one rectangle instead of the whole picture, and
-    // maps one rectangle of a texture onto it. For the tiled fullscreen view,
-    // which draws the same quad once per tile.
-    //
-    // The corner naming follows the quad's own axes, not the screen's. Local
-    // +x is screen left and local +y is screen up, which is why the base quad
-    // hands its rightmost vertex the texture coordinate zero.
+    // Maps a texture rectangle to a quad rectangle for fullscreen tiles.
+    // Local +x points screen-left and +y screen-up.
     void setCorners(float xMin, float yMin, float xMax, float yMax, float uAtXMin, float vAtYMin, float uAtXMax,
                     float vAtYMax);
 

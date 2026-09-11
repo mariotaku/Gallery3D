@@ -1,9 +1,5 @@
-// Port of com.cooliris.media.MediaFeed.
-//
-// Slot model, unchanged from the original:
-//   no expanded set  -> one slot per album, each showing a stack of its items
-//   expanded set     -> one slot per item, wrapped in a single item MediaSet
-//   clustering mode  -> one slot per cluster
+// Port of com.cooliris.media.MediaFeed. Slots represent albums when collapsed,
+// individual items when expanded, and clusters in timeline mode.
 #pragma once
 
 #include <atomic>
@@ -56,20 +52,12 @@ class MediaFeed {
         return nullptr;
     }
 
-    // Appends an empty set with the given id and returns it. If a set with
-    // that id is already present it is dropped first, so a rescan replaces a
-    // stale album instead of duplicating it.
-    //
-    // The source is remembered on the set. Pass the one doing the adding; it
-    // is what the feed calls back for that set's items and operations. Null
-    // means the feed's own source, which is the single source case.
+    // Adds an empty set, replacing any existing id. Records its owning source for
+    // item loads and operations; null uses the feed's source.
     MediaSet *addMediaSet(int64_t setId, DataSource *source = nullptr);
 
-    // Asks whoever created the set for its items, on the loader thread. Returns
-    // at once: the set fills in later and the listener hears about it, which is
-    // the same shape the first scan already has. The source is asked even when
-    // the set already holds items, because only it knows whether there are more
-    // to come; one that loads everything up front just returns.
+    // Requests items from the set's source without waiting. Ask even when items
+    // exist: only the source knows whether further pages remain.
     void loadItemsForSet(MediaSet *set);
 
     // True once shutdown has begun. A data source doing slow work should poll
@@ -116,24 +104,16 @@ class MediaFeed {
     // Deletes the selection to the recycle bin, or rotates it by data degrees.
     void performOperation(int operation, std::vector<MediaBucket> *mediaBuckets, const void *data);
 
-    // Whether every source behind the selection can carry the operation out.
-    // False for an empty selection, and false if even one item's source cannot,
-    // since a partial delete is worse than none. The HUD asks before offering
-    // the button.
-    // Told by the source when the first page is complete. It used to be assumed
-    // the moment loadMediaSets returned, which only held while that call
-    // blocked until it had everything. A source that starts a fetch and answers
-    // later has to say so itself.
+    // The source signals completion of the initial page, including asynchronous fetches.
     void finishLoadingMediaSets();
 
-    // Told by the source when a page for one set has landed. Until it is, that
-    // set is not asked again: the wall keeps scrolling towards the end of what
-    // is loaded and would otherwise stack a request per frame.
+    // Marks a set's page complete so another request can start.
     void finishLoadingItemsForSet(MediaSet *set);
 
     // Whether a page for this set is already on its way.
     bool isLoadingItemsForSet(MediaSet *set);
 
+    // Whether all selected sources support the operation; an empty selection uses the feed source.
     bool selectionSupports(int operation, const std::vector<MediaBucket> *mediaBuckets) const;
     void setFilter(void *filter);
     void removeFilter();
@@ -173,27 +153,22 @@ class MediaFeed {
 
     std::thread mLoaderThread;
 
-    // Everything slow happens here. The queue is drained in order by the one
-    // loader thread, so a source never sees two calls at once and does not
-    // have to be thread safe with itself.
+    // One loader thread drains slow jobs in order, avoiding concurrent source calls.
     std::deque<std::function<void()>> mJobs;
     std::mutex mJobMutex;
     std::condition_variable mJobCondition;
 
-    // Items whose delete went through, waiting for the render thread to drop
-    // them. The structural change cannot happen on the loader thread: the draw
-    // code holds raw MediaItem pointers across frames, so removing one
-    // underneath it would leave those dangling.
+    // Successful deletions awaiting render-thread removal between frames;
+    // removal on the worker would invalidate raw pointers held by drawing code.
     std::vector<MediaItem *> mDeletedItems;
     std::mutex mDeletedMutex;
 
     std::atomic<bool> mLoading{false};
-    // shutdown() runs once, however many times it is called.
-    // Sets with a page in flight. A raw pointer is the key because the set
-    // outlives the request either way: the feed owns it.
+    // Sets with a page in flight. The feed owns them, so pointers outlive requests.
     std::set<MediaSet *> mLoadsInFlight;
     std::mutex mInFlightMutex;
 
+    // Makes shutdown idempotent.
     bool mShutDown = false;
     std::atomic<bool> mShuttingDown{false};
     std::atomic<bool> mListenerNeedsUpdate{false};

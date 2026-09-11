@@ -25,9 +25,7 @@ class DisplayItem {
     TexturePtr getThumbnailImage(const MediaItemTexture::Config *config);
     TexturePtr getScreennailImage();
     TexturePtr getHiResImage();
-    // The picture as a grid of pieces, for the zoomed fullscreen view. Null
-    // where the item cannot be drawn that way - see TiledImage::canTile - and
-    // the screennail is then all there is.
+    // Tiles for fullscreen zoom, or null when TiledImage::canTile is false.
     TiledImage *getTiledImage();
 
     void clearScreennailImage();

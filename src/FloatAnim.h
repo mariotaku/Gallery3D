@@ -1,6 +1,5 @@
-// Port of com.cooliris.media.FloatAnim: a value that eases towards a target
-// over a fixed duration, driven by the frame clock rather than stepped once per
-// frame. It lived in GridDrawManager while the draw code was its only user.
+// Port of com.cooliris.media.FloatAnim: eases toward a target over a fixed duration using frame
+// time.
 #pragma once
 
 #include <cstdint>

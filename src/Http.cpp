@@ -4,9 +4,7 @@
 
 #include <SDL3/SDL.h>
 
-// Who is asking. The docs ask callers to identify themselves, and on native the
-// image server enforces it: without this header every IIIF request is a 403,
-// while the json endpoints serve anyone.
+// Native IIIF requires AIC-User-Agent identification; missing it returns 403.
 #define kUserAgent "gallery3d-sdl (git@mariotaku.me)"
 
 #if defined(__EMSCRIPTEN__)
@@ -63,7 +61,7 @@ void getAsync(const std::string &url, Callback done) {
     attr.onsuccess = onFetchSucceeded;
     attr.onerror = onFetchFailed;
     attr.userData = new PendingFetch{std::move(done)};
-    // Deliberately no AIC-User-Agent; see the note in the header.
+    // Omit AIC-User-Agent to avoid CORS preflight; see Http.h.
     emscripten_fetch(&attr, url.c_str());
 }
 
@@ -75,14 +73,8 @@ bool get(const std::string &url, std::vector<uint8_t> *out) {
     SDL_strlcpy(attr.requestMethod, "GET", sizeof(attr.requestMethod));
     attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY | EMSCRIPTEN_FETCH_SYNCHRONOUS;
 
-    // Deliberately no AIC-User-Agent here, though the native side sends one.
-    //
-    // Any header a page adds turns the request into a preflighted one, and the
-    // image server answers the preflight with a 403, so the GET never happens.
-    // With no added header this is a simple request, and the Referer the
-    // browser sends on its own is enough: the server answers 200 with
-    // Access-Control-Allow-Origin, which is also what lets the result reach a
-    // WebGL texture without tainting it.
+    // Added headers trigger CORS preflight, which the image server rejects with 403.
+    // A simple request succeeds with the browser's Referer and Access-Control-Allow-Origin.
     emscripten_fetch_t *fetch = emscripten_fetch(&attr, url.c_str());
     if (fetch == nullptr) {
         return false;
@@ -114,13 +106,8 @@ size_t appendToVector(void *data, size_t size, size_t count, void *userData) {
     return total;
 }
 
-// One curl handle per thread, kept open for the life of it.
-//
-// This matters more than it looks. A fresh handle means a fresh DNS lookup and
-// a fresh TLS handshake for every single image, and the texture threads fetch
-// hundreds. Reusing the handle keeps the connection, the TLS session and the
-// resolved address, so the second image onward costs one round trip instead of
-// four. curl_easy_reset clears the options and keeps all of that.
+// One curl handle per thread preserves DNS, TLS sessions and connections across requests.
+// curl_easy_reset clears options while retaining those caches.
 CURL *threadHandle() {
     struct Holder {
         CURL *handle = curl_easy_init();
@@ -146,8 +133,7 @@ const char *userAgent() {
 }
 
 void getAsync(const std::string &url, Callback done) {
-    // Inline, on whichever loader thread asked. The callback shape is the web's
-    // requirement; here it costs nothing and keeps one set of callers.
+    // Native callbacks run inline on the requesting loader thread.
     std::vector<uint8_t> bytes;
     const bool ok = get(url, &bytes);
     if (done) {
@@ -169,9 +155,7 @@ bool get(const std::string &url, std::vector<uint8_t> *out) {
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, appendToVector);
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, out);
     curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
-    // A thread parked on a dead connection is one that is not fetching
-    // anything. Give up on a stalled transfer rather than waiting out the whole
-    // timeout: under a kilobyte a second for five seconds is not coming back.
+    // Abort transfers below one kilobyte per second for five seconds.
     curl_easy_setopt(handle, CURLOPT_TIMEOUT, 20L);
     curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 5L);
     curl_easy_setopt(handle, CURLOPT_LOW_SPEED_LIMIT, 1024L);

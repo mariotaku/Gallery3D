@@ -1,10 +1,5 @@
-// Partial port of com.cooliris.media.HudLayer and the bars it owns.
-//
-// The layer itself is real now: it animates its own opacity, hides itself after
-// five idle seconds in fullscreen, and switches between the normal and select
-// modes. The path bar, the menu bar and the time bar are real. The selection
-// menu and the zoom buttons are still stubs that exist so the grid's call sites
-// compile.
+// Port of com.cooliris.media.HudLayer and its bars.
+// Animates opacity, hides after fullscreen inactivity, and switches normal/select controls.
 #pragma once
 
 #include <cstdint>
@@ -32,9 +27,7 @@ class HudLayer : public Layer {
     HudLayer();
 
     void generate(RenderView *view, RenderLists &lists) override;
-    // The bar's strip belongs to the bar, even where there is nothing drawn in
-    // it. Without this a drag across an empty stretch of the top bar falls
-    // through and scrolls the wall behind it.
+    // Consume input across the entire bar strip, including gaps between controls.
     bool containsPoint(float x, float y) override;
     bool onTouchEvent(const MotionEvent &event) override;
 
@@ -42,10 +35,7 @@ class HudLayer : public Layer {
     // pointer that is merely passing over.
     void onPointerMoved(float x, float y);
 
-    // Where the top selection bar starts. It runs the full width, unlike the
-    // path bar, so it is the one piece of chrome that reaches the window
-    // buttons and has to be pushed clear of them. Pure arithmetic and static so
-    // it can be checked without a window to ask.
+    // Top selection-bar offset, keeping its full width clear of caption buttons.
     static float selectionBarTop(float safeTop, float captionHeight);
 
     // Where the top bar's contents end on the left, and where the controls at

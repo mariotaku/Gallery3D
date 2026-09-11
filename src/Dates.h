@@ -1,10 +1,4 @@
-// Turning a bare year into a timestamp.
-//
-// A catalogue often knows only the year a thing was made, and the wall wants
-// milliseconds from the epoch. Counting 365 days to the year is close enough
-// to sort by and not close enough to label: it drifts about three weeks a
-// century, which had an artwork from 1982 reading "Dec 29 1981" on the time
-// bar.
+// Gregorian calendar conversion between years and epoch milliseconds.
 #pragma once
 
 #include <cstdint>
@@ -12,34 +6,17 @@
 
 namespace Dates {
 
-// A date as people write one, rather than as an offset from 1970.
-//
-// The epoch itself is not the problem: an int64 of milliseconds reaches about
-// 292 million years either side of 1970, so BC is well within it. What cannot
-// cope is the C library. localtime_s refuses any negative time_t, and rather
-// than saying so in a way anyone notices it fills the tm with -1 and returns an
-// error code that this code used to ignore - after which strftime sees
-// tm_mon == -1 and fail-fasts the process. localtime_r is kinder but no more
-// able to answer.
-//
-// So the conversion is done here. It is exact for any year, has no timezone
-// database behind it, and cannot fail.
+// Civil date without a timezone database. Handles pre-1970 dates that localtime_s rejects.
 struct Civil {
     int year = 1970;  // 0 is 1 BC, -1 is 2 BC, as ISO 8601 counts them
     int month = 1;    // 1 to 12
     int day = 1;      // 1 to 31
 };
 
-// Midnight on the first of January, UTC, in milliseconds from the epoch.
-// Negative before 1970, which is most of a museum.
-//
-// Howard Hinnant's days_from_civil, fixed to the first of the year. Exact for
-// any year, and needs no time zone database.
+// January 1 at midnight UTC, in epoch milliseconds.
+// Howard Hinnant's days_from_civil specialised to the first of the year.
 inline int64_t startOfYearMs(int year) {
-    // March based years, so a leap day lands at the end of one rather than in
-    // the middle of the arithmetic. January belongs to the previous such year,
-    // so the year steps back by one before any of this - leaving that out puts
-    // every date exactly twelve months late.
+    // Use March-based years; January belongs to the preceding year.
     const int marchYear = year - 1;
     const int era = (marchYear >= 0 ? marchYear : marchYear - 399) / 400;
     const unsigned yearOfEra = (unsigned)(marchYear - era * 400);
@@ -50,9 +27,7 @@ inline int64_t startOfYearMs(int year) {
     return days * 24LL * 3600LL * 1000LL;
 }
 
-// The inverse of startOfYearMs, for any instant. UTC: a work known only by its
-// year has no local time to speak of, and the caller decides whether local
-// matters (see Dates::format).
+// Inverse of startOfYearMs for any instant, in UTC. The caller selects local-time formatting.
 inline Civil civilFromMs(int64_t ms) {
     const int64_t msPerDay = 24LL * 3600LL * 1000LL;
     // Floor division, because -1ms is the last day of 1969 and not the first

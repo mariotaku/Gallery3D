@@ -29,9 +29,7 @@ bool TiledImage::canTile(const MediaItem *item) {
 }
 
 int64_t TiledImage::keyFor(int sampleSize, int column, int row) {
-    // Three small numbers in one. A sample size is a power of two up to a few
-    // hundred and the grid is thousands at most, so twenty bits each is room to
-    // spare.
+    // Pack sample size, column and row into twenty bits each.
     return ((int64_t)sampleSize << 40) | ((int64_t)column << 20) | (int64_t)row;
 }
 
@@ -48,9 +46,7 @@ TiledImage::Grid TiledImage::gridFor(int fullWidth, int fullHeight, float drawnW
     if (fullWidth <= 0 || fullHeight <= 0 || drawnWidth <= 0.0f) {
         return grid;
     }
-    // The coarsest level still at least as detailed as the screen. Halving
-    // until one more halving would put fewer of the original's pixels on the
-    // picture than the screen is giving it.
+    // Choose the coarsest level with at least one source texel per screen pixel.
     while ((float)(fullWidth / (grid.sampleSize * 2)) >= drawnWidth && grid.sampleSize < (1 << 16)) {
         grid.sampleSize *= 2;
     }
@@ -67,9 +63,7 @@ TiledImage::Region TiledImage::regionFor(const Grid &grid, int fullWidth, int fu
     }
     region.x = column * grid.regionEdge;
     region.y = row * grid.regionEdge;
-    // The last column and row are short. The museum's server answers 502 for a
-    // rectangle that runs off the edge rather than trimming it, so the trimming
-    // is done here.
+    // Trim edge tiles: the museum server returns 502 for rectangles outside the image.
     region.width = std::min(grid.regionEdge, fullWidth - region.x);
     region.height = std::min(grid.regionEdge, fullHeight - region.y);
     region.outWidth = std::max(1, region.width / grid.sampleSize);
@@ -93,9 +87,8 @@ void TiledImage::update(RenderView *view, float left, float top, float right, fl
     }
 
     if (grid.sampleSize != mSampleSize) {
-        // A different grid. The old tiles cannot be drawn alongside the new
-        // ones - they cover the same picture at another scale - and keeping
-        // them would only spend the budget on a level nothing is asking for.
+        // Drop tiles when the sample level changes; the new grid covers the same image at
+        // another scale.
         mTiles.clear();
         mSampleSize = grid.sampleSize;
     }

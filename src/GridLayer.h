@@ -40,16 +40,11 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     static const int MAX_DISPLAYED_ITEMS_PER_SLOT = 4;
     static const int MAX_DISPLAYED_ITEMS_PER_FOCUSED_SLOT = 32;
     static const int MAX_DISPLAY_SLOTS = 96;
-    // How much of that array the padding around the visible range can take.
-    // GridCameraManager rounds the range out to whole buffers of 24 either
-    // side; measured, the padding has run to 13 slots past what is on screen,
-    // and this leaves room for three times that.
+    // Reserve array capacity for GridCameraManager's 24-slot range padding.
     static const int kSlotRangePadding = 40;
     static const int MAX_ITEMS_DRAWABLE = MAX_ITEMS_PER_SLOT * MAX_DISPLAY_SLOTS;
 
-    // The wall's cell, in the units the original was laid out in, scaled by
-    // the wall's density. One place, because onDensityChanged has to work them
-    // out again and the two answers have to agree.
+    // Wall cell dimensions scaled by wall density; reused on density changes.
     static int itemWidthForDensity();
     static int itemHeightForDensity();
 
@@ -66,18 +61,13 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     // that fits the window is a single point in the middle of it.
     void keepWallInRange();
 
-    // Forgets a run of display item entries. An entry left behind names an item
-    // the display list is free to destroy, so anything not refilled this pass
-    // has to be cleared in the same pass.
+    // Clear entries not refilled this pass before DisplayList can destroy their items.
     void clearDisplayItems(int begin, int end);
 
     GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view);
 
-    // Rebuilds everything whose size was fixed at the old density: the cell,
-    // the slot spacing, the shared quads and every drawable, which is reloaded
-    // from whichever bucket the new density asks for. The caller follows this
-    // with RenderView::onSurfaceChanged to put the new sizes through the
-    // layout.
+    // Rebuild density-dependent cells, spacing, quads and drawable caches.
+    // The caller then invokes RenderView::onSurfaceChanged to relayout.
     void onDensityChanged();
 
     void onPointerMoved(float x, float y) override;

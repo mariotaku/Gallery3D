@@ -25,8 +25,7 @@ struct IndexRange {
     }
 };
 
-// A fixed free list. The original pools Vector3f to avoid GC pressure; the port
-// keeps it so the call sites read the same, and it still avoids churn.
+// Fixed free list for pooled objects, matching the Java call sites.
 template <typename T>
 class Pool {
   public:

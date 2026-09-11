@@ -24,8 +24,7 @@ bool isSetSelection(const std::vector<MediaBucket> &buckets) {
     return buckets.size() > 1 || isSetSelection(buckets.front());
 }
 
-// The original assumes every item of a multiple selection is in the first
-// bucket, which is what addSlotToSelectedItems builds.
+// Multiple-item selections use the first bucket, as built by addSlotToSelectedItems.
 bool isMultipleItemSelection(const std::vector<MediaBucket> &buckets) {
     return !buckets.empty() && buckets.front().mediaItems.size() > 1;
 }
@@ -48,8 +47,7 @@ const MediaSet *firstSet(const std::vector<MediaBucket> &buckets) {
     return nullptr;
 }
 
-// The file extension in capitals, which is what a reader recognises. The mime
-// type itself says "image/jpeg" where "JPEG" is the whole of the answer.
+// Uppercase file extension for display.
 std::string displayType(const std::string &mimeType) {
     const size_t slash = mimeType.find('/');
     std::string type = (slash != std::string::npos && slash + 1 < mimeType.size()) ? mimeType.substr(slash + 1)
@@ -66,9 +64,7 @@ std::string countLine(int count, const char *singular, const char *plural) {
     return std::to_string(count) + " " + ((count == 1) ? singular : plural);
 }
 
-// What the selection spans, gathered rather than stored: the original built a
-// throwaway MediaSet and added every item to it, which is this without the
-// allocation.
+// Collect date and location bounds for the selection.
 struct Span {
     int items = 0;
     int64_t earliest = 0;
@@ -129,8 +125,7 @@ std::vector<std::string> linesForItem(const MediaItem *item) {
     }
     const MediaSet *parent = item->mParentMediaSet;
     lines.push_back(parent != nullptr ? "Album: " + parent->mName : std::string("Album:"));
-    // The original reverse geocodes here. Nothing does that yet, so an item
-    // that carries coordinates still has no place name to show.
+    // Without reverse geocoding, coordinates provide no place name.
     lines.push_back("Location: Unknown location");
     return lines;
 }

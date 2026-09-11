@@ -1,13 +1,5 @@
-// Stands in for com.cooliris.media.DiskCache: a keyed blob store for decoded
-// thumbnails, so the second run of the app does not decode every original
-// again. The original packed its records into 1MB chunk files with a separate
-// index, because it ran on a phone filesystem. Here one file per entry is
-// enough, and it makes a half written entry impossible to read: each entry is
-// written to a temporary name and renamed into place.
-//
-// The store holds premultiplied RGBA exactly as Bitmap carries it, so a hit
-// costs a read and a memcpy and never runs the pixels through premultiplication
-// a second time.
+// Stands in for com.cooliris.media.DiskCache: decoded premultiplied RGBA thumbnails.
+// Entries are written to temporary files and renamed into place atomically.
 #pragma once
 
 #include <cstdint>

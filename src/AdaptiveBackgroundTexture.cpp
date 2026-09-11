@@ -16,22 +16,11 @@ namespace {
 const int RADIUS = 4;
 const int KERNEL_SIZE = RADIUS * 2 + 1;
 const int MAX_COLOR_VALUE = 255;
-// The original ran a LightingColorFilter of 0xffaaaaaa over the result, which
-// multiplies the colour channels and leaves alpha alone.
+// LightingColorFilter 0xffaaaaaa: multiply colour channels, preserving alpha.
 const int MULTIPLY_COLOR = 0xaa;
 const int THUMBNAIL_MAX_X = 128;
 
-// How much of the backdrop's right edge fades out.
-//
-// It has to be exactly what BackgroundLayer overlaps its copies by, or the
-// joins show: too narrow and a copy ends while still opaque, too wide and the
-// wash goes thin in a band.
-//
-// The original wrote this as a pixel index, 96 of a 128 wide thumbnail. That
-// held only while every thumbnail was 128 by 96. Here the crop is as wide as
-// the photo allows, so a portrait one came out 89 wide, the index fell outside
-// it, and the fade was skipped entirely - leaving a hard vertical edge down the
-// wall wherever a copy ended.
+// Right-edge fade fraction; must match BackgroundLayer's overlap.
 const float FADE_FRACTION = 0.25f;
 
 int fadeFromFor(int width) {
@@ -52,26 +41,16 @@ Bitmap resizeBitmap(const Bitmap &bitmap, int maxSize) {
     return bitmap;
 }
 
-// How opaque this row of the output is. The fade runs along the output's rows,
-// which is this pass's height because of the transpose: full at the first row
-// of the fade and nothing at the last.
-//
-// Pass `height` as `fadeFrom` to mean no fade, which is what the first pass
-// wants.
+// Row opacity for this transposed pass. Pass height as fadeFrom to disable fading.
 int fadeAlpha(int y, int height, int fadeFrom) {
     if (y < fadeFrom || height - 1 <= fadeFrom) {
         return MAX_COLOR_VALUE;
     }
-    // The original divided by the width of the fade rather than the number of
-    // steps across it, which starts a few percent down from opaque - enough to
-    // leave a faint line where the copies meet.
+    // Include both endpoints so the fade starts fully opaque.
     return (height - 1 - y) * MAX_COLOR_VALUE / (height - 1 - fadeFrom);
 }
 
-// A blur is separable, so this runs the kernel along each row and writes the
-// output transposed. Run it twice and the image comes back the right way round,
-// blurred on both axes. The source alpha is discarded; whichever pass carries
-// the fade puts its own there.
+// Blur rows and transpose; two passes blur both axes. Source alpha is replaced by the fade.
 void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int fadeFrom) {
     int inPos = 0;
     int maxX = width - 1;
@@ -104,9 +83,7 @@ void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int
     }
 }
 
-// The weights of a gaussian, normalised, out to three standard deviations. Past
-// that a tap carries less than a two hundredth of the centre one and cannot
-// move an eight bit channel.
+// Normalised gaussian weights within three standard deviations.
 std::vector<float> gaussianKernel(float sigma) {
     if (sigma < 0.05f) {
         return std::vector<float>{1.0f};
@@ -126,13 +103,7 @@ std::vector<float> gaussianKernel(float sigma) {
     return kernel;
 }
 
-// The same shape as boxBlurFilter - along the rows, transposing as it writes -
-// with a gaussian instead of a box.
-//
-// It convolves outright rather than sliding a sum along. A box can add one tap
-// and drop another because all its weights are equal, and these are not. At
-// this size that is a few hundred thousand multiplies for a whole backdrop,
-// which does not show against the two rescales either side of it.
+// Gaussian convolution along rows, transposing the output.
 void gaussianBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int fadeFrom,
                         const std::vector<float> &kernel) {
     const int half = (int)(kernel.size() / 2);
@@ -171,8 +142,7 @@ bool AdaptiveBackgroundTexture::loadsOverNetwork() const {
 }
 
 Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
-    // Never used: startLoad does the work, because a decode may answer later
-    // than the call that started it. Here because the base class declares it.
+    // startLoad handles asynchronous decoding; load is required by the base class.
     (void)view;
     return Bitmap();
 }
@@ -182,9 +152,7 @@ void AdaptiveBackgroundTexture::startLoad(RenderView *view, const TexturePtr &se
         view->finishLoad(self, Bitmap());
         return;
     }
-    // Small on purpose. The result is blurred past recognition, so the photo it
-    // comes from need only carry the colours, and at this size the disk cache
-    // usually has it already.
+    // A small thumbnail supplies the backdrop's colours.
     const int destWidth = mDestWidth;
     const int destHeight = mDestHeight;
     decodeItemPixels(mItem, THUMBNAIL_MAX_X, [view, self, destWidth, destHeight](Bitmap photo) {
@@ -217,10 +185,7 @@ Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidt
         cropX = 0;
         cropY = (sourceHeight - cropHeight) / 2;
     } else {
-        // Full height, partial or full width. The original measured this crop
-        // against the destination height, which only works while the two are
-        // square; use the width so a panorama crops instead of leaving the
-        // right of the backdrop empty.
+        // Full height, partial or full width.
         cropWidth = (int)(destWidth * fitY);
         cropHeight = sourceHeight;
         cropX = (sourceWidth - cropWidth) / 2;
@@ -248,11 +213,8 @@ Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidt
         }
     }
 
-    // Horizontal pass, then vertical, each transposing as it goes. The fade
-    // belongs on the destination x axis, so it is the second pass that writes
-    // it. The first says no fade by passing its own height; either way its
-    // alpha is thrown away, since each pass reads only colour and writes its
-    // own.
+    // Both passes transpose. The second writes the destination's horizontal fade; each replaces
+    // alpha.
     if (App::BACKDROP_BLUR == App::BACKDROP_BLUR_GAUSSIAN) {
         const std::vector<float> kernel = gaussianKernel(App::BACKDROP_BLUR_SIGMA);
         gaussianBlurFilter(in.data(), tmp.data(), cropWidth, cropHeight, cropHeight, kernel);

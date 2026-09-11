@@ -85,9 +85,7 @@ void GestureDetector::update(uint64_t nowMs) {
     }
 }
 
-// ---------------------------------------------------------------------------
 // ScaleGestureDetector
-// ---------------------------------------------------------------------------
 
 void ScaleGestureDetector::reset() {
     mInProgress = false;

@@ -14,9 +14,7 @@ MediaSet *MediaFeed::addMediaSet(int64_t setId, DataSource *source) {
     std::lock_guard<std::mutex> lock(mSetsMutex);
     for (size_t i = 0; i < mMediaSets.size(); ++i) {
         if (mMediaSets[i]->mId == setId) {
-            // Gingerbread fix: the set already exists but may be out of date.
-            // Drop it so the fresh one below replaces it rather than doubling
-            // up, which is what a rescan used to do.
+            // Replace an existing set with the same id during rescans.
             mMediaSets.erase(mMediaSets.begin() + (long)i);
             break;
         }
@@ -31,19 +29,13 @@ void MediaFeed::loadItemsForSet(MediaSet *set) {
     if (set == nullptr) {
         return;
     }
-    // Asked every time, even for a set that already has items. Only the source
-    // knows whether it is finished: one that shows a few covers on the first
-    // page and fetches the album when it is opened would never be asked again
-    // if the count decided it.
+    // Ask the source even when covers are loaded; only it knows whether more pages remain.
     DataSource *source = (set->mDataSource != nullptr) ? set->mDataSource : mDataSource;
     if (source == nullptr) {
         return;
     }
     {
-        // One page at a time per set. The wall asks as it approaches the end of
-        // what is loaded, which is every frame while it is scrolling, and
-        // without this each of those frames would start another request for the
-        // same page.
+        // Allow one pending page request per set.
         std::lock_guard<std::mutex> lock(mInFlightMutex);
         if (!mLoadsInFlight.insert(set).second) {
             return;
@@ -76,10 +68,8 @@ MediaFeed::~MediaFeed() {
 void MediaFeed::start() {
     mLoading.store(true);
 #if defined(__EMSCRIPTEN__)
-    // No thread. Everything a source does here returns at once and finishes
-    // through a callback, so there is nothing for a thread to wait on, and a
-    // browser has no thread to spare unless the page is served with the headers
-    // that unlock shared memory.
+    // Browser sources complete through callbacks; workers require shared-memory response
+    // headers.
     if (mDataSource) {
         mDataSource->loadMediaSets(this);
     }
@@ -140,8 +130,7 @@ void MediaFeed::loaderThread() {
 
 void MediaFeed::postJob(std::function<void()> job) {
 #if defined(__EMSCRIPTEN__)
-    // Straight through. The job's slow parts are all callbacks now, so running
-    // it here returns as quickly as queueing it would have.
+    // Run callback-based jobs inline; their slow work completes asynchronously.
     if (!mShuttingDown.load()) {
         job();
     }
@@ -252,8 +241,7 @@ MediaSet *MediaFeed::getSetForSlot(int slotIndex) {
 void MediaFeed::setVisibleRange(int begin, int end) {
     (void)begin;
     (void)end;
-    // The original used this to prioritise background loading of set contents.
-    // The local source loads everything up front, so nothing to do.
+    // Local sets load eagerly; no background-loading priority is needed.
 }
 
 void MediaFeed::expandMediaSet(int mediaSetIndex) {
@@ -316,13 +304,7 @@ void MediaFeed::performClustering() {
     }
     MediaSet *setToUse = mMediaSets[(size_t)mExpandedMediaSetIndex].get();
 
-    // Oldest first. The original never sorted here at all: it fed the clusterer
-    // as items arrived, and its queries ended in DATE_TAKEN ASC, so the
-    // sequence was ascending. This sorted the other way round and said in a
-    // comment that descending was what the original did, which it was not.
-    //
-    // It matters because the clusterer only ever compares neighbours, so the
-    // order is what decides where one run of shots ends and the next begins.
+    // Sort oldest first; clustering compares adjacent items in time order.
     std::vector<MediaItem *> items = setToUse->getItems();
     std::stable_sort(items.begin(), items.end(),
                      [](const MediaItem *a, const MediaItem *b) { return a->mDateTakenInMs < b->mDateTakenInMs; });
@@ -382,13 +364,8 @@ void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaB
         return;
     }
 
-    // The slow half goes to the loader thread; the structural half does not.
-    //
-    // Talking to storage can block, and on a remote source it certainly will,
-    // so that happens on the worker. Dropping an item from the model cannot go
-    // there: the draw code holds raw MediaItem pointers across frames, so
-    // freeing one underneath it would leave those dangling. The worker reports
-    // what actually succeeded and pumpListener does the removal between frames.
+    // Perform storage writes on the worker. pumpListener applies successful deletions
+    // between frames because the renderer holds raw MediaItem pointers.
     if (operation == OPERATION_DELETE) {
         postJob([this, operation, items]() {
             std::vector<MediaItem *> deleted;
@@ -414,8 +391,7 @@ void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaB
 
     if (operation == OPERATION_ROTATE) {
         float degrees = (data != nullptr) ? *(const float *)data : 0.0f;
-        // The wall turns now, on this thread, because that is only a number and
-        // the picture should follow the click immediately.
+        // Update visual rotation immediately on the render thread.
         for (MediaItem *item : items) {
             if (item != nullptr) {
                 item->mRotation = Shared::normalizePositive(item->mRotation + degrees);

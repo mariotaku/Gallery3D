@@ -1,14 +1,5 @@
-// Port of com.cooliris.media.LoadingLayer: the dark sheet that covers the wall
-// at startup and fades once there is something worth showing.
-//
-// The original waited on a fixed list of preloaded drawables. Here it waits on
-// the same frame art plus the feed's first scan, which is the condition that
-// actually matters: without it the sheet lifts on an empty wall and the photos
-// pop in behind it.
-//
-// It draws a flat colour, and the renderer has no untextured path - everything
-// goes through the texture shaders. So it fills a small CanvasTexture with
-// white and tints it, which is also why CanvasTexture earns its keep here.
+// Port of com.cooliris.media.LoadingLayer. Fades the startup sheet after frame art
+// and the first feed scan load. Uses a tinted white texture for the texture-only renderer.
 #pragma once
 
 #include <memory>

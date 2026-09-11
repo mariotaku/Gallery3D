@@ -8,7 +8,7 @@
 
 namespace {
 
-// Both from the original.
+
 const float FADE_INTERVAL = 0.5f;
 const float GRAY_VALUE = 0.1f;
 
@@ -87,9 +87,8 @@ void LoadingLayer::renderBlended(RenderView *view) {
             return;
         }
     }
-    // Premultiplied, so the colour carries the alpha, exactly as the original
-    // set it. Depth writes are off: the sheet covers the frame by being drawn
-    // last, and should not leave a near plane behind for the next one.
+    // Premultiplied colour; disable depth writes so the final overlay leaves no near-plane
+    // depth.
     float gray = GRAY_VALUE * mOpacity;
     glDepthMask(GL_FALSE);
     view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

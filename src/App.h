@@ -1,82 +1,40 @@
 // Port of com.cooliris.app.App and com.cooliris.app.Res.
-//
-// The Android build scaled every layout constant by the display density. The
-// port keeps the same knob so the ported arithmetic stays byte for byte the
-// same; main() sets it at startup.
 #pragma once
 
 #include <string>
 
 namespace App {
 
-// The one scale every ported layout constant multiplies by: grid item size,
-// slot spacing, label size, quad size, thumbnail resolution. main() sets it to
-// the display scale times CONTENT_SCALE.
+// Wall layout density: display scale times CONTENT_SCALE, set by main().
 extern float PIXEL_DENSITY;
 
-// What the chrome scales by: the display scale alone, without CONTENT_SCALE.
-//
-// A button wants to be the right size for the screen. The wall wants to be
-// bigger than the phone it was laid out for. Those are different wishes, and
-// multiplying them together gives a phone sized touch target enlarged again,
-// which is how the zoom buttons ended up 173 pixels wide.
+// Chrome density: display scale alone.
 extern float UI_DENSITY;
 
-// How much bigger the wall is than the phone it was drawn for. The ported
-// constants come from a 320x480 handset, so on a monitor they leave the wall as
-// a small cluster in the middle of the backdrop. This factor stretches the
-// whole wall at once, and it deliberately does not reach the chrome. --scale
-// overrides it.
+// Scales the wall's 320x480 handset layout, excluding chrome. Set by wall.scale.
 extern float CONTENT_SCALE;
 
-// Longest edge a fullscreen photo is decoded to. The original capped this at
-// 1024 because that was generous for a handset; here the window is usually
-// wider than that, so a photo would be upscaled before it was even zoomed.
-// main() sets it from the window, and the texture is padded to a power of two
-// on top, so raising it past 1024 costs the next power of two either way.
+// Maximum screennail edge, set from the window by main(). Uploads are padded to powers of two.
 extern int SCREEN_NAIL_MAX_EDGE;
 
-// Longest edge for the texture behind a zoomed photo. Only the focused item
-// ever holds one and the draw code drops it as focus moves, so it can afford to
-// be larger than the screennail.
+// Maximum zoom texture edge. Only the focused item retains this texture.
 extern int HI_RES_MAX_EDGE;
 
-// How the backdrop behind the wall is blurred.
-//
-// The backdrop is built small - the photo is cropped to about 89 by 44 before
-// anything touches it - so the choice costs almost nothing either way. A whole
-// backdrop, blur and both rescales, takes a fifth of a millisecond, and at most
-// sixteen are kept. This is a knob for how it looks, not for how fast it runs.
+// Backdrop blur kernel.
 enum BackdropBlur {
-    // What the original did: one nine tap box per axis. Cheap, and a box has a
-    // hard shoulder - on a step between two colours it gives a straight ramp
-    // with a corner at each end.
+    // One nine-tap box pass per axis.
     BACKDROP_BLUR_BOX = 0,
-    // A real gaussian. The same amount of blur by default, but the falloff is
-    // smooth, so where two areas of colour meet there is no line to catch on.
+    // Gaussian blur with smooth falloff.
     BACKDROP_BLUR_GAUSSIAN = 1,
 };
 
 extern int BACKDROP_BLUR;
 
-// How strong the gaussian is, as a standard deviation in pixels of the cropped
-// photo. The default matches the spread of the box blur it replaces, so turning
-// it on changes the shape of the falloff and not the amount, and raising it is
-// the way to a softer wash.
+// Gaussian standard deviation in cropped-photo pixels; defaults to the nine-tap box's spread.
 extern float BACKDROP_BLUR_SIGMA;
 
-// The part of the window it is safe to put controls in, as insets in pixels
-// from each edge.
-//
-// The original had no notion of this: in 2009 a phone screen was a rectangle
-// and all of it was yours. Now the top of a display can be a cutout and the
-// bottom a home indicator, so anything you must be able to touch has to stay
-// inside this while the picture behind it still runs edge to edge. That split
-// is the whole idea, and it is why only the HUD reads this and the wall does
-// not.
-//
-// SDL reports it per window. On a desktop that is the whole client area, so
-// these are all zero and nothing moves.
+// SDL safe-area insets in pixels. HUD controls stay inside; wall content remains edge to edge.
+// Desktop insets are normally zero.
 struct SafeAreaInsets {
     float left = 0.0f;
     float top = 0.0f;
@@ -89,17 +47,13 @@ extern SafeAreaInsets SAFE_AREA;
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;
 
-// A drawable, and the density its art was drawn for. Android picked a folder
-// per screen density and the port does the same: the baseline folder is drawn
-// for density 1, drawable-hdpi for 1.5. Picking the closer one beats scaling
-// the baseline up, which is what made the breadcrumb icons stair step.
+// Drawable path and source density: baseline = 1x, hdpi = 1.5x.
 struct Drawable {
     std::string path;
     float density = 1.0f;
 };
 
-// Pass false to stay on the baseline art, for callers that draw it at its own
-// size and were written against those pixel dimensions.
+// Pass false for baseline art drawn at its native pixel dimensions.
 Drawable findDrawable(const std::string &name, bool allowHigherDensity = true);
 
 // The density of the bucket the current PIXEL_DENSITY selects, ignoring whether

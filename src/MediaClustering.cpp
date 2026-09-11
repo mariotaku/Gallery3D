@@ -14,7 +14,7 @@
 
 namespace {
 
-// All of these are the original's numbers.
+// Java clustering thresholds.
 const double GEOGRAPHIC_DISTANCE_CUTOFF_IN_MILES = 20.0;
 const int64_t MIN_CLUSTER_SPLIT_TIME_IN_MS = 60000LL;
 const int64_t MAX_CLUSTER_SPLIT_TIME_IN_MS = 7200000LL;
@@ -68,8 +68,7 @@ bool MediaClustering::isGeographicallySeparated(const MediaItem *a, const MediaI
     if (a == nullptr || b == nullptr || !a->isLatLongValid() || !b->isLatLongValid()) {
         return false;
     }
-    // Equirectangular approximation. Good enough at the 20 mile scale this is
-    // asked about, and far cheaper than a great circle.
+    // Equirectangular approximation for distances near the 20-mile threshold.
     const double kPi = 3.14159265358979323846;
     const double milesPerDegree = 69.0;
     double meanLatitude = (a->mLatitude + b->mLatitude) * 0.5 * kPi / 180.0;
@@ -211,9 +210,8 @@ void MediaClustering::mergeAndAddCurrentCluster() {
 
 void MediaClustering::generateCaptions() {
     for (std::unique_ptr<MediaSet> &cluster : mClusters) {
-        // A flag rather than a negative sentinel. Every date before 1970 is
-        // negative, so -1 for "none" quietly meant "ancient" as well, and every
-        // cluster of old work lost its caption.
+        // Use a validity flag: pre-1970 timestamps are negative and cannot serve as missing-
+        // date sentinels.
         bool dated = false;
         int64_t minTimestamp = 0;
         int64_t maxTimestamp = 0;
@@ -234,9 +232,7 @@ void MediaClustering::generateCaptions() {
             const int64_t maxDay = DateLabels::dayKey(maxTimestamp);
             const int minYear = DateLabels::yearOf(minTimestamp);
             const int maxYear = DateLabels::yearOf(maxTimestamp);
-            // Never finer than what is known. A catalogue that gave only a
-            // year is stored as the first of January, and saying "Jan" out
-            // loud invents a month nobody recorded.
+            // Labels retain the recorded precision; year-only dates must not display January.
             const int precision = cluster->datePrecision();
             if (precision >= MediaItem::PRECISION_YEAR) {
                 cluster->mName = minYear == maxYear
@@ -256,10 +252,7 @@ void MediaClustering::generateCaptions() {
             }
         }
         cluster->updateNumExpectedItems();
-        // Not truncated: generateTitle's ellipsis is meant for long folder
-        // names and turns "Oct 2020 - Feb 2021" into "Oct 2020 - F...2021".
-        // The caption is short by construction, and the label texture shrinks
-        // the font to fit anyway.
+        // Keep complete date spans; the label texture shrinks text to fit.
         cluster->generateTitle(false);
     }
 }

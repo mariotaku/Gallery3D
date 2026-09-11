@@ -1,11 +1,5 @@
-// Prints a stack trace when the process dies.
-//
-// Worth having because the alternative is guessing. A crash inside a loader
-// thread shows up as an exit code and nothing else, and the code is the same
-// whichever mistake caused it.
-//
-// Symbols come from the pdb next to the binary on Windows, so a release build
-// names its frames too as long as CMake was told to keep them.
+// Prints a stack trace on process failure. Windows symbols come from the PDB
+// next to the binary, including Release builds configured to keep symbols.
 #pragma once
 
 namespace Backtrace {
@@ -13,8 +7,7 @@ namespace Backtrace {
 // Installs the handler. Call once, early.
 void install();
 
-// Prints the current stack to the log, most recent frame first. Useful on its
-// own when something is merely wrong rather than fatal.
+// Logs the current stack, most recent frame first.
 void print(const char *reason);
 
 }  // namespace Backtrace

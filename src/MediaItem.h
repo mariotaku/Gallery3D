@@ -1,5 +1,4 @@
-// Port of com.cooliris.media.MediaItem, trimmed to the fields a local
-// filesystem source can fill in.
+// Port of com.cooliris.media.MediaItem.
 #pragma once
 
 #include <cstdint>
@@ -12,44 +11,23 @@ class MediaItem {
     static const int MEDIA_TYPE_IMAGE = 0;
     static const int MEDIA_TYPE_VIDEO = 1;
 
-    // How much of the taken date is actually known.
-    //
-    // A camera writes an instant, down to the second. A catalogue often knows
-    // only a year: the museum's records say 772 BC and nothing finer. The
-    // timestamp has to name some day regardless - the clusterer and the time
-    // bar do arithmetic on it - so it names the first of January, and this says
-    // whether anyone should be shown that.
-    //
-    // Without it the wall reads "Jan 772 BC", which is a month nobody knows.
+    // Known capture-date precision. Year-only catalogue dates use January 1 internally
+    // but display only the year.
     enum DatePrecision {
         PRECISION_DAY = 0,  // the default: an instant, as a camera records it
         PRECISION_MONTH = 1,
         PRECISION_YEAR = 2,
     };
 
-    // The original bounded a valid capture date to between the end of 1974 and
-    // 2034, on the reasoning that nothing it would ever show predates a digital
-    // camera. That is true of a phone's camera roll and false of anything else:
-    // a museum's catalogue runs from antiquity to last year, and under those
-    // bounds every one of its artworks counted as having no date at all - which
-    // left the time bar with no range to scrub and the clusterer with nothing
-    // to group.
-    //
-    // So a taken date is now valid whenever it is set. Zero still means unknown,
-    // which is what an item starts as and what a source leaves it as when it has
-    // no date to give.
-    //
-    // The added date keeps its bounds. It comes from the filesystem rather than
-    // from the picture, so it really is a recent timestamp or a broken one, and
-    // the range is a sanity check rather than an assumption about the subject.
+    // Taken dates are valid when nonzero, including pre-1970 years; zero means unknown.
+    // Filesystem-added dates retain their sanity bounds.
     static const int64_t MIN_VALID_DATE_IN_SEC = 157680000LL;
     static const int64_t MAX_VALID_DATE_IN_SEC = 2049840000LL;
 
     int64_t mId = -1;
     std::string mCaption;
     std::string mFilePath;
-    // The original addressed images by content Uri. Local files use the path
-    // for all three, at different decode sizes.
+    // Content addresses; local files use the same path at three decode sizes.
     std::string mContentUri;
     std::string mThumbnailUri;
     std::string mScreennailUri;
@@ -59,21 +37,15 @@ class MediaItem {
     double mLongitude = 0.0;
 
     int64_t mDateTakenInMs = 0;
-    // Coarser only where a source says so, so anything that writes a real
-    // timestamp keeps the behaviour it had.
+    // Sources may reduce precision for partially known dates.
     int mDatePrecision = PRECISION_DAY;
     int64_t mDateModifiedInSec = 0;
     int64_t mDateAddedInSec = 0;
 
     float mRotation = 0.0f;
 
-    // The original's pixel dimensions, when the source knows them. Zero means
-    // it does not, and nothing may assume a size from the screennail: that one
-    // is fitted to a box and is not the picture's own shape at full size.
-    //
-    // The tiled view needs these before it has seen a single pixel. It has to
-    // lay out a grid over the whole picture to decide which parts of it are on
-    // screen, and it cannot ask an image it has not loaded.
+    // Original dimensions for tiling, or zero if unknown. Screennail dimensions
+    // are downscaled and cannot substitute for these.
     int mFullWidth = 0;
     int mFullHeight = 0;
 

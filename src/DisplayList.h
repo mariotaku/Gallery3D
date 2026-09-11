@@ -1,7 +1,5 @@
 // Port of com.cooliris.media.DisplayList.
-//
-// Owns one DisplayItem per MediaItem and keeps the animating ones in a list so
-// the update pass only touches what is moving.
+// Owns one DisplayItem per MediaItem and updates only animating items.
 #pragma once
 
 #include <map>

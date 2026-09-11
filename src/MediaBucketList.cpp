@@ -53,8 +53,7 @@ void MediaBucketList::add(int slotId, MediaFeed *feed, bool removeIfAlreadyAdded
     MediaBucket *bucket = nullptr;
     for (size_t i = 0; i < mBuckets.size(); ++i) {
         MediaBucket &candidate = mBuckets[i];
-        // Gingerbread switched this from an id comparison to reference
-        // identity, so two distinct sets sharing an id no longer collide.
+        // Compare reference identity so distinct sets sharing an id remain separate.
         if (candidate.mediaSet != nullptr && mediaSetToAdd != nullptr && candidate.mediaSet == mediaSetToAdd) {
             if (!hasExpandedMediaSet) {
                 if (removeIfAlreadyAdded) {

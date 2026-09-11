@@ -14,15 +14,8 @@ class MediaItem;
 class Texture;
 using TexturePtr = std::shared_ptr<Texture>;
 
-// An item's pixels, wherever its source keeps them, downscaled so neither edge
-// exceeds maxEdge (0 for no limit). A source that does not keep its photos on
-// this disk hands over the bytes; everything else reads the file. Then the
-// platform's decoder turns them into pixels.
-//
-// May answer before it returns, which is what happens natively, or much later
-// from the browser. Anything that wants an item's pixels has to come through
-// here: a Texture's load() runs on a loader thread and has to return a bitmap
-// there and then, which a browser decode cannot do.
+// Decode source bytes or a local file with maxEdge downscaling (0 = unlimited).
+// May answer inline or later; pixel consumers use this instead of Texture::load.
 void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done);
 
 class Texture {
@@ -50,27 +43,16 @@ class Texture {
         return true;
     }
 
-    // Whether loading this one goes over the network, which decides which pool
-    // it is queued on. Per texture rather than per wall: one wall can hold a
-    // local album and a remote one side by side, through
-    // ConcatenatedDataSource.
+    // Select the network or decode pool per texture, allowing mixed-source walls.
     virtual bool loadsOverNetwork() const {
         return false;
     }
 
-    // Begins a load. May finish before it returns, or much later from another
-    // thread or a browser callback; either way it ends at
-    // RenderView::finishLoad. `self` is the caller's own reference, which keeps
-    // the texture alive for as long as the load takes.
-    //
-    // The default is the synchronous one: load() on this thread, done. That is
-    // every texture whose pixels are already to hand.
+    // Starts loading and finishes through RenderView::finishLoad, inline or later.
+    // self keeps the texture alive. The default invokes synchronous load().
     virtual void startLoad(RenderView *view, const TexturePtr &self);
 
-    // Whether to build a mip chain. Worth it only for something drawn much
-    // smaller than it is stored, which on this wall means the grid thumbnails:
-    // zoomed out they minify hard, and one bilinear tap out of a full size
-    // image crawls as the camera moves.
+    // Build mipmaps for grid thumbnails that minify during zoom and tilt.
     virtual bool wantsMipmaps() const {
         return false;
     }
@@ -158,12 +140,8 @@ class FileTexture : public Texture {
     MediaItem *mItem;
 };
 
-// One rectangle of an item's original, scaled down to a tile.
-//
-// The rectangle is in the original's own pixels. Nothing decodes it here: the
-// source is asked for that rectangle and hands back the encoded bytes of just
-// that piece, which is why only a source that can crop gets one of these. See
-// DataSource::supportsRegions.
+// Encoded region of the original, downscaled by its source to a tile.
+// Requires DataSource::supportsRegions; coordinates use original pixels.
 class RegionTexture : public Texture {
   public:
     RegionTexture(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight)
@@ -172,9 +150,7 @@ class RegionTexture : public Texture {
     bool loadsOverNetwork() const override;
     void startLoad(RenderView *view, const TexturePtr &self) override;
 
-    // Drawn at close to one texel per pixel, which is the whole point of
-    // picking the tile's scale from the zoom. A mip chain would be memory spent
-    // on levels nothing samples.
+    // Tiles draw near one texel per pixel and do not need mipmaps.
     bool wantsMipmaps() const override {
         return false;
     }
@@ -258,10 +234,8 @@ class StringTexture : public Texture {
         int yalignment = ALIGN_VCENTER;
         int sizeMode = SIZE_BOUNDS_TO_TEXT;
         int overflowMode = OVERFLOW_FADE;
-        // Renders the texture this many times larger than the logical box. The
-        // 3D label quad maps the whole texture whatever its resolution, so this
-        // buys crisper glyphs for free. Leave at 1 for anything draw2D blits at
-        // its own pixel size.
+        // Supersample the logical label box for sharper 3D glyphs.
+        // Use 1 for draw2D textures blitted at native pixel size.
         int superSample = 1;
     };
 

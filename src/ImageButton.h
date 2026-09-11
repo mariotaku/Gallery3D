@@ -1,9 +1,5 @@
-// Port of com.cooliris.media.ImageButton: a HUD button with a normal and a
-// pressed image, and an action it runs when a press ends on it.
-//
-// The press does not swap images outright, it crossfades. And once a press has
-// started the button keeps tracking the pointer past its own bounds by a
-// margin, so a finger that slides a little does not lose the button.
+// Port of com.cooliris.media.ImageButton.
+// Crossfades normal/pressed art and tracks presses beyond its bounds by a margin.
 #pragma once
 
 #include <functional>

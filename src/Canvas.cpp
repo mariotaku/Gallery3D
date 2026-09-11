@@ -21,10 +21,7 @@ TTF_Font *sFontRegular = nullptr;
 TTF_Font *sFontBold = nullptr;
 bool sFontsReady = false;
 
-// A shipped font is preferred, then whatever the platform is likely to have.
-// The shipped name is resolved against the asset root rather than the working
-// directory, because the app is not necessarily launched from beside its
-// binary.
+// Prefer the shipped font, resolved against the asset root, then platform fonts.
 const char *const kShippedRegular = "Roboto-Regular.ttf";
 const char *const kShippedBold = "Roboto-Bold.ttf";
 
@@ -241,10 +238,8 @@ void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, floa
             if (sa <= 0.0f) {
                 continue;
             }
-            // The colour carries the source's own coverage, because the result
-            // is premultiplied and the renderer blends it with GL_ONE. Scaling
-            // by the tint alpha alone would push every partly covered edge
-            // pixel to full brightness and throw the antialiasing away.
+            // Include source coverage in the tint: GL_ONE blending requires premultiplied
+            // colour.
             float sr = (s[0] / 255.0f) * r * sa;
             float sg = (s[1] / 255.0f) * g * sa;
             float sb = (s[2] / 255.0f) * b * sa;
@@ -314,14 +309,8 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, i
     if (!dst.valid() || !src.valid() || width <= 0 || height <= 0 || alpha <= 0.0f) {
         return;
     }
-    // Bilinear, not nearest. This started out stretching one pixel columns,
-    // where the two are the same, but it also scales icons: the art ships at
-    // one size and PIXEL_DENSITY is whatever the display and the content scale
-    // multiply to, so an icon is almost always resampled. Nearest made those
-    // edges stair step.
-    //
-    // The source is premultiplied, which is the space to interpolate in: a
-    // transparent pixel contributes nothing rather than dragging its colour in.
+    // Bilinear interpolation in premultiplied space prevents transparent pixels contributing
+    // colour.
     float scaleX = (float)src.width() / (float)width;
     float scaleY = (float)src.height() / (float)height;
     for (int y = 0; y < height; ++y) {
@@ -375,8 +364,7 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, i
     }
 }
 
-// Copies a rectangle out of a bitmap. Only the nine-patch needs this, so it
-// stays here rather than growing Bitmap's interface.
+// Copies a bitmap rectangle for nine-patch rendering.
 static Bitmap subImage(const Bitmap &src, int x, int y, int width, int height) {
     if (!src.valid() || width <= 0 || height <= 0) {
         return Bitmap();
@@ -584,9 +572,7 @@ void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickne
     if (!dst.valid() || a <= 0.0f || thickness <= 0.0f) {
         return;
     }
-    // Coverage from the distance to the segment, so a diagonal comes out smooth
-    // rather than as a staircase. The caption's close glyph is a diagonal at
-    // whatever size the display asks for, and a jagged one is obvious.
+    // Use distance-to-segment coverage for antialiased lines.
     const float half = thickness * 0.5f;
     const float dx = x1 - x0;
     const float dy = y1 - y0;

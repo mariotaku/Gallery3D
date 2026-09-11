@@ -1,18 +1,5 @@
-// Port of com.cooliris.media.TimeBar: the scrubber along the bottom of an
-// album. Drag it and the wall scrolls to that date, with the date itself shown
-// in a popup while the drag lasts.
-//
-// Two things about the original are worth knowing before reading this.
-//
-// It builds a list of markers, one every few items, and the drag position is
-// an index into that list rather than into the items. That is what makes the
-// bar move at a sane speed over an album of thousands of photos.
-//
-// And by Gingerbread it no longer drew those markers. Earlier versions drew a
-// scrolling ruler of month names, day numbers and dots; that code is gone and
-// only the knob and the date popup are left. The markers survive as the thing
-// that maps a position to an item. This port follows Gingerbread, so the
-// marker types exist and nothing draws them.
+// Port of com.cooliris.media.TimeBar: album date scrubber with a drag popup.
+// Invisible markers map drag positions to groups of items; only knob and popup are drawn.
 #pragma once
 
 #include <cstdint>
@@ -82,9 +69,7 @@ class TimeBar : public Layer {
         std::vector<MediaItem *> items;
     };
 
-    // The background and the date drawn into one texture. The original kept a
-    // StringTexture per month, day and year and blitted them side by side over
-    // a nine patch; composing once is the same picture with one bind.
+    // Background and date composed into one texture.
     class PopupTexture : public CanvasTexture {
       public:
         explicit PopupTexture(TimeBar *owner) : mOwner(owner) {}
@@ -120,9 +105,8 @@ class TimeBar : public Layer {
     float mTextAlpha = 0.0f;
     float mAnimTextAlpha = 0.0f;
 
-    // Markers and the item to marker index. Both are only touched on the
-    // render thread: the feed hands its changes over through a flag that
-    // GridLayer polls, so unlike the original there is nothing to lock against.
+    // Markers and item-to-marker index are render-thread-only.
+    // GridLayer polls the feed's change flag before updating them.
     std::vector<Marker> mMarkers;
     std::unordered_map<const MediaItem *, size_t> mTracker;
 

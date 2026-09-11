@@ -57,11 +57,7 @@ GridQuad *GridQuad::createGridQuad(float width, float height, float xOffset, flo
         }
     }
     grid->mU = uExtents;
-    // The original assigns uExtents here too, which is a typo upstream. It
-    // cannot bite: mU and mV are only read by recomputeQuad, only the
-    // fullscreen quads ever reach that, and resizeQuad sets both before the
-    // first one is drawn. Corrected anyway, so the next reader is not left
-    // deciding whether it matters.
+
     grid->mV = vExtents;
     return grid;
 }
@@ -73,10 +69,7 @@ void GridQuad::setDynamic(bool dynamic) {
 void GridQuad::update(float timeElapsed) {
     mAnimWidth = FloatUtils::animate(mAnimWidth, mWidth, timeElapsed);
     mAnimHeight = FloatUtils::animate(mAnimHeight, mHeight, timeElapsed);
-    // These two animate and nothing reads them: recomputeQuad takes mU and mV
-    // directly, so a change of extents snaps. That is the original's behaviour
-    // and the extents only change when the texture behind the quad does, which
-    // is already a hard cut.
+    // recomputeQuad reads mU and mV directly, so extents snap despite these animated values.
     mAnimU = FloatUtils::animate(mAnimU, mU, timeElapsed);
     mAnimV = FloatUtils::animate(mAnimV, mV, timeElapsed);
     recomputeQuad();
@@ -96,15 +89,8 @@ void GridQuad::recomputeQuad() {
     float yOffset = 0.0f;
     float u = mU;
     float v = mV;
-    // Both coordinate sets, not just the base one. The original left the
-    // overlay set alone here because its fixed function path fed the content
-    // pass from the base set. This port's single texture shader reads
-    // attribute 1, which is bound from the overlay set, so writing only the
-    // base set left the photo sampling whatever extents the quad was created
-    // with. That was invisible while a screennail happened to fill its padded
-    // texture exactly, and showed up as padding around the photo the moment one
-    // did not. Only the fullscreen quads ever reach here, and they have no
-    // overlay art, so the two sets carrying the same coordinates is correct.
+    // Update both coordinate sets: the single-texture shader uses overlay attribute 1.
+    // Fullscreen quads have no overlay art and use identical coordinates for both.
     set(0, 0, -widthBy2 + xOffset, -heightBy2 + yOffset, 0.0f, u, v, true, 0);
     set(1, 0, widthBy2 + xOffset, -heightBy2 + yOffset, 0.0f, 0.0f, v, true, 0);
     set(0, 1, -widthBy2 + xOffset, heightBy2 + yOffset, 0.0f, u, 0.0f, true, 0);

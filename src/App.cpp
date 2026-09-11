@@ -19,26 +19,19 @@ bool fileExists(const std::string &path) {
 
 float PIXEL_DENSITY = 1.0f;
 float UI_DENSITY = 1.0f;
-// 1.5 fills the default 1280x800 window with two rows of stacks and no
-// clipping. It also crosses the 1.5 threshold that DisplaySlot and
-// GridDrawables use to pick the 256x64 label texture over the 128x32 one, so
-// captions stay sharp at this size.
+// Fits two stack rows in the default 1280x800 window and selects 256x64 captions.
 float CONTENT_SCALE = 1.5f;
 int SCREEN_NAIL_MAX_EDGE = 1024;
 int HI_RES_MAX_EDGE = 2048;
 int BACKDROP_BLUR = BACKDROP_BLUR_GAUSSIAN;
-// The box blur this replaces is nine taps wide, whose variance is (81 - 1) / 12.
-// The square root of that is 2.58, so a gaussian of this strength spreads a
-// colour about as far and the wall sits on the same amount of wash.
+// Matches the standard deviation of a nine-tap box: sqrt((81 - 1) / 12).
 float BACKDROP_BLUR_SIGMA = 2.58f;
 SafeAreaInsets SAFE_AREA;
 std::string ASSET_ROOT = "assets";
 
 namespace {
 
-// The density buckets the port ships, ascending. Android's naming, and its
-// numbers: mdpi is the 1x baseline and hdpi is exactly 1.5x it, which holds for
-// every asset here. Add xhdpi at 2.0 above if art for it ever appears.
+// Ascending Android density buckets: mdpi = 1x, hdpi = 1.5x.
 struct Bucket {
     const char *directory;
     float density;
@@ -49,10 +42,7 @@ const Bucket kBuckets[] = {
     {"drawable-hdpi", 1.5f},
 };
 
-// The unqualified folder. Android treats it as mdpi, and mostly it is, but the
-// original ships both and they disagree for a few assets, so it is the last
-// resort rather than a bucket. Unscaled textures use it directly: their callers
-// were written against these exact pixel sizes.
+// Fallback folder; some assets differ from mdpi. Unscaled callers use its exact pixel sizes.
 const char *const kFallbackDirectory = "drawable";
 
 std::string pathIn(const char *directory, const std::string &name) {
@@ -63,9 +53,7 @@ std::string pathIn(const char *directory, const std::string &name) {
 
 Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
     if (allowHigherDensity) {
-        // The smallest bucket that still has enough pixels, so art is reduced
-        // rather than blown up, compared against the density the chrome is
-        // actually drawn at.
+        // Choose the smallest bucket at least as dense as the chrome.
         const Bucket *best = nullptr;
         for (const Bucket &bucket : kBuckets) {
             if (bucket.density + 0.001f < UI_DENSITY) {

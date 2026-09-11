@@ -38,9 +38,7 @@ class Layer {
         }
     }
 
-    // Runs the layout again even though the box has not changed. A density
-    // change moves everything inside a window that stayed exactly the same
-    // size, and setSize above would take that for nothing to do.
+    // Force layout after density changes even when the layer dimensions are unchanged.
     void relayout() {
         onSizeChanged();
     }
@@ -115,10 +113,7 @@ class RootLayer : public Layer {
         (void)height;
     }
 
-    // Where the pointer is, with no button held. Separate from the touch queue
-    // on purpose: that one models a finger, and a finger is either down or not
-    // there at all. Only chrome that lights under the pointer wants this, so
-    // the default is to ignore it.
+    // Pointer hover without a pressed button; ignored by default.
     virtual void onPointerMoved(float x, float y) {
         (void)x;
         (void)y;

@@ -1,12 +1,5 @@
-// Partial port of com.cooliris.media.MenuBar: the bar along the bottom that
-// carries the actions for whatever is selected.
-//
-// This is the bar and its buttons. The original also had SelectionMenu and
-// PopupMenu hanging off it, a dropdown per button; that is still to do, so each
-// button here runs its action directly instead of opening a menu.
-//
-// A button carries an icon, a label or both. Whichever it has sits centred in
-// the button, and a press lights it with the highlight art.
+// Port of com.cooliris.media.MenuBar: selection actions along the bottom.
+// Each button centres its icon/label and shows highlight art while pressed.
 #pragma once
 
 #include <functional>
@@ -40,9 +33,7 @@ class MenuBar : public Layer {
     void setButtons(const std::vector<ButtonSpec> &buttons);
     void clearButtons();
 
-    // Changes one button's label in place. The selection count sits in a button
-    // of its own and changes on every tap, and rebuilding the bar for it would
-    // throw away the press the tap is part of.
+    // Change a label without rebuilding, preserving the current press.
     void setButtonLabel(size_t index, const std::string &label);
 
     static float preferredHeight();
@@ -53,9 +44,7 @@ class MenuBar : public Layer {
 
     void generate(RenderView *view, RenderLists &lists) override;
     void renderBlended(RenderView *view) override;
-    // Lays the widget out and composes it into a bitmap, without touching GL.
-    // renderBlended does exactly this before handing the result to the
-    // renderer, so a test can look at the same pixels the screen gets.
+    // Lays out and composes the widget into a bitmap without GL.
     Bitmap compose();
     bool onTouchEvent(const MotionEvent &event) override;
     bool containsPoint(float x, float y) override;

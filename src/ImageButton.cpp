@@ -69,9 +69,8 @@ void ImageButton::renderBlended(RenderView *view) {
     if (!current->isLoaded()) {
         return;
     }
-    // The art is drawn at its own size, never stretched to the layer. The
-    // layer rect is the hit test: the original deliberately gives the top right
-    // button a rect half the height of its art, so only the tab is clickable.
+    // Draw art at native size; the layer rectangle controls hit testing.
+    // The top-right tab's hit rectangle is half the art's height.
     float width = (float)current->getWidth();
     float height = (float)current->getHeight();
 

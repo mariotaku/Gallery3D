@@ -16,9 +16,7 @@
 
 MediaItemTexture::Config GridDrawManager::sThumbnailConfig;
 
-// ---------------------------------------------------------------------------
 // GridDrawManager
-// ---------------------------------------------------------------------------
 
 GridDrawManager::GridDrawManager(GridCamera *camera, GridDrawables *drawables, DisplayList *displayList,
                                  DisplayItem **displayItems, DisplaySlot *displaySlots)
@@ -299,21 +297,15 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             mSelectedMixRatio.setValue(0.0f);
             mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
         }
-        // Zoomed in, the picture wants more pixels than the screennail has.
-        // Where the source can crop, the tiled path below fetches only the
-        // parts on screen. Where it cannot - a photo on this disk, since
-        // SDL_image decodes a whole file or none of it - the whole picture is
-        // loaded once more at a higher resolution.
+        // Zoom uses visible tiles where the source supports cropping, otherwise a higher-
+        // resolution
+        // whole image: SDL_image cannot decode regions.
         const bool tiled = TiledImage::canTile(item);
         TexturePtr hiRes =
             (!tiled && zoomValue != 1.0f && i == 0 && item->getMediaType() != MediaItem::MEDIA_TYPE_VIDEO)
                 ? displayItem->getHiResImage()
                 : nullptr;
-        // The original swapped the hi-res texture out for the screennail above
-        // density 1: on a dense handset the screennail already held everything
-        // the screen could resolve. This window is far larger than the phone
-        // that was written for, so a zoom has somewhere to go and the extra
-        // texture earns its memory.
+
         if (i != 0) {
             displayItem->clearHiResImage();
         }
@@ -327,13 +319,8 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         }
         const TexturePtr fsTexture = texture;
         if (!texture || !texture->isLoaded()) {
-            // Near enough to the middle that this is the photo being looked
-            // at rather than one being swiped past.
-            //
-            // Measured against the item's width. Both sides of the comparison
-            // are in the layout's pixels and the camera settles about a third
-            // of one away from the item it is centred on, so a fixed tolerance
-            // small enough to be meaningful is never met.
+            // Load high resolution only near the focus. Tolerance scales with item width
+            // because camera positions use layout pixels.
             const float centred = (float)camera->mItemWidth * 0.02f;
             if (std::fabs(centerTranslateX - camX) < centred) {
                 if (focusItemTextureLoaded && i != 0) {
@@ -409,11 +396,7 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         drawDisplayItem(view, displayItem, texture, PASS_FOCUS_CONTENT, nullptr, 0.0f);
         quad->unbindArrays(view);
 
-        // Over the top of it, the parts of the original that are on screen.
-        // Only for the picture being looked at, and only once it is settled on
-        // the screennail: during the cross fade from the thumbnail the quad is
-        // still being resized under it, and tiles placed against a quad that is
-        // about to change would sit off the picture for a frame.
+        // Overlay tiles only after the thumbnail-to-screennail fade settles the quad's size.
         if (i == 0 && zoomValue != 1.0f && selectedMixRatio == 1.0f && !slideshowMode) {
             drawFocusTiles(view, displayItem, quad);
         }
@@ -451,10 +434,7 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
     if (tiled == nullptr || quad == nullptr) {
         return;
     }
-    // A rotated picture is drawn through the quad's own rotation, and the tile
-    // rectangles are worked out in screen axes. Squaring those two is work for
-    // no one: nothing the museum serves is rotated, and a rotated local photo
-    // has no tiles to draw anyway.
+    // Skip rotated images: tile rectangles use screen axes, while the quad rotates locally.
     if (displayItem->mAnimatedImageTheta != 0.0f || displayItem->mAnimatedTheta != 0.0f) {
         return;
     }
@@ -470,9 +450,7 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
     }
 
     GridCamera *camera = mCamera;
-    // What the screen covers, in the same space the item's position is in. Both
-    // corners come from the camera, so this is the on screen rectangle
-    // expressed in world units: x to the right, y down.
+    // Visible screen rectangle in world units: x right, y down.
     Vector3f topLeft;
     Vector3f bottomRight;
     camera->convertToCameraSpace(0.0f, 0.0f, 0.0f, topLeft);
@@ -496,9 +474,7 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
         return;
     }
 
-    // How wide the whole picture is drawn, in screen pixels. That is what says
-    // how much detail is worth fetching, and it is the zoom in the only form
-    // this needs it.
+    // Whole-picture width in screen pixels determines tile detail.
     const float drawnWidth = (quadWidth / viewSpan) * (float)camera->mWidth;
     tiled->update(view, left, top, right, bottom, drawnWidth);
 
@@ -507,11 +483,8 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
         return;
     }
 
-    // The focus pass draws additively over a cleared screen, which suits one
-    // layer and not two. A tile goes over the screennail rather than adding to
-    // it, so for this pass alone the blend is the ordinary one. Everything a
-    // tile carries is opaque, so it replaces what it covers, and where no tile
-    // has arrived the screennail underneath still shows.
+    // Use ordinary blending so opaque tiles replace the screennail instead of adding to it.
+    // Unloaded regions retain the screennail.
     view->blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // The same transform drawDisplayItem puts the whole picture under, so the
@@ -522,11 +495,8 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
         if (!tile.texture || !tile.texture->isLoaded()) {
             continue;
         }
-        // Local axes, not screen ones: the quad's +x is screen left and its +y
-        // is screen up, so a fraction measured from the picture's left or top
-        // counts down from the positive corner. The same convention the whole
-        // picture is drawn under, which is why its rightmost vertex carries the
-        // texture coordinate zero.
+        // Local +x points screen-left and +y screen-up; fractions count from the positive
+        // corner.
         const float xMin = quadWidth * (0.5f - tile.right);
         const float xMax = quadWidth * (0.5f - tile.left);
         const float yMin = quadHeight * (0.5f - tile.bottom);

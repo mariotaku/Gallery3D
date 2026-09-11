@@ -260,12 +260,8 @@ Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
 }
 
 Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
-    // Walks the JPEG APP1 segment for the orientation (0x0112, in IFD0), the
-    // capture date (0x9003, in the Exif sub-IFD that IFD0's tag 0x8769 points
-    // at) and the position (in the GPS sub-IFD that IFD0's tag 0x8825 points
-    // at).
-    // These are arbitrary user files, so every read is bounds checked and a
-    // malformed header just leaves the defaults in place.
+    // Read JPEG APP1 orientation (IFD0 0x0112), date (Exif IFD via 0x8769, tag 0x9003),
+    // and GPS (IFD via 0x8825). Bounds-check all reads; malformed data keeps defaults.
     ExifInfo info;
     std::FILE *file = std::fopen(path.c_str(), "rb");
     if (!file) {

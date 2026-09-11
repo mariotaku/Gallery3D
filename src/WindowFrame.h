@@ -1,17 +1,6 @@
-// Runs the window's content up under the title bar, keeping the system frame.
-//
-// The same idea as NSWindow's fullSizeContentView on macOS: the caption stops
-// being a strip of chrome above the content and becomes part of the content,
-// with the app drawing whatever belongs there.
-//
-// This is not a borderless window. The frame is still real, so snapping, the
-// resize borders, the drop shadow, double click to maximise and the right click
-// system menu all keep working, and none of it has to be reimplemented. What
-// goes is the caption bar itself, and with it the minimise, maximise and close
-// buttons, which the app now draws.
-//
-// Windows only so far. Everywhere else install() says so and the window keeps
-// its ordinary title bar.
+// Extends content under the title bar while retaining the system frame and window actions.
+// Windows only; other platforms keep their ordinary title bar.
+// The app draws caption buttons.
 #pragma once
 
 struct SDL_Window;

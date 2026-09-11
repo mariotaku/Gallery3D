@@ -1,16 +1,6 @@
-// Port of com.cooliris.media.ConcatenatedDataSource: two sources behind one,
-// so a feed can show a local library and something else together.
-//
-// It only has to enumerate. Everything set specific routes itself: each set
-// remembers the source that added it, and MediaFeed asks that one for its items
-// and its operations. So this class does not have to know which set came from
-// where, and adding a third source is another wrapper rather than a change
-// here.
-//
-// Pixels route the same way. A source hands back the encoded bytes of an item
-// through requestItemBytes, so nothing has to be a file on this disk, and the
-// tiled fullscreen view asks the item's own source for a rectangle of the
-// original. Both go to the source that made the set, not through here.
+// Port of com.cooliris.media.ConcatenatedDataSource: enumerates two sources in order.
+// MediaFeed routes item loads and operations through each set's owning source.
+// Pixel and region requests also go directly to that source.
 #pragma once
 
 #include "LocalDataSource.h"
@@ -25,9 +15,7 @@ class ConcatenatedDataSource : public DataSource {
     bool supportsOperation(int operation) const override;
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
     void requestItemBytes(MediaItem *item, BytesCallback done) override;
-    // Asked without an item in hand, so this is "could anything behind here
-    // block on the network". A wall can hold sets from both at once, so the
-    // routing that matters is per item, in Texture::loadsOverNetwork.
+    // Whether either source may block on the network; textures route per item.
     bool readsBlockOnNetwork() const override;
     void shutdown() override;
 

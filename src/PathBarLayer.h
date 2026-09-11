@@ -1,10 +1,5 @@
-// Port of com.cooliris.media.PathBarLayer: the breadcrumb bar along the top.
-//
-// The original drew the bar with a handful of draw2D calls per segment - fill,
-// join, cap, icon, label. Here the whole bar is composed once into a
-// CanvasTexture and blitted in one call, and it is only recomposed when the
-// crumbs or the size change. That is the same picture with less per frame work,
-// and it gives the port's CanvasTexture a real consumer.
+// Port of com.cooliris.media.PathBarLayer: top breadcrumb bar.
+// Caches the composition in CanvasTexture until crumbs or dimensions change.
 #pragma once
 
 #include <functional>
@@ -19,7 +14,7 @@
 
 class PathBarLayer : public Layer {
   public:
-    // Run when the crumb is clicked. The original passed a Runnable.
+    // Action run when the crumb is clicked.
     using Action = std::function<void()>;
 
     PathBarLayer();
@@ -32,8 +27,7 @@ class PathBarLayer : public Layer {
     int getNumLevels() const;
     void clear();
 
-    // The original cycled a spinner here while the media scanner ran. Nothing
-    // drives it yet, so it stays a no-op rather than a lie.
+    // Scanner spinner hook; currently a no-op.
     void setAnimatedIcons(const void *icons) {
         (void)icons;
     }
@@ -43,16 +37,12 @@ class PathBarLayer : public Layer {
 
     void generate(RenderView *view, RenderLists &lists) override;
     void renderBlended(RenderView *view) override;
-    // Lays the widget out and composes it into a bitmap, without touching GL.
-    // renderBlended does exactly this before handing the result to the
-    // renderer, so a test can look at the same pixels the screen gets.
+    // Lays out and composes the widget into a bitmap without GL.
     Bitmap compose();
     bool onTouchEvent(const MotionEvent &event) override;
     bool containsPoint(float x, float y) override;
 
-    // How far the crumbs actually reach, which is nothing like the room the bar
-    // is allowed. The window's drag region starts where this ends, so guessing
-    // a worst case here costs the pointer somewhere to grab.
+    // Actual crumb extent, used as the start of the window's draggable area.
     float barRightEdge() const {
         return mX + mBarWidth;
     }

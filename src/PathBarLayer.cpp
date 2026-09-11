@@ -127,17 +127,8 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
     Bitmap cap = Bitmap::load(App::drawablePath("pathbar_cap"), 0);
     Bitmap join = Bitmap::load(App::drawablePath("pathbar_join"), 0);
 
-    // The fill goes under the crumbs and nowhere else. The cap and the join
-    // are not overlays: each carries the same flat tone as the fill and then
-    // shapes its end, so laying one over the fill doubles the tone and leaves
-    // the rounded edge sitting on a square one. The original draws the fill up
-    // to the end of each crumb and puts the join and the cap in the gaps.
-    //
-    // Every span starts where the last one ended rather than being rounded on
-    // its own. Rounding each independently leaves a one pixel gap wherever the
-    // two roundings disagree, which at some densities they do: a crumb ending
-    // at 102.375 rounds to 102 while the join, placed by subtracting a
-    // truncated width, starts at 103.
+    // Fill only crumb spans; joins and caps occupy gaps to avoid double blending.
+    // Start each span at the previous endpoint to prevent fractional-density rounding gaps.
     auto paintSpan = [&](const Bitmap &art, int x, int spanWidth) {
         if (spanWidth <= 0) {
             return;
@@ -145,7 +136,7 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
         if (art.valid()) {
             Canvas::blitScaled(canvas, art, x, 0, spanWidth, height);
         } else {
-            // No art: a flat bar still beats nothing to click on.
+            // Use a flat fill when art is unavailable.
             Canvas::fillRect(canvas, x, 0, spanWidth, height, 0.0f, 0.0f, 0.0f, 0.18f);
         }
     };
@@ -217,12 +208,8 @@ void PathBarLayer::renderBlended(RenderView *view) {
     if (!mTexture->isLoaded()) {
         return;
     }
-    // Chrome sits in front of the wall. draw2D writes its z straight into the
-    // depth buffer, so 0 is nearest.
-    //
-    // The colour is deliberately not reset: HudLayer drew just before this and
-    // set the alpha the whole HUD fades with. The bar bitmap is premultiplied,
-    // so scaling it by that alpha keeps it premultiplied.
+    // draw2D z = 0 puts chrome in front. Retain HudLayer's colour to fade the
+    // premultiplied bar with the rest of the HUD.
     view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     view->draw2D(mTexture, mX, mY, (float)mTexture->getCanvasWidth(), (float)mTexture->getCanvasHeight());
 }

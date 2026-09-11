@@ -360,9 +360,7 @@ void GridInputProcessor::resetScale() {
     mCurrentScaleSlot = Shared::INVALID;
 }
 
-// ---------------------------------------------------------------------------
 // GestureDetector::Listener
-// ---------------------------------------------------------------------------
 
 bool GridInputProcessor::onDown(const MotionEvent &event) {
     (void)event;
@@ -517,9 +515,7 @@ void GridInputProcessor::selectSlot(int slotId) {
         if (displayItem != nullptr) {
             MediaItem *item = displayItem->mItemRef;
             if (item != nullptr && item->getMediaType() == MediaItem::MEDIA_TYPE_VIDEO) {
-                // The original handed video to the platform player rather than
-                // decoding it, and so does this. There is no fullscreen state
-                // for a video to enter here.
+                // Open videos in the platform player; they do not enter fullscreen photo state.
                 if (!FileOperations::openInDefaultApp(item->mFilePath)) {
                     SDL_Log("Could not open %s", item->mFilePath.c_str());
                 }
@@ -570,9 +566,7 @@ bool GridInputProcessor::onSingleTapConfirmed(const MotionEvent &event) {
     return false;
 }
 
-// ---------------------------------------------------------------------------
 // ScaleGestureDetector::Listener
-// ---------------------------------------------------------------------------
 
 bool GridInputProcessor::onScale(ScaleGestureDetector *detector) {
     GridLayer *layer = mLayer;
@@ -589,8 +583,7 @@ bool GridInputProcessor::onScale(ScaleGestureDetector *detector) {
         }
         Vector3f retVal;
         if (performTranslation) {
-            // Gingerbread fix: zoom about the focus point and pan by how far
-            // the focus moved, so the pixels under the fingers stay put.
+            // Zoom around the focus and pan by its movement to keep pixels under the fingers.
             Vector3f retValCenter;
             Vector3f retValPrev;
             float posX = detector->getFocusX() - (float)(mCamera->mWidth / 2);
@@ -613,8 +606,7 @@ bool GridInputProcessor::onScale(ScaleGestureDetector *detector) {
         if (performTranslation) {
             mCamera->update(0.001f);
             mCamera->moveBy(retVal.x, retVal.y, 0.0f);
-            // Gingerbread dropped the constrainCameraForSlot call that used to
-            // sit here; clamping now happens through GridCameraManager only.
+            // GridCameraManager handles clamping.
         }
     }
     if (layer->getState() == GridLayer::STATE_GRID_VIEW) {
@@ -675,22 +667,13 @@ void GridInputProcessor::onSensorChanged(RenderView *view, float x, float y, flo
     if (mZoomGesture) {
         return;
     }
-    // The original switched on the display rotation here to pick which axis is
-    // "along the screen". The caller has already done that, because SDL reports
-    // the device's axes and the display orientation separately.
+    // The caller rotates SDL device axes into display orientation.
     (void)z;
     (void)y;
     const float valueToUse = x;
 
-    // Verbatim from the original, including the part that does not work.
-    //
-    // mPrevTiltValueLowPass is declared and read and never assigned, so the
-    // 0.8 term is always zero and this is not a low pass filter at all: it is
-    // just a fifth of the reading. Worth keeping rather than repairing. Fixed,
-    // the filter would converge on the whole reading, and at three units of eye
-    // offset per unit of acceleration a thirty degree lean would throw the wall
-    // five times further than it ever did on a device. The bug is what shipped
-    // and what the constants either side of it were chosen against.
+    // mPrevTiltValueLowPass is never assigned, so the result is one fifth of the reading.
+    // This matches the Java tilt response and the surrounding offset constants.
     float tiltValue = 0.8f * mPrevTiltValueLowPass + 0.2f * valueToUse;
     if (std::fabs(tiltValue) < 0.5f) {
         tiltValue = 0.0f;
@@ -703,6 +686,5 @@ void GridInputProcessor::onSensorChanged(RenderView *view, float x, float y, flo
     }
     mCamera->mEyeOffsetX = -3.0f * tiltValue;
 
-    // The original also derived a shake value here, high pass filtered and
-    // clamped to 200. Nothing ever read it, so there is nothing to port.
+
 }

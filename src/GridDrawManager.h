@@ -56,10 +56,7 @@ class GridDrawManager {
     void drawDisplayItem(RenderView *view, DisplayItem *displayItem, const TexturePtr &texture, int pass,
                          const TexturePtr &previousTexture, float mixRatio);
 
-    // Lays the tiled version of the focused picture over the screennail already
-    // drawn under it. `quad` is the one the screennail was drawn on, which is
-    // what says how big the picture is on screen. Does nothing for an item that
-    // cannot be tiled.
+    // Overlays tiles on the screennail's quad; skips items that cannot be tiled.
     void drawFocusTiles(RenderView *view, DisplayItem *displayItem, GridQuad *quad);
 
     static MediaItemTexture::Config sThumbnailConfig;

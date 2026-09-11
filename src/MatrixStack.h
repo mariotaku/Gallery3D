@@ -1,9 +1,6 @@
-// Port of com.cooliris.media.MatrixStack, plus the pieces of android.opengl.Matrix
-// and android.opengl.GLU that the original leaned on. ES 2.0 dropped the
-// fixed-function matrix stack, so this class now backs the whole port.
-//
-// Storage is column major, the same layout OpenGL and android.opengl.Matrix use:
-// m[column * 4 + row].
+// Port of com.cooliris.media.MatrixStack and android.opengl.Matrix/GLU helpers.
+// Replaces the fixed-function matrix stack absent in ES 2.0.
+// Column-major storage: m[column * 4 + row].
 #pragma once
 
 #include <vector>

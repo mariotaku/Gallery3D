@@ -81,9 +81,7 @@ RenderView::~RenderView() {
     shutdown();
 }
 
-// ---------------------------------------------------------------------------
 // Programs
-// ---------------------------------------------------------------------------
 
 RenderView::Program RenderView::buildProgram(const char *vertexSource, const char *fragmentSource) {
     Program program;
@@ -176,9 +174,7 @@ void RenderView::applyUniforms() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Lifecycle
-// ---------------------------------------------------------------------------
 
 bool RenderView::init(SDL_Window *window) {
     mWindow = window;
@@ -187,17 +183,12 @@ bool RenderView::init(SDL_Window *window) {
     }
     glGenBuffers(1, &mQuad2DVBO);
 
-    // Mipmaps alone cost too much sharpness: a thumbnail drawn near its own
-    // size still blends level 0 with level 1, and the fine detail in a photo
-    // goes with it. Anisotropic filtering is what keeps both ends: sharp head
-    // on, filtered where the wall tilts away and minifies. Without it the
-    // trade is not worth making, so the mip chain is only built when it is
-    // there to pair with.
+    // Build mipmaps only with anisotropic filtering to preserve thumbnail sharpness.
     const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
     if (extensions != nullptr && SDL_strstr(extensions, "GL_EXT_texture_filter_anisotropic") != nullptr) {
         GLfloat maxAnisotropy = 1.0f;
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
-        // Four is where the returns flatten out for this, and it is cheap.
+        // Cap anisotropy at four.
         mMaxAnisotropy = (maxAnisotropy < 4.0f) ? maxAnisotropy : 4.0f;
     }
     SDL_Log("Anisotropic filtering %s (max %.1f)", (mMaxAnisotropy > 1.0f) ? "on" : "unavailable",
@@ -286,10 +277,8 @@ void RenderView::onSurfaceChanged(int width, int height) {
 
     glViewport(0, 0, width, height);
     setFov(mFov);
-    // Screen space projection for draw2D, with the origin at the top left just
-    // as the Android view coordinates had it. The near and far planes are set
-    // so the z argument lands in the depth buffer unchanged, which is what
-    // glDrawTexOES did and what BackgroundLayer relies on to sit at the back.
+    // Top-left screen projection; draw2D z passes unchanged into the depth buffer,
+    // matching glDrawTexOES and BackgroundLayer's far-plane placement.
     mOrtho = Mat4::ortho(0.0f, (float)width, (float)height, 0.0f, 0.0f, -1.0f);
 
     if (mRootLayer) {
@@ -325,10 +314,7 @@ void RenderView::onDrawFrame() {
     processTextures(false);
     enforceTextureBudget();
 
-    // The interval comes from the nanosecond clock, not SDL_GetTicks. A
-    // millisecond counter reports 0 for any frame shorter than that, which
-    // happens whenever the swap does not block - an unmapped window, or vsync
-    // off - and a zero step makes every animation jump straight to its target.
+    // Use nanosecond intervals: millisecond ticks can report zero on nonblocking swaps.
     uint64_t nowNs = SDL_GetTicksNS();
     uint64_t deltaNs = (mFrameTimeNs != 0 && nowNs > mFrameTimeNs) ? (nowNs - mFrameTimeNs) : 0;
     mFrameTimeNs = nowNs;
@@ -384,9 +370,7 @@ void RenderView::updateLists() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Input
-// ---------------------------------------------------------------------------
 
 void RenderView::queueTouchEvent(const MotionEvent &event) {
     if (mTouchEventQueue.size() > 8 && event.action == MotionEvent::ACTION_MOVE) {
@@ -474,9 +458,7 @@ Layer *RenderView::hitTest(float x, float y) {
     return nullptr;
 }
 
-// ---------------------------------------------------------------------------
 // Textures
-// ---------------------------------------------------------------------------
 
 TexturePtr RenderView::getResource(const std::string &name, bool scaled) {
     std::map<std::string, TexturePtr> &cache = scaled ? mCacheScaled : mCacheUnscaled;
@@ -546,17 +528,13 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
     texture->mOwner = this;
 
 #if defined(__EMSCRIPTEN__)
-    // No pools here. Fetching and decoding are both callbacks, so starting the
-    // load costs about as much as queueing it would, and the browser does its
-    // own scheduling of the requests behind it.
+    // Browser fetch and decode complete through callbacks; no worker pools are needed.
     ++mLoadingCount;
     texture->startLoad(this, texture);
     return;
 #endif
 
-    // A read that goes over the network is nearly all waiting, so it goes to
-    // the elastic pool instead of the decode threads. A stalled download there
-    // costs one waiting thread; here it used to cost a quarter of the wall.
+    // Route network waits to the elastic pool so downloads cannot stall local decoding.
     if (texture->loadsOverNetwork()) {
         {
             std::lock_guard<std::mutex> lock(mNetworkMutex);
@@ -622,10 +600,8 @@ void RenderView::loadTextureAsync(const TexturePtr &texture) {
 }
 
 void RenderView::finishLoad(const TexturePtr &texture, Bitmap bitmap) {
-    // Where every finished load lands, whoever finished it: a decode thread, a
-    // network thread, or a callback from the browser. The pixels are shaped
-    // here and the render thread picks them up from the queue, which is the one
-    // place that may touch GL.
+    // Collect finished pixels from workers or browser callbacks. Only the render
+    // thread drains uploads and touches GL.
     applyBitmap(texture, std::move(bitmap));
     {
         std::lock_guard<std::mutex> lock(mQueueMutex);
@@ -719,8 +695,7 @@ void RenderView::processTextures(bool processAll) {
 }
 
 void RenderView::enforceTextureBudget() {
-    // A few hundred megabytes of thumbnails is comfortable; past that the
-    // least recently bound ones go back to disk and reload if needed.
+    // Evict least-recently-bound textures above the memory budget.
     const size_t kBudgetBytes = 192u * 1024u * 1024u;
     // Never drop something drawn in the last few frames, or scrolling would
     // evict and reload the same thumbnails every frame.
@@ -843,9 +818,7 @@ void RenderView::reapNetworkThreadsLocked() {
 }
 
 void RenderView::growNetworkPoolLocked() {
-    // Only when every thread already has something to do. Downloads are
-    // latency, so the way to go faster is more of them in flight, but the
-    // ceiling is politeness to whatever is serving them.
+    // Grow the network pool only when all workers are busy, up to the request ceiling.
     if (mNetworkIdleCount > 0) {
         return;
     }
@@ -878,9 +851,8 @@ void RenderView::networkLoadThread() {
                 return;
             }
             if (!woken || mNetworkQueue.empty()) {
-                // Nothing to do for long enough to stop being worth a thread.
-                // Leaving the handle behind because a thread cannot join
-                // itself; whoever queues the next fetch picks it up.
+                // Retire idle workers; leave handles for the next enqueue to join, since
+                // threads cannot join themselves.
                 mNetworkFinished.push_back(std::this_thread::get_id());
                 --mNetworkThreadCount;
                 SDL_Log("Network pool retired an idle thread, %d left", mNetworkThreadCount);
@@ -894,9 +866,7 @@ void RenderView::networkLoadThread() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Binding and colour
-// ---------------------------------------------------------------------------
 
 bool RenderView::bind(const TexturePtr &texture) {
     if (!texture) {
@@ -982,9 +952,7 @@ void RenderView::resetColor() {
     mAlpha = 1.0f;
 }
 
-// ---------------------------------------------------------------------------
 // Matrix stack
-// ---------------------------------------------------------------------------
 
 void RenderView::glLoadIdentity() {
     mModelView.glLoadIdentity();
@@ -1015,9 +983,7 @@ void RenderView::gluLookAt(float eyeX, float eyeY, float eyeZ, float centerX, fl
     mModelView.glMultMatrixf(Mat4::lookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ));
 }
 
-// ---------------------------------------------------------------------------
 // Raw state
-// ---------------------------------------------------------------------------
 
 void RenderView::enableBlend(bool enable) {
     if (enable) {
@@ -1035,9 +1001,7 @@ void RenderView::depthFunc(GLenum func) {
     glDepthFunc(func);
 }
 
-// ---------------------------------------------------------------------------
 // Geometry
-// ---------------------------------------------------------------------------
 
 void RenderView::bindVertexBuffer(GLuint vbo) {
     mVertexVBO = vbo;
@@ -1080,9 +1044,7 @@ void RenderView::drawElements(GLenum mode, GLsizei count, size_t byteOffset) {
     glDrawElements(mode, count, GL_UNSIGNED_SHORT, (const void *)byteOffset);
 }
 
-// ---------------------------------------------------------------------------
 // 2D drawing, replacing OES_draw_texture
-// ---------------------------------------------------------------------------
 
 void RenderView::draw2D(float x, float y, float z, float width, float height) {
     // Six floats per vertex: position then texture coordinate, in two arrays

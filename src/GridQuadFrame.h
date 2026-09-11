@@ -1,7 +1,6 @@
 // Port of com.cooliris.media.GridQuadFrame.
-//
-// A 4x4 grid of vertices drawn as one triangle strip, forming the nine patch
-// border around a grid item. 25 indices, degenerate triangles included.
+// 4x4 vertex grid forming a nine-patch border, with 25 triangle-strip indices including
+// degenerates.
 #pragma once
 
 #include <vector>

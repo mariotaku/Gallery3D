@@ -15,9 +15,7 @@ namespace {
 
 bool sExtended = false;
 
-// The caption is as tall as Windows would have drawn it. Matching the system
-// means the buttons land where the pointer expects them, and a window snapped
-// beside a normal one lines up.
+// Match the Windows caption height.
 int sCaptionHeightPx = 32;
 
 // Windows 11 names these; the SDK that built this may predate them, so they are
@@ -32,9 +30,7 @@ int sCaptionHeightPx = 32;
 #define DWMWA_BORDER_COLOR 34
 #endif
 
-// How thick the resize frame is, at this window's dpi. Asked for every time
-// rather than cached, because the window can move to a display with a different
-// scale and these change with it.
+// Query resize-frame thickness at the current DPI; it changes between displays.
 int frameThickness(HWND window, int metric) {
     UINT dpi = GetDpiForWindow(window);
     if (dpi == 0) {
@@ -60,17 +56,13 @@ LRESULT CALLBACK subclassProc(HWND window, UINT message, WPARAM wParam, LPARAM l
         NCCALCSIZE_PARAMS *params = (NCCALCSIZE_PARAMS *)lParam;
         const RECT proposed = params->rgrc[0];
 
-        // Let Windows work out the frame it wants, then take back only the
-        // caption. Doing the arithmetic by hand instead gets the borders wrong
-        // on some dpi settings, and gets them wrong again when maximised.
+        // Let Windows compute DPI/maximised frame borders, then reclaim the caption.
         DefSubclassProc(window, message, wParam, lParam);
         RECT *client = &params->rgrc[0];
 
         if (IsZoomed(window)) {
-            // A maximised window is deliberately larger than the monitor by the
-            // frame thickness, so its borders fall offscreen. Keeping the
-            // caption would put the content offscreen with them, so only the
-            // caption's own height comes back here.
+            // Maximised windows exceed monitor bounds by frame thickness. Reclaim only
+            // the caption height so content stays onscreen.
             client->top = proposed.top + frameThickness(window, SM_CYSIZEFRAME) +
                           frameThickness(window, SM_CXPADDEDBORDER);
         } else {
@@ -110,14 +102,11 @@ bool install(SDL_Window *sdlWindow) {
         return false;
     }
 
-    // One pixel of frame extended into the client area. Without this the window
-    // loses its drop shadow, which is the visible difference between a window
-    // with a real frame and a borderless one pretending.
+    // Extend one frame pixel into the client area to retain the drop shadow.
     MARGINS margins = {0, 0, 1, 0};
     DwmExtendFrameIntoClientArea(window, &margins);
 
-    // The caption is gone but its border is not, and a light border around a
-    // dark wall reads as a mistake.
+    // Use a dark border to match the content.
     BOOL dark = TRUE;
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
 
@@ -142,8 +131,7 @@ float captionHeight() {
 }
 
 float captionButtonsWidth() {
-    // Three buttons at the width Windows uses for one, which is what makes a
-    // pointer thrown at the top right corner hit close.
+    // Reserve three system-width caption buttons.
     return 3.0f * 46.0f * App::UI_DENSITY;
 }
 

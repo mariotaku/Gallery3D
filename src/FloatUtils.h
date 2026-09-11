@@ -13,10 +13,7 @@ inline float animateAfterFactoringSpeed(float prevVal, float targetVal, float ti
     if (prevVal == targetVal) {
         return targetVal;
     }
-    // No time passed, so nothing moves. Without this the step below is exactly
-    // zero, the "close enough to done" test underneath sees no movement and
-    // snaps to the target, and a stalled frame finishes the animation instead
-    // of leaving it alone.
+    // Zero elapsed time must not trigger the convergence check and snap to the target.
     if (timeElapsed <= 0.0f) {
         return prevVal;
     }

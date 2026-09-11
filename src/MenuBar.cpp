@@ -11,8 +11,7 @@ namespace {
 const float ART_HEIGHT = 58.0f;
 const float ICON_SIZE = 34.0f;
 const float FONT_SIZE = 17.0f;
-// The highlight is inset from the button edges, and its own caps sit outside
-// that inset. Both from the original.
+// Highlight inset and cap overhang, in Java layout units.
 const float HIGHLIGHT_INSET = 9.0f;
 const float HIGHLIGHT_EDGE_WIDTH = 21.0f;
 
@@ -80,8 +79,7 @@ void MenuBar::layout() {
         mTexture->setSize(0, 0);
         return;
     }
-    // Buttons share the bar evenly, which is what the original did once the
-    // selection menu had decided how many there were.
+    // Buttons divide the bar equally.
     float share = mWidth / (float)mButtons.size();
     for (size_t i = 0; i < mButtons.size(); ++i) {
         mButtons[i].x = share * (float)i;

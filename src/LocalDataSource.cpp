@@ -128,12 +128,9 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             std::error_code error;
             auto writeTime = fs::last_write_time(file, error);
             if (!error) {
-                // file_clock's epoch is unspecified before C++20 and is not the
-                // Unix epoch on Windows. Rather than hardcode the offset per
-                // platform, carry the file time across to the system clock by
-                // the difference between the two clocks read together. Costs a
-                // little precision, which does not matter for a photo date, and
-                // needs no guard.
+                // file_clock's epoch is unspecified before C++20 and differs from Unix on
+                // Windows.
+                // Convert using the offset between simultaneous file and system clock readings.
                 auto systemTime = std::chrono::system_clock::now() +
                                   (writeTime - std::filesystem::file_time_type::clock::now());
                 int64_t unixSeconds =
@@ -149,9 +146,7 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             }
             set->addItem(std::move(item));
         }
-        // The folder was walked in filename order, which is not the order the
-        // album is meant to be read in. The dates are only known once the EXIF
-        // has been read, so the sort waits until here.
+        // Sort by date after reading EXIF; directory enumeration is in filename order.
         set->sortItemsByDate();
         set->updateNumExpectedItems();
         set->generateTitle(true);
@@ -163,9 +158,7 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
 }
 
 void LocalDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
-    // loadMediaSets already filled every set in, so there is never a next page.
-    // Saying so straight away is what keeps the feed from holding the set as
-    // loading forever.
+    // loadMediaSets completes every local set; mark pagination finished immediately.
     if (feed != nullptr) {
         feed->finishLoadingItemsForSet(parentSet);
     }
@@ -177,9 +170,7 @@ bool LocalDataSource::performOperation(int operation, MediaItem *item, const voi
     }
     switch (operation) {
     case MediaFeed::OPERATION_DELETE:
-        // To the recycle bin, and only report success if the file actually
-        // went. Leaving the wall showing something still on disk is better
-        // than the reverse.
+        // Report deletion success only after the file reaches the recycle bin.
         return FileOperations::moveToTrash(item->mFilePath);
     case MediaFeed::OPERATION_ROTATE: {
         // A PNG or an EXIF free JPEG has no tag to rewrite, so the turn lasts
@@ -193,7 +184,6 @@ bool LocalDataSource::performOperation(int operation, MediaItem *item, const voi
 }
 
 bool LocalDataSource::supportsOperation(int operation) const {
-    // A file on this disk can be recycled and its EXIF rewritten. Anything else
-    // the port might add has to say so here before the HUD will offer it.
+    // Local files support recycling and EXIF rotation.
     return operation == MediaFeed::OPERATION_DELETE || operation == MediaFeed::OPERATION_ROTATE;
 }

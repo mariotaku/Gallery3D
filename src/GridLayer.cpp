@@ -21,8 +21,7 @@ GridLayoutInterface GridLayer::sFullScreenLayoutInterface(1);
 
 namespace {
 
-// Replaces ArrayUtils.computeSortedIntersection. Identity is the pointer now,
-// so the hash filter the original needed is gone.
+// ArrayUtils.computeSortedIntersection using pointer identity.
 void computeSortedIntersection(const std::vector<MediaItem *> &firstList, const std::vector<MediaItem *> &secondList,
                                int maxSize, std::vector<MediaItem *> &intersectionList) {
     for (MediaItem *item : firstList) {
@@ -58,10 +57,7 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
         return 1;
     }
 
-    // The height a row can be seen in. The wall itself runs edge to edge - a
-    // photo behind a notch is the right trade - but a row is only worth laying
-    // out where it will not sit under the bar at the top or the one at the
-    // bottom.
+    // Lay out rows between the top and bottom bars; the wall still draws edge to edge.
     const App::SafeAreaInsets &safe = App::SAFE_AREA;
     const float obscured = safe.top + safe.bottom + PathBarLayer::preferredHeight() + MenuBar::preferredHeight();
     const int available = (int)((float)mCamera->mHeight - obscured);
@@ -74,11 +70,7 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
         return (rows < 1) ? 1 : rows;
     }
 
-    // Bounded by the display slot array, which is a fixed size. Every slot on
-    // screen needs an entry, and the visible range is padded either side so
-    // scrolling does not have to rebuild it, so the columns across decide how
-    // many rows there is room for. A slot past the end of the array is drawn as
-    // nothing at all rather than reported.
+    // Reserve display-array entries for visible columns and buffered slots on either side.
     const int columnsOnScreen = mCamera->mWidth / columnPitch;
     const int maxRows = (MAX_DISPLAY_SLOTS - kSlotRangePadding) / (columnsOnScreen + 2);
     if (rows > maxRows) {
@@ -88,11 +80,8 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
         rows = 1;
     }
 
-    // A wall longer than the window fills the width whatever the row count, so
-    // filling the height is the whole of it. A wall that fits is a block of a
-    // fixed size, and then the rows decide its shape: twelve albums over four
-    // rows is three columns, a tall block in a wide window. Pick the row count
-    // whose block comes closest to the window's own proportions.
+    // For scrolling walls, fill the height. For walls that fit, choose the row count
+    // whose block aspect ratio is closest to the window's.
     const int slots = (mMediaFeed != nullptr) ? mMediaFeed->getNumSlots() : 0;
     if (slots <= 0 || available <= 0) {
         return rows;
@@ -291,10 +280,8 @@ void GridLayer::setState(int state) {
         layoutInterface->mSpacingX = (int)(40 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(40 * App::PIXEL_DENSITY);
         if (mState != STATE_FULL_SCREEN) {
-            // A crumb of its own for the photo. It starts blank because
-            // fullscreenSelectionChanged fills it in with the position as soon
-            // as there is a photo to count, and tapping it swaps between that
-            // and the caption.
+            // Photo breadcrumb: fullscreenSelectionChanged supplies position; tapping toggles
+            // caption.
             mHud.getPathBar()->pushLabel(Res::drawable::ic_fs_details, "", [this]() {
                 if (mHud.getAlpha() == 1.0f) {
                     mHud.swapFullscreenLabel();
@@ -395,9 +382,7 @@ bool GridLayer::goBack() {
 
 void GridLayer::endSlideshow() {
     if (mSlideshowMode) {
-        // Paired with the disable in startSlideshow. SDL counts these, so the
-        // guard matters: ending a slideshow that never started would enable the
-        // screensaver on behalf of someone else.
+        // Pair SDL's counted screensaver enable with startSlideshow's disable.
         SDL_EnableScreenSaver();
     }
     mSlideshowMode = false;
@@ -422,9 +407,7 @@ void GridLayer::setDataSource(DataSource *dataSource) {
 }
 
 void GridLayer::clearDisplayList() {
-    // The list owns the items, so emptying it leaves mDisplayItems pointing at
-    // freed memory. Anything that reads a slot before the next computeVisibleItems
-    // refills it - entering fullscreen, say - reads through those pointers.
+    // Clear slot pointers when their owning display list is emptied.
     mDisplayList.clear();
     for (int i = 0; i < MAX_ITEMS_DRAWABLE; ++i) {
         mDisplayItems[i] = nullptr;
@@ -543,14 +526,7 @@ void GridLayer::computeVisibleRange() {
     mCameraManager->computeVisibleRange(mMediaFeed.get(), mLayoutInterface, mDeltaAnchorPosition, mVisibleRange,
                                         mBufferedVisibleRange, mCompleteRange, mState);
 
-    // The buffered range indexes the display slot and display item arrays, and
-    // the draw walks it without checking. It is padded out to whole buffers
-    // either side of what is on screen, so with enough rows on a wide window it
-    // can name more slots than those arrays hold - and then the draw reads off
-    // the end of them.
-    //
-    // Trimmed from the far end, so the slots nearest what is on screen are the
-    // ones kept.
+    // Clamp the buffered range to the fixed display arrays, trimming the far end first.
     const int span = mBufferedVisibleRange.end - mBufferedVisibleRange.begin + 1;
     if (span > MAX_DISPLAY_SLOTS) {
         mBufferedVisibleRange.end = mBufferedVisibleRange.begin + MAX_DISPLAY_SLOTS - 1;
@@ -606,10 +582,7 @@ void GridLayer::computeVisibleItems() {
         }
         const int baseIndex = indexIntoSlots * MAX_ITEMS_PER_SLOT;
         if (set == nullptr) {
-            // A slot whose set has not arrived yet. Its entries have to be let
-            // go rather than left: they still name display items from whatever
-            // stood in this position before the range moved, and the display
-            // list frees everything these entries do not name.
+            // Clear unloaded slots so they cannot retain pointers freed by the display list.
             clearDisplayItems(baseIndex, baseIndex + MAX_ITEMS_PER_SLOT);
             continue;
         }
@@ -661,8 +634,7 @@ void GridLayer::computeVisibleItems() {
         clearDisplayItems(baseIndex + numBestItems, baseIndex + MAX_ITEMS_PER_SLOT);
     }
 
-    // And everything past the slots this range covers, for a range that got
-    // shorter - fewer slots left, or more rows over the same set.
+    // Clear entries beyond a shortened range.
     clearDisplayItems((lastVisibleSlotIndex - firstVisibleSlotIndex + 1) * MAX_ITEMS_PER_SLOT, MAX_ITEMS_DRAWABLE);
 
     if (mFeedChanged) {
@@ -734,9 +706,7 @@ void GridLayer::onSurfaceCreated(RenderView *view) {
 }
 
 void GridLayer::requestMoreItemsIfNearTheEnd() {
-    // A collection of fifty thousand arrives a page at a time, and this is what
-    // asks for the next one: the wall is within a screenful of the last thing
-    // it has, so more is wanted before the scroll reaches the gap.
+    // Fetch the next page within one screenful of the loaded items' end.
     if (mState != STATE_GRID_VIEW || !mMediaFeed) {
         return;
     }
@@ -748,8 +718,7 @@ void GridLayer::requestMoreItemsIfNearTheEnd() {
     if (expanded->getNumItems() >= expanded->getNumExpectedItems()) {
         return;
     }
-    // One request at a time. Without this the ask repeats every frame for as
-    // long as the scroll is near the end, which is most of the time.
+    // Allow only one pending page request.
     if (mMediaFeed->isLoadingItemsForSet(expanded)) {
         return;
     }
@@ -785,26 +754,18 @@ void GridLayer::onDensityChanged() {
     mCamera->mItemHeight = itemHeight;
     ((GridLayoutInterface *)mLayoutInterface)->onDensityChanged();
 
-    // The shared quads are all sized from the cell and the density, so they go
-    // back and come out again at the new one.
+    // Rebuild shared quads for the new cell size and density.
     GridDrawables::releaseQuads();
     GridDrawables::buildQuads(itemWidth, itemHeight);
 
-    // Drawables are picked from a density bucket, so what is cached is now the
-    // art for the wrong screen. Dropping the cache makes onSurfaceCreated fetch
-    // them again, and findDrawable answers with the bucket the new density
-    // asks for.
+    // Drop drawable caches so onSurfaceCreated loads the new density bucket.
     mView->clearCache();
     onSurfaceCreated(mView);
 
-    // Thumbnails are decoded to a size that follows the density too, so the
-    // ones in hand are the wrong resolution. They are reloaded as the wall
-    // scrolls rather than all at once, which keeps the change cheap.
+    // Invalidate density-dependent thumbnails; reload as the wall scrolls.
     clearUnusedThumbnails();
 
-    // The chrome sits in a window that has not changed size, so setSize would
-    // decide there was nothing to do. Every position in it is in density units
-    // though, so the layout has to run again regardless.
+    // Relayout chrome even if window dimensions are unchanged: density affects all positions.
     mHud.relayout();
     mBackground.relayout();
 }
@@ -941,8 +902,7 @@ void GridLayer::onFeedChanged(MediaFeed *feed, bool needsLayout) {
         }
     }
 
-    // The number of slots is half of what decides the row count, so a feed that
-    // grew or shrank gets the shape chosen again before anything is placed.
+    // Recompute row count when the feed's slot count changes.
     updateRowsForLayout();
 
     int firstBufferedVisibleSlotIndex = mBufferedVisibleRange.begin;
@@ -1281,8 +1241,7 @@ void GridLayer::onTimeChanged(TimeBar *timebar) {
 
 void GridLayer::startSlideshow() {
     endSlideshow();
-    // The original held a wake lock so the screen would not go out mid
-    // slideshow. This is the desktop equivalent.
+    // Keep the screen awake during slideshows.
     SDL_DisableScreenSaver();
     mSlideshowMode = true;
     mZoomValue = 1.0f;
@@ -1363,9 +1322,7 @@ bool GridLayer::noDeleteMode() const {
     if (mNoDeleteMode || (mMediaFeed && mMediaFeed->isSingleImageMode())) {
         return true;
     }
-    // And when whatever holds the selection cannot delete. A read only source,
-    // a gallery served over an api for instance, should not be offered a button
-    // that can only fail.
+    // Offer delete only when the selection's sources support it.
     return !selectionSupports(MediaFeed::OPERATION_DELETE);
 }
 
@@ -1378,7 +1335,6 @@ bool GridLayer::selectionSupports(int operation) const {
 
 void GridLayer::setZoomValue(float f) {
     mZoomValue = f;
-    // Gingerbread raised this from 1.0f so the camera tracks the pinch instead
-    // of lagging a frame or two behind it.
+    // Fast convergence keeps the camera tracking the pinch.
     centerCameraForSlot(mInputProcessor->getCurrentSelectedSlot(), 10.0f);
 }

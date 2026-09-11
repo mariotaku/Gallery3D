@@ -1,7 +1,5 @@
 // Port of com.cooliris.media.DisplaySlot.
-//
-// Holds the title and location labels for one grid slot, keyed into the shared
-// string texture table so identical captions share a texture.
+// Shares title and location textures by caption string.
 #pragma once
 
 #include <map>

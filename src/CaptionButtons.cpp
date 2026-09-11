@@ -8,8 +8,7 @@
 
 namespace {
 
-// What Windows uses at 100%, so these land where a pointer thrown at the corner
-// expects them and line up with the window next door.
+// Windows caption-button dimensions at 100% display scale.
 const float BUTTON_WIDTH = 46.0f;
 const float BUTTON_HEIGHT = 32.0f;
 const int BUTTON_COUNT = 3;
@@ -170,8 +169,7 @@ void CaptionButtons::renderBlended(RenderView *view) {
     if (!mTexture->isLoaded()) {
         return;
     }
-    // Full opacity, not the HUD's fade. A window you cannot close because the
-    // chrome timed out is a window with a bug in it.
+    // Caption buttons remain fully opaque when the HUD fades.
     view->setAlpha(1.0f);
     view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     view->draw2D(mTexture, mX, mY, (float)mTexture->getCanvasWidth(), (float)mTexture->getCanvasHeight());
@@ -199,9 +197,7 @@ void CaptionButtons::ButtonsTexture::renderCanvas(Bitmap &canvas, int width, int
 
         if (hovered) {
             if (i == BUTTON_CLOSE) {
-                // Close is the one button that changes colour rather than just
-                // brightening, so a stray click there is hard to make by
-                // accident.
+                // Close uses a distinct hover colour.
                 const float alpha = pressed ? 0.7f : 1.0f;
                 Canvas::fillRect(canvas, (int)left, 0, (int)buttonWidth, height, CLOSE_R, CLOSE_G, CLOSE_B, alpha);
             } else {

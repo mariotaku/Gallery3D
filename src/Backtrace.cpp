@@ -27,12 +27,10 @@
 
 namespace {
 
-// Only one thread gets to print. A crash often takes several down at once, and
-// interleaved stacks are worse than one stack.
+// Serialize crash reports to prevent interleaved stacks.
 std::atomic<bool> gPrinting{false};
 
-// Straight to stderr rather than SDL_Log. By the time this runs the process is
-// already wrong, and the fewer locks taken on the way out the better.
+// Write directly to stderr to avoid SDL_Log locks during a crash.
 void say(const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -44,8 +42,7 @@ void say(const char *format, ...) {
 
 #if defined(_WIN32)
 
-// How many frames to walk. Deep enough for a decode running under the feed's
-// worker thread, which is about the longest stack here.
+// Maximum stack depth.
 const int kMaxFrames = 62;
 
 void printStack(CONTEXT *context) {
@@ -165,9 +162,7 @@ void report(const char *reason, EXCEPTION_POINTERS *pointers) {
     gPrinting = false;
 }
 
-// A trace names the frames. A minidump carries every thread, its registers and
-// enough memory to read the arguments, and a debugger opens it like a live
-// process. Worth the few lines when the alternative is reproducing the crash.
+// Write a minidump containing thread contexts and memory for debugger inspection.
 void writeMinidump(EXCEPTION_POINTERS *pointers) {
     char path[MAX_PATH];
     DWORD length = GetModuleFileNameA(nullptr, path, MAX_PATH);
@@ -209,11 +204,8 @@ LONG WINAPI onUnhandled(EXCEPTION_POINTERS *pointers) {
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-// A vectored handler runs before the filter above, so it sees a few things the
-// filter never will. It cannot see __fastfail, which leaves through the kernel
-// without raising anything - the invalid parameter handler below is what covers
-// that, by running before the CRT gets that far. This one waves everything
-// except its own short list straight through.
+// Vectored handlers precede the exception filter but cannot catch __fastfail.
+// The CRT invalid-parameter handler covers that path before termination.
 LONG WINAPI onVectored(EXCEPTION_POINTERS *pointers) {
     if (pointers == nullptr || pointers->ExceptionRecord == nullptr) {
         return EXCEPTION_CONTINUE_SEARCH;
@@ -227,9 +219,7 @@ LONG WINAPI onVectored(EXCEPTION_POINTERS *pointers) {
 }
 
 void onInvalidParameter(const wchar_t *, const wchar_t *, const wchar_t *, unsigned int, uintptr_t) {
-    // The CRT calls this before it fails fast, and that is the only chance to
-    // see what asked it to. With no handler installed it goes out as a bare
-    // 0xC0000409 and says nothing.
+    // The CRT calls this before fail-fast termination.
     report("a CRT call got an argument it refuses", nullptr);
     _exit(3);
 }
@@ -244,9 +234,7 @@ void onAbort(int) {
 #elif defined(__EMSCRIPTEN__)
 
 void printStack() {
-    // The browser knows the stack, not us: there is no execinfo here, and the
-    // wasm frames are the engine's to name. emscripten_run_script hands the
-    // job to the JS console, which prints it with the source map applied.
+    // Use the browser console for source-mapped wasm stacks; execinfo is unavailable.
     emscripten_run_script("console.trace('gallery3d');");
 }
 
@@ -323,9 +311,7 @@ namespace Backtrace {
 
 void install() {
 #if defined(_WIN32)
-    // No dialogs on the way out. Windows offers to report the fault and waits
-    // for a click, and that click never comes from a scripted run - the trace
-    // below it never gets printed.
+    // Disable Windows fault dialogs so unattended crashes reach the trace handler.
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
 
     SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
@@ -334,11 +320,9 @@ void install() {
     AddVectoredExceptionHandler(1, onVectored);
     _set_invalid_parameter_handler(onInvalidParameter);
     signal(SIGABRT, onAbort);
-    // No "this application has requested the runtime to terminate" box. It
-    // waits for a click that a scripted run will never make.
+    // Disable the CRT runtime-error dialog for unattended runs.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
-    // Otherwise an assert opens a dialog and waits, which is no use when the
-    // app was started by a script.
+    // Disable assert dialogs for unattended runs.
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 #else
@@ -350,9 +334,7 @@ void install() {
 #endif
     std::set_terminate(onTerminate);
 
-    // SDL_assert puts up its own dialog and waits there too. Told to abort, it
-    // leaves through SIGABRT and comes out as a trace like anything else. This
-    // is a hint rather than a call, so it works before SDL_Init.
+    // Route SDL assertions through SIGABRT. The hint works before SDL_Init.
     SDL_SetHint(SDL_HINT_ASSERT, "abort");
 }
 

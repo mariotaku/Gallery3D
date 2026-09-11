@@ -1,8 +1,6 @@
-// Minimal OpenGL ES 2.0 entry points, loaded through SDL.
-//
-// The port targets the ES2 API. On desktops that only expose a compatibility
-// GL context the same entry points exist from GL 2.0 onward, so the loader
-// accepts either and only the shader prelude changes. See gles2.cpp.
+// OpenGL ES 2.0 entry points loaded through SDL; also accepts desktop GL compatibility
+// contexts.
+// Only the shader prelude differs. See gles2.cpp.
 #pragma once
 
 #include <cstddef>
@@ -80,9 +78,7 @@ typedef std::ptrdiff_t GLsizeiptr;
 #define GL_LINEAR 0x2601
 #define GL_LINEAR_MIPMAP_NEAREST 0x2701
 #define GL_LINEAR_MIPMAP_LINEAR 0x2703
-// GL_EXT_texture_filter_anisotropic. Not core in ES 2.0, but present nearly
-// everywhere, and it is what keeps a mipmapped thumbnail sharp when it is drawn
-// close to its own size.
+// Optional GL_EXT_texture_filter_anisotropic for sharper oblique/minified thumbnails.
 #define GL_EXTENSIONS 0x1F03
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF

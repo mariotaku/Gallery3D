@@ -136,10 +136,8 @@ void GridCamera::scrollRange(const Vector3f &firstSlotPosition, const Vector3f &
         return;
     }
 
-    // A wall narrower than the window has nowhere to scroll. Left as they are,
-    // these bounds bring it to rest against its own first slot, which puts that
-    // slot in the middle of the screen and the rest of the wall off to one
-    // side. Both bounds collapse to the middle of the wall instead.
+    // Centre walls narrower than the viewport by collapsing both scroll bounds to their
+    // midpoint.
     Vector3f leftEdge;
     Vector3f rightEdge;
     convertToCameraSpace(0.0f, 0.0f, 0.0f, leftEdge);

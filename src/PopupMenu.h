@@ -1,16 +1,6 @@
-// Port of com.cooliris.media.PopupMenu: the dropdown a bar button opens, a
-// column of icon and title rows over a nine-patch with a triangle pointing back
-// at the button that opened it.
-//
-// This is what CanvasTexture was written for in the original, and it is the
-// last widget to use it here.
-//
-// One deliberate difference. The original put the popup in the render view's
-// system list, which saw input before anything else, so a press outside it
-// could close it. There is no system list in the input path here, so while the
-// popup is open its layer rect is the whole window and it decides for itself
-// whether a press landed on a row or outside. What it draws is its own rect,
-// which is why the two are tracked separately.
+// Port of com.cooliris.media.PopupMenu: icon/title rows with a pointer triangle.
+// The input rectangle covers the window to dismiss outside presses;
+// the drawing rectangle covers only the popup.
 #pragma once
 
 #include <functional>
@@ -40,9 +30,8 @@ class PopupMenu : public Layer {
 
     void setOptions(const std::vector<Option> &options);
 
-    // Opens the popup pointing at (pointX, pointY), kept inside the band from
-    // boundsLeft to boundsLeft + boundsWidth. That band is the safe rect, not
-    // the window: a popup pushed against a notch is one you cannot read.
+    // Opens at (pointX, pointY), constrained to the safe-area band
+    // [boundsLeft, boundsLeft + boundsWidth].
     void showAtPoint(float pointX, float pointY, float boundsLeft, float boundsWidth);
     void close(bool fadeOut);
 
@@ -53,9 +42,7 @@ class PopupMenu : public Layer {
     void generate(RenderView *view, RenderLists &lists) override;
     bool update(RenderView *view, float frameInterval) override;
     void renderBlended(RenderView *view) override;
-    // Lays the widget out and composes it into a bitmap, without touching GL.
-    // renderBlended does exactly this before handing the result to the
-    // renderer, so a test can look at the same pixels the screen gets.
+    // Lays out and composes the widget into a bitmap without GL.
     Bitmap compose();
     bool onTouchEvent(const MotionEvent &event) override;
 

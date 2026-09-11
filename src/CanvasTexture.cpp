@@ -16,8 +16,7 @@ void CanvasTexture::setNeedsDraw() {
     if (mState == STATE_UNLOADED) {
         return;
     }
-    // Hand the old GL texture back before forgetting its id, or redrawing a
-    // widget every time its label changes would leak one texture per change.
+    // Release the previous GL texture before replacing its id.
     if (mId != 0 && mOwner != nullptr) {
         mOwner->queueDeleteTexture(mId);
     }

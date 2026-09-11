@@ -1,9 +1,5 @@
-// Entry point, replacing com.cooliris.media.Gallery.
-//
-// What to browse and how it should look are settings, read from an ini file
-// and the environment by Settings.h. The arguments here are verbs that describe
-// one run: drive the app to a state, render a fixed number of frames, save the
-// framebuffer, quit. --help lists them.
+// Entry point replacing com.cooliris.media.Gallery. Settings come from INI/environment;
+// command-line actions drive a single run. See --help.
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
@@ -93,11 +89,8 @@ int keyCodeFromSDL(SDL_Keycode key) {
     }
 }
 
-// Reads the framebuffer back and writes it out. Used by --screenshot so a
-// build can be checked without a human at the keyboard.
-// Returns false when the framebuffer has nothing in it yet, which happens if
-// the readback beats the first composite. The caller then waits and retries
-// rather than writing a blank png that looks like a rendering bug.
+// Writes framebuffer pixels for --screenshot. Returns false before the first
+// composite produces pixels so the caller can retry.
 bool saveFramebuffer(int width, int height, const std::string &path) {
     std::vector<unsigned char> pixels((size_t)width * (size_t)height * 4);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
@@ -130,15 +123,7 @@ bool saveFramebuffer(int width, int height, const std::string &path) {
     return true;
 }
 
-// Where the window can be grabbed once it has no frame of its own.
-//
-// The blurred backdrop is the whole point of the wall, and a title bar sitting
-// on top of it cuts the picture off. Without a frame the backdrop runs to the
-// edge of the window, and this gives back the two things the frame was doing:
-// a strip to drag by, and borders to resize from.
-//
-// Windows will not draw caption buttons for a frameless window, so there are
-// none. Alt+F4 closes, and Escape still does from the album wall.
+// Hit testing for the client-area caption drag strip and top resize border.
 SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void *data) {
     (void)data;
     int width = 0;
@@ -178,15 +163,8 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
         return SDL_HITTEST_RESIZE_RIGHT;
     }
 
-    // The caption strip, which is the app's to drag by now that it is inside
-    // the client area. A draggable region swallows the click before the app
-    // ever sees it, so it has to stop short of everything up there that is
-    // meant to be pressed: the crumbs on the left, the mode button and the
-    // window buttons on the right.
-    //
-    // The HUD is asked where those actually are. Reserving a fixed width for
-    // the path bar instead left an eighty pixel strip to grab on a window this
-    // wide, because the bar is allowed far more room than one crumb uses.
+    // Caption dragging excludes HUD crumbs and buttons: SDL consumes draggable-area
+    // clicks before the app receives them.
     HudLayer *hud = (HudLayer *)data;
     if (hud == nullptr) {
         return SDL_HITTEST_NORMAL;
@@ -200,14 +178,7 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
     return SDL_HITTEST_NORMAL;
 }
 
-// Everything that follows the display rather than the window's contents. Called
-// at startup and again whenever the window lands on a display with a different
-// scale, because a laptop plugged into an external monitor does exactly that.
-//
-// Returns true when the scale actually moved, so the caller knows whether the
-// wall has to be rebuilt or only resized.
-// Set by --dpi-change, so a scripted run can go through the whole reflow
-// without a second monitor to drag the window onto.
+// Display-density override for --dpi-change reflow captures.
 float sForcedDisplayScale = 0.0f;
 
 bool applyDisplayScale(SDL_Window *window) {
@@ -215,31 +186,20 @@ bool applyDisplayScale(SDL_Window *window) {
     if (displayScale <= 0.0f) {
         displayScale = 1.0f;
     }
-    // Two separate things, multiplied into the one knob the ported code reads.
-    // The display scale is what SDL reports for the monitor: how many physical
-    // pixels a logical pixel is worth, so text and assets stay crisp on HiDPI.
-    // The content scale says how big the wall should be, because the ported
-    // constants were picked for a 320x480 phone. Everything downstream keys off
-    // App::PIXEL_DENSITY - grid item size, slot spacing in GridLayoutInterface,
-    // labels in DisplaySlot, quads in GridDrawables, thumbnail resolution in
-    // Texture - so scaling it here scales the whole wall coherently.
+    // Wall density combines SDL display scale with the content scale for its handset layout.
     const float wanted = displayScale * App::CONTENT_SCALE;
     if (SDL_fabsf(wanted - App::PIXEL_DENSITY) < 0.001f) {
         return false;
     }
     App::PIXEL_DENSITY = wanted;
-    // The chrome follows the display and not the wall, so a button is the size
-    // the screen asks for rather than that times the wall's enlargement.
+    // Chrome follows display scale alone.
     App::UI_DENSITY = displayScale;
     SDL_Log("PIXEL_DENSITY %.3f (display %.3f x content %.3f), UI_DENSITY %.3f, drawables from the %.1fx bucket",
             App::PIXEL_DENSITY, displayScale, App::CONTENT_SCALE, App::UI_DENSITY, App::drawableBucketDensity());
     return true;
 }
 
-// What the platform says is safe to put controls in. SDL reports the whole
-// client area on a desktop, so these come out zero and nothing moves; on a
-// phone it is the rect left over once the cutouts are taken off. The insets are
-// in window coordinates, so they move when the window does.
+// SDL safe-area insets in window coordinates; normally zero on desktop.
 void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInsets &overrideInsets) {
     SDL_Rect safeRect;
     int windowWidth = 0;
@@ -261,14 +221,11 @@ void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInset
     }
 }
 
-// A fullscreen photo is drawn about as wide as the window, so decode it to at
-// least that. Below the old 1024 there is nothing to gain, and the cap keeps a
-// very large window from turning every photo into a 4096 texture.
+// Set fullscreen decode size from the window, clamped to limit texture memory.
 void applyPhotoResolution(int pixelWidth, int pixelHeight) {
     int longEdge = (pixelWidth > pixelHeight) ? pixelWidth : pixelHeight;
     int screenNail = std::min(2048, std::max(1024, longEdge));
-    // Twice that when zoomed, which covers the fill-screen zoom without trying
-    // to hold a whole 24 megapixel photo on the card.
+    // Allow twice the screennail resolution for zoom.
     int hiRes = std::min(4096, screenNail * 2);
     if (screenNail == App::SCREEN_NAIL_MAX_EDGE && hiRes == App::HI_RES_MAX_EDGE) {
         return;
@@ -278,17 +235,8 @@ void applyPhotoResolution(int pixelWidth, int pixelHeight) {
     SDL_Log("Screennail max edge %d, hi-res max edge %d", App::SCREEN_NAIL_MAX_EDGE, App::HI_RES_MAX_EDGE);
 }
 
-// The accelerometer reading, turned from the device's own axes into the
-// display's.
-//
-// SDL reports the axes of the hardware, which are fixed to the case, and the
-// display orientation separately. The original did this switch on
-// Display.getRotation() inside onSensorChanged; it belongs here instead,
-// because it is the platform's business rather than the wall's.
-//
-// Only the first axis is used downstream - the wall leans along the screen and
-// never up it - but all three are passed through so the seam does not have to
-// change if that stops being true.
+// Rotate SDL hardware accelerometer axes into display orientation.
+// The wall currently uses only the first axis.
 void queueAccelerometer(RenderView &renderView, SDL_Window *window, const float values[3]) {
     SDL_DisplayID display = SDL_GetDisplayForWindow(window);
     float alongScreen;
@@ -304,18 +252,14 @@ void queueAccelerometer(RenderView &renderView, SDL_Window *window, const float 
         break;
     case SDL_ORIENTATION_PORTRAIT:
     default:
-        // Also the answer where the orientation is unknown, which is what a
-        // desktop reports. A desktop with an accelerometer is a laptop lid
-        // sensor, and portrait is the right reading of it.
+        // Treat unknown orientation as portrait, including desktop sensors.
         alongScreen = values[0];
         break;
     }
     renderView.queueAccelerometer(alongScreen, values[1], values[2]);
 }
 
-// The settings that land on a global, in one place so the file, the
-// environment and the flags cannot drift apart. Returns false on a value that
-// cannot be used, having said which.
+// Apply global settings; report invalid values and return false.
 bool applyBackdropBlur(const std::string &kind) {
     if (kind == "box") {
         App::BACKDROP_BLUR = App::BACKDROP_BLUR_BOX;
@@ -376,17 +320,8 @@ bool applySettings(const Settings::Store &settings, App::SafeAreaInsets *safeAre
     return true;
 }
 
-// The smallest the window may be: 320 by 320 of the display's own units, so the
-// floor is the same size to the eye on every screen.
-//
-// Below that the HUD runs out of room - the path bar, the time bar and the
-// bottom menu each want a row of their own, and the wall needs what is left.
-//
-// SDL takes a minimum in window coordinates, which on this platform are pixels,
-// so the display's scale is applied here. Without it the floor is 320 pixels
-// everywhere, which on a dense display is a third of the size the layout needs.
-// SDL clamps an existing window up to the minimum as well as refusing to be
-// dragged below it.
+// Minimum window size is 320x320 display units to fit HUD and wall.
+// Convert to SDL window coordinates; SDL also enlarges an existing undersized window.
 const int kMinimumWindowPoints = 320;
 
 void applyMinimumSize(SDL_Window *window) {
@@ -459,10 +394,7 @@ int main(int argc, char **argv) {
     // First thing, so a crash while parsing arguments still names itself.
     Backtrace::install();
 
-    // The settings, before the arguments, so an argument can override one.
-    //
-    // --config is read here rather than in the loop below: by the time the loop
-    // reaches it the file would already have been needed.
+    // Read --config before loading settings, then process run arguments.
     std::string configPath;
     for (int i = 1; i < argc - 1; ++i) {
         if (std::string(argv[i]) == "--config") {
@@ -485,32 +417,27 @@ int main(int argc, char **argv) {
     }
     for (const Settings::Known &setting : Settings::known()) {
         if (settings.has(setting.name)) {
-            // Named with where it came from. Without this, a value that lost to
-            // one set somewhere else looks like a setting that does nothing.
+            // Log each setting's source.
             SDL_Log("  %s = %s (%s)", setting.name, settings.get(setting.name, "").c_str(),
                     settings.sourceOf(setting.name).c_str());
         }
     }
     for (const std::string &complaint : settings.complaints()) {
-        // Not fatal, but never silent. A misspelled key behaves exactly like a
-        // setting that does nothing.
+        // Report unknown keys without aborting.
         SDL_Log("Settings: %s", complaint.c_str());
     }
 
     std::string photoDirectory = settings.get("library.photos", std::string());
     // A second library, shown after the first. Two sources behind one feed.
     std::string alsoDirectory = settings.get("library.also", std::string());
-    // A museum catalogue over http, rather than a directory.
-    // The web build has no local filesystem to browse, so the museum is not a
-    // choice there but the only source, and its setting starts on.
+    // The web build defaults to the museum source because it cannot browse a local filesystem.
 #if defined(__EMSCRIPTEN__)
     const bool articByDefault = true;
 #else
     const bool articByDefault = false;
 #endif
     bool artic = settings.getBool("library.artic", articByDefault);
-    // Stands in for a notch and a home indicator. Desktops report no insets, so
-    // without this the safe area layout is never exercised here.
+    // Override safe-area insets to exercise cutout layout on desktop.
     bool safeAreaOverridden = false;
     App::SafeAreaInsets safeAreaOverride;
     if (!applySettings(settings, &safeAreaOverride, &safeAreaOverridden)) {
@@ -518,28 +445,20 @@ int main(int argc, char **argv) {
     }
     std::string screenshotPath;
     int screenshotFrames = 240;
-    // Opens the given album part way through, so the grid view can be captured
-    // without a hand on the mouse.
+    // Open an album during a scripted capture.
     int openSlot = -1;
-    // The timeline is entered from the HUD menu, which is not ported yet, so
-    // this is the only way to see it.
+    // Enter timeline view during a scripted capture.
     bool timeline = false;
-    // Fullscreen is reached by tapping a photo, so this is the headless way in.
+    // Enter fullscreen during a scripted capture.
     bool fullscreen = false;
-    // Which photo of the opened album to look at. Sizes differ enough between
-    // artworks that the tiled view behaves differently on one and the next.
+    // Photo index within the opened album.
     int fullscreenSlot = 0;
-    // Select mode is entered by long pressing a stack, so this is the headless
-    // way in. It is also the only thing that exercises the checkmark drawing.
+    // Enter selection mode during a scripted capture.
     bool select = false;
-    // Both act on the selection, so both need --select. They exist because
-    // there is no menu to invoke them from yet.
+    // Selection operations; require --select.
     bool rotate = false;
     bool deleteSelection = false;
-    // Holds a drag on the time bar, which is the only thing that raises the
-    // date popup. Needs --open, because the bar belongs to the album view. The
-    // value is where along the bar to press, from 0 to 1; the middle is where
-    // the knob already sits, so anything else also scrolls the wall.
+    // Hold the time bar at a fraction from 0 to 1 to show its date popup. Requires --open.
     bool scrub = false;
     float scrubAt = 0.5f;
     // The scale to move to part way through, so the reflow can be captured.
@@ -547,19 +466,16 @@ int main(int argc, char **argv) {
     // A pretend accelerometer reading, for a machine that has none.
     bool tilted = false;
     float tiltTo = 0.0f;
-    // Zooms the fullscreen photo, which is the only thing that reaches for the
-    // hi-res texture. Needs --fullscreen, and fires after it.
+    // Zoom after entering fullscreen; requires --fullscreen.
     bool zoom = false;
-    // How many times to zoom in. Each step is the same one the double tap
-    // makes, and the tiled view only has somewhere to go past the first.
+    // Number of double-tap zoom steps.
     int zoomSteps = 1;
     // Taps a button on the bottom selection bar, so the popup it opens can be
     // captured. Needs --select. -1 for off.
     int popupButton = -1;
     // Which row of the popup that button opens, -1 for none.
     int popupRow = -1;
-    // The window to open. Small sizes are what the minimum size is there to
-    // stop, and this is the only way to look at the layout at one.
+    // Initial window dimensions.
     int windowWidth = 1280;
     int windowHeight = 800;
     for (int i = 1; i < argc; ++i) {
@@ -584,9 +500,7 @@ int main(int argc, char **argv) {
         } else if (arg == "--delete") {
             deleteSelection = true;
         } else if (arg == "--popup" && i + 1 < argc) {
-            // "N" taps that button on the bar. "N,R" then taps row R of the
-            // popup it opened, which is the only way to reach anything the
-            // popup leads to.
+            // N taps bar button N; N,R also taps popup row R.
             if (SDL_sscanf(argv[++i], "%d,%d", &popupButton, &popupRow) < 1) {
                 SDL_Log("--popup wants a button index, and optionally a row after a comma");
                 return 1;
@@ -623,10 +537,7 @@ int main(int argc, char **argv) {
             printUsage();
             return 0;
         } else if (arg == "--crash" && i + 1 < argc) {
-            // The handler is only worth having if it fires, and the way to know
-            // is to break the process on purpose. Each kind leaves by a
-            // different door: fastfail is the one that skips every handler but
-            // the vectored one, and it is what an out of range container does.
+            // Exercise crash handlers with distinct termination paths.
             std::string kind = argv[++i];
             volatile int *nowhere = nullptr;
             if (kind == "read") {
@@ -645,8 +556,7 @@ int main(int argc, char **argv) {
                 SDL_Log("crash: handing the CRT an argument it refuses");
 #if defined(_WIN32)
                 char room[4];
-                // Deliberately too long. This is what a container going out of
-                // range looks like from the outside: a bare 0xC0000409.
+                // Trigger the CRT invalid-parameter path with an oversized string.
                 strcpy_s(room, sizeof(room), "far too long for this");
                 SDL_Log("crash: the CRT let that through, which it should not");
 #else
@@ -656,9 +566,7 @@ int main(int argc, char **argv) {
 #endif
             } else if (kind == "fastfail") {
                 SDL_Log("crash: fail fast");
-                // Nothing catches this one. It leaves through the kernel
-                // without raising an exception, so no handler sees it. Here to
-                // show what an unreadable exit looks like, next to the rest.
+                // __fastfail exits through the kernel without raising a catchable exception.
 #if defined(_WIN32)
                 __fastfail(FAST_FAIL_FATAL_APP_EXIT);
 #else
@@ -668,10 +576,7 @@ int main(int argc, char **argv) {
             SDL_Log("crash: no such kind: %s", kind.c_str());
             return 2;
         } else {
-            // Settings have no flag form. They are in the file or the
-            // environment, where they can be written once instead of on every
-            // run, and a flag that quietly beat the file would put the value in
-            // two places at once.
+            // Settings are accepted through the file and environment, not flags.
             SDL_Log("No such option: %s", arg.c_str());
             printUsage();
             return 1;
@@ -703,10 +608,7 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-    // A window with its ordinary frame. WindowFrame then takes the caption area
-    // into the client area, which is not the same as asking for a borderless
-    // one: the frame stays, so snapping, the resize borders and the shadow are
-    // the system's to handle rather than ours to imitate.
+    // Extend content into the caption while retaining the system frame, snapping and shadow.
     SDL_WindowFlags windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     SDL_Window *window = SDL_CreateWindow("Gallery3D", windowWidth, windowHeight, windowFlags);
     if (window == nullptr) {
@@ -752,9 +654,7 @@ int main(int argc, char **argv) {
     }
 
     LocalDataSource dataSource(photoDirectory);
-    // Declared before the layer, so they are destroyed after it. The feed holds
-    // a bare pointer to whichever of these it was given, and shutting the layer
-    // down reaches through that pointer - which has to still be there.
+    // Sources must outlive the layer: feed shutdown uses their bare pointers.
     std::unique_ptr<ArticDataSource> articSource;
     std::unique_ptr<LocalDataSource> alsoSource;
     std::unique_ptr<ConcatenatedDataSource> combinedSource;
@@ -774,8 +674,7 @@ int main(int argc, char **argv) {
     GridLayoutInterface layoutInterface(4);
     GridLayer gridLayer(GridLayer::itemWidthForDensity(), GridLayer::itemHeightForDensity(), &layoutInterface,
                         &renderView);
-    // The wall leans with the device, as the original did. A desktop reports no
-    // accelerometer and this opens nothing, which is the common case.
+    // Open an accelerometer if one is available.
     SDL_Sensor *accelerometer = nullptr;
     {
         int count = 0;
@@ -792,10 +691,8 @@ int main(int argc, char **argv) {
     }
 
     if (extendedFrame) {
-        // After the HUD exists, because the hit test asks it where the crumbs
-        // end and where the buttons begin. The top edge and the caption strip
-        // are inside the client area now, so the app answers for them; the
-        // other three edges are still the frame's.
+        // Install after HUD creation so hit testing can exclude controls.
+        // The app handles the caption and top resize edge; the frame handles the other edges.
         SDL_SetWindowHitTest(window, windowHitTest, gridLayer.getHud());
     }
 
@@ -810,9 +707,7 @@ int main(int argc, char **argv) {
     applyPhotoResolution(pixelWidth, pixelHeight);
 
     if (WindowFrame::isExtended()) {
-        // The caption is the app's to draw now, so the buttons in it are the
-        // app's to act on. The layer has no window, so the window comes from
-        // here.
+        // Supply window actions to the caption-button layer.
         gridLayer.getHud()->getCaptionButtons()->setActions(
             [window]() { SDL_MinimizeWindow(window); },
             [window]() {
@@ -845,10 +740,8 @@ int main(int argc, char **argv) {
     bool mouseDown = false;
     MotionEvent event;
 
-    // Live fingers, in the order they went down. The ported gesture code wants
-    // Android's shape: one event carrying every pointer, with the action
-    // saying which one changed. SDL reports each finger separately, so they
-    // are tracked here and folded into one event.
+    // Track SDL fingers in press order and combine them into Android-style multi-pointer
+    // events.
     struct Finger {
         SDL_FingerID id;
         float x;
@@ -884,16 +777,13 @@ int main(int argc, char **argv) {
     };
 
     int frameNumber = 0;
-    // --frames is a count, but a swap that does not block turns that count into
-    // no time at all. Requiring the wall clock to have passed as well keeps a
-    // capture from outrunning the compositor and the texture loaders.
+    // Require elapsed time as well as --frames so nonblocking swaps cannot outrun
+    // loading/compositing.
     const uint64_t startTicks = SDL_GetTicks();
     const uint64_t screenshotAfterMs = (uint64_t)screenshotFrames * 1000ull / 60ull;
     bool running = true;
-    // One frame, as a callable, because the browser owns the frame clock and
-    // calls back rather than letting the app spin. Captured by reference: with
-    // simulate_infinite_loop set, Emscripten leaves main's stack standing, so
-    // everything here stays alive for as long as the callback runs.
+    // Browser frame callback. simulate_infinite_loop preserves main's stack,
+    // keeping references captured here alive.
     auto drawFrame = [&]() {
         SDL_Event sdlEvent;
         while (SDL_PollEvent(&sdlEvent)) {
@@ -915,9 +805,7 @@ int main(int argc, char **argv) {
                 break;
             case SDL_EVENT_WINDOW_MAXIMIZED:
             case SDL_EVENT_WINDOW_RESTORED:
-                // The maximise button shows a different glyph either side of
-                // this, and the window can be maximised from the keyboard or by
-                // snapping it, not only by that button.
+                // Update the glyph for maximise changes from buttons, keyboard or snapping.
                 if (WindowFrame::isExtended()) {
                     gridLayer.getHud()->getCaptionButtons()->setMaximized(
                         (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0);
@@ -926,10 +814,7 @@ int main(int argc, char **argv) {
                 break;
             case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
             case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
-                // Dragged to a monitor with a different scale, or the scale on
-                // this one changed underneath us. Sizes fixed at the old
-                // density are wrong everywhere now, so the wall is rebuilt
-                // before the layout runs again.
+                // Rebuild density-dependent resources before relayout on display-scale changes.
                 if (applyDisplayScale(window)) {
                     gridLayer.onDensityChanged();
                 }
@@ -1050,10 +935,8 @@ int main(int argc, char **argv) {
         if (openSlot >= 0 && frameNumber == screenshotFrames / 2) {
             gridLayer.tapGesture(openSlot, false);
         }
-        // Deliberately not on the same frame as the actions below: the reflow
-        // empties the display list, and entering fullscreen in the same frame
-        // would be reading it before anything refilled it. A real change lands
-        // between frames, not inside one.
+        // Apply density changes on a separate frame: reflow clears the display list,
+        // which must refill before fullscreen actions read it.
         if (tilted) {
             // Every frame, because the camera animates towards the offset and
             // one reading would be overtaken by the next frame's easing. A real
@@ -1081,10 +964,8 @@ int main(int argc, char **argv) {
             gridLayer.getInputProcessor()->setCurrentSelectedSlot(fullscreenSlot);
         }
         if (select && frameNumber == (screenshotFrames * 3) / 4) {
-            // Not GridLayer::enterSelectionMode: that selects the focused slot,
-            // and with no pointer there is no focus, so the empty selection
-            // cancels the mode again straight away. Set the mode and pick a
-            // slot explicitly instead.
+            // Set selection mode and select a slot explicitly; without pointer focus,
+            // enterSelectionMode would create an empty selection and cancel itself.
             gridLayer.getHud()->enterSelectionMode();
             gridLayer.addSlotToSelectedItems(0, false, true);
         }
@@ -1118,10 +999,7 @@ int main(int argc, char **argv) {
                 SDL_Log("--popup row %d is not there", popupRow);
             }
         }
-        // Just after the photo goes fullscreen, rather than near the end. The
-        // tiles of a zoomed picture are fetched over the network, and a
-        // screenshot taken a frame after the zoom would only ever catch the
-        // screennail underneath them.
+        // Zoom soon after fullscreen entry to allow network tiles to load before capture.
         if (zoom && frameNumber == (screenshotFrames * 13) / 16) {
             for (int step = 0; step < zoomSteps; ++step) {
                 gridLayer.zoomInToSelectedItem();
@@ -1159,9 +1037,7 @@ int main(int argc, char **argv) {
     };
 
 #if defined(__EMSCRIPTEN__)
-    // Zero means "whenever the browser next paints", which is
-    // requestAnimationFrame, and is what a page should be pacing off. The call
-    // does not return.
+    // Zero selects requestAnimationFrame. This call does not return.
     emscripten_set_main_loop_arg(
         [](void *arg) {
             auto *frame = (decltype(drawFrame) *)arg;

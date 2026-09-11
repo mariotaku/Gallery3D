@@ -1,6 +1,5 @@
-// Stands in for android.graphics.Bitmap. Always 32 bit RGBA with premultiplied
-// alpha, because the renderer blends with GL_ONE / GL_ONE_MINUS_SRC_ALPHA just
-// as the original did.
+// Stands in for android.graphics.Bitmap: premultiplied 32-bit RGBA for
+// GL_ONE / GL_ONE_MINUS_SRC_ALPHA blending.
 #pragma once
 
 #include <cstdint>
@@ -38,36 +37,23 @@ class Bitmap {
     // the natural size.
     static Bitmap load(const std::string &path, int maxEdge);
 
-    // The same, from bytes already in hand. A source that does not keep its
-    // photos on this disk hands those over instead of a path, so nothing has to
-    // be written out just to be read straight back.
+    // Decodes encoded bytes without an intermediate file.
     static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge);
 
-    // Copies straight (unpremultiplied) RGBA and premultiplies it, which is
-    // what the rest of this draws with. For pixels that came from somewhere
-    // other than SDL_image - a browser's decoder hands back straight alpha.
+    // Copies straight RGBA and premultiplies it, including browser-decoded pixels.
     static Bitmap fromStraightRGBA(const uint8_t *pixels, int width, int height);
 
-    // Reads a file whole, without decoding it. The decoder may be somewhere
-    // else entirely - a browser's - so the bytes have to be separable from the
-    // decode.
+    // Reads encoded bytes without decoding.
     static bool readFile(const std::string &path, std::vector<uint8_t> *bytes);
 
     // Scales into a new bitmap. Uses SDL's linear scaler.
     Bitmap scaled(int newWidth, int newHeight) const;
 
-    // Copies this bitmap into the top left of a larger transparent bitmap.
-    //
-    // clampEdges fills the padding by repeating the last row and column instead
-    // of leaving it transparent. Only a texture that is mipmapped wants that:
-    // the quad never samples the padding at full size, but a reduced level
-    // averages across the boundary and would drag the transparency in. It is
-    // wrong for anything drawn with extents of (1, 1), which samples the
-    // padding on purpose.
+    // Copies into a larger transparent bitmap. clampEdges repeats boundary pixels
+    // for mipmapping to prevent transparent padding bleeding in; avoid it for (1, 1) extents.
     Bitmap paddedTo(int paddedWidth, int paddedHeight, bool clampEdges = false) const;
 
-    // Scales to cover the given box and centre crops to it. This is what the
-    // original's thumbnail cache stored, and why grid items have no letterbox.
+    // Scales to cover the box and centre-crops it.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 
     // What one pass over a JPEG's EXIF header yields. Either field stays at its

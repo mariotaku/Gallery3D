@@ -153,9 +153,7 @@ void TimeBar::layout() {
             if (item == nullptr) {
                 break;
             }
-            // Not localtime: it cannot answer for anything before 1970, and
-            // where it fails it hands back a struct of -1, which this read
-            // without noticing and marked the bar up as year 1899 month -1.
+            // Use date arithmetic for pre-1970 values that Windows localtime rejects.
             const Dates::Civil date = Dates::civilFromMs(item->mDateTakenInMs);
             int year = date.year;
             int month = date.month;
@@ -299,8 +297,7 @@ void TimeBar::PopupTexture::renderCanvas(Bitmap &canvas, int width, int height) 
     } else {
         Canvas::fillRect(canvas, 0, 0, width, height, 0.0f, 0.0f, 0.0f, 0.75f);
     }
-    // Where the original put the labels: half the horizontal padding in, and a
-    // quarter of the vertical, which is where the art's own padding sits.
+    // Align labels to the art's padding: half horizontally, one quarter vertically.
     int x = (int)(scaled(POPUP_PAD_X) * 0.5f);
     int y = (int)(scaled(POPUP_PAD_Y) * 0.25f);
     Canvas::drawText(canvas, mOwner->mPopupText, x, y, scaled(FONT_SIZE), true, 1.0f, 1.0f, 1.0f, 1.0f, 0);
@@ -321,8 +318,7 @@ void TimeBar::renderBlended(RenderView *view) {
     float knobWidth = (float)knob->getWidth();
     float knobHeight = (float)knob->getHeight();
     float knobX = mX - mScrollAnim + getKnobXForPosition(mPositionAnim) - knobWidth * 0.5f;
-    // Without a time to show the knob rides the bar; with one it sits on the
-    // bottom edge of the window, which is where the original put it.
+    // Without a date the knob rides the bar; with a date it sits at the window's bottom edge.
     float knobY = mShowTime ? ((float)view->getHeight() - knobHeight) : mY;
     view->draw2D(knobX, knobY, 0.0f, knobWidth, knobHeight);
 

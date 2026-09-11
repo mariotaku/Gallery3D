@@ -1,9 +1,5 @@
 // Port of com.cooliris.media.GridInputProcessor.
-//
-// Video playback and the crop intent are dropped with the rest of the Android
-// plumbing. The accelerometer path is back: SDL reports accelerometers, so on a
-// phone this is the device's own, and on a desktop with none the sensor is
-// never opened and nothing here runs.
+// SDL accelerometer input is enabled only on devices with a sensor.
 #pragma once
 
 #include "DisplayItem.h"
@@ -127,8 +123,7 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
     ScaleGestureDetector mScaleGestureDetector;
     bool mZoomGesture = false;
 
-    // Carried from the original, where it is declared, read, and never once
-    // assigned - see the note on onSensorChanged.
+    // Never assigned, matching the Java tilt response; see onSensorChanged.
     float mPrevTiltValueLowPass = 0.0f;
     int mCurrentScaleSlot = -1;
     float mScale = 1.0f;

@@ -1,24 +1,6 @@
-// Where the wall's settings come from.
-//
-// Three places, each beating the one before it:
-//
-//   the defaults compiled in
-//   the ini file
-//   the environment
-//
-// The file holds what you always want, the environment overrides it for one
-// shell. No setting has a command line form: a value readable from three
-// places, one of them quietly beating the other two, is a value you have to go
-// looking for.
-//
-// What belongs here is a setting - something that says how the wall should
-// look. What stays on the command line is a verb: open this album, render that
-// many frames, then quit. A verb describes one run and there is nothing to
-// write down.
-//
-// One name per setting, written "section.key", and the rest follows from it.
-// "backdrop.sigma" is `sigma` under `[backdrop]` in the file and
-// GALLERY3D_BACKDROP_SIGMA in the environment.
+// Settings precedence: compiled defaults < INI file < environment; no setting flags.
+// Names use section.key: backdrop.sigma maps to [backdrop] sigma
+// and GALLERY3D_BACKDROP_SIGMA.
 #pragma once
 
 #include <functional>
@@ -43,16 +25,12 @@ std::string environmentNameFor(const std::string &name);
 // What was actually set, and where each value came from.
 class Store {
   public:
-    // Reads the file, then lets the environment override it.
-    //
-    // `explicitPath` is --config or GALLERY3D_CONFIG; empty means look in the
-    // usual places. Returns false only when a named file could not be read:
-    // a path given explicitly and then ignored would leave the wall running on
-    // settings nobody chose.
+    // Read the file, then environment overrides. explicitPath comes from --config or
+    // GALLERY3D_CONFIG; empty searches defaults. Return false if an explicit file is
+    // unreadable.
     bool load(const std::string &explicitPath);
 
-    // The two halves, separately, so they can be tested without a filesystem or
-    // an environment.
+    // File and environment parsing entry points.
     void readIni(const std::string &text, const std::string &describedAs);
     void readEnvironment(const std::function<const char *(const char *)> &lookup);
 
@@ -69,10 +47,7 @@ class Store {
         return mPath;
     }
 
-    // Lines that could not be used: an unknown key, or one outside any section.
-    // Warnings rather than errors, so an old file still starts, but the caller
-    // has to print them: an unreported typo is indistinguishable from a setting
-    // that does nothing.
+    // Warnings for unknown or unsectioned keys. The caller must print them.
     const std::vector<std::string> &complaints() const {
         return mComplaints;
     }

@@ -1,15 +1,6 @@
-// Stands in for android.graphics.Canvas and Paint: the 2D drawing the port
-// needs in order to compose a widget into a bitmap before it becomes a texture.
-//
-// The original had a real Canvas to draw into. Here the primitives live in one
-// place so both StringTexture and anything built on CanvasTexture can use them,
-// instead of each rasterising text its own way.
-//
-// Alpha convention, which is easy to get wrong: SDL_ttf hands glyphs back with
-// straight alpha, while the renderer blends with GL_ONE / GL_ONE_MINUS_SRC_ALPHA
-// and therefore wants premultiplied. Anything named blend* takes a straight
-// alpha source; anything named blit* takes a premultiplied one. Destinations
-// are always premultiplied.
+// Stands in for android.graphics.Canvas and Paint; composes widgets into bitmaps.
+// blend* takes straight alpha (including SDL_ttf glyphs); blit* takes premultiplied alpha.
+// Destinations are premultiplied for GL_ONE / GL_ONE_MINUS_SRC_ALPHA.
 #pragma once
 
 #include <cstddef>
@@ -41,16 +32,12 @@ void blendOver(Bitmap &dst, const Bitmap &src, int x, int y, float r, float g, f
 // Blends a premultiplied source, which is what Bitmap::load returns.
 void blit(Bitmap &dst, const Bitmap &src, int x, int y, float alpha = 1.0f);
 
-// Replaces the destination pixels outright, alpha included, rather than
-// blending over them. Stands in for PorterDuff.Mode.SRC. The popup triangle
-// needs it: it has to cut the straight border off the bottom of the panel and
-// put its own outline there, and blending would leave the border showing
-// through.
+// Replaces pixels, including alpha (PorterDuff.Mode.SRC). Used to replace the
+// popup's bottom border with its triangle outline.
 void stamp(Bitmap &dst, const Bitmap &src, int x, int y);
 
-// A nine-patch: the caps keep their size and the middle stretches. Android
-// resolved these at build time; here the 1 pixel guide border survives into
-// the shipped PNG, so loadNinePatch reads it and strips it.
+// Nine-patch caps stay fixed while the middle stretches. loadNinePatch strips
+// the one-pixel guide border from shipped PNGs.
 struct NinePatch {
     Bitmap image;
     // Half open, in image coordinates. Everything outside is a cap.
@@ -64,11 +51,8 @@ struct NinePatch {
     }
 };
 
-// Takes a drawable name, not a path, because it resolves the density bucket and
-// then resizes the art to PIXEL_DENSITY. That resize matters: the caps are
-// drawn at their own size and only the middle stretches, so art left at the
-// density it shipped for gives a panel with corners and borders too small for
-// everything drawn next to them.
+// Resolves a drawable's density bucket and scales art to PIXEL_DENSITY, including fixed-size
+// caps.
 NinePatch loadNinePatch(const std::string &name);
 
 // Draws a nine-patch into the rect. Smaller than the caps and it clamps, so a
@@ -89,8 +73,7 @@ Bitmap blurredCoverage(const Bitmap &src, int radius);
 void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize, bool bold, float r, float g,
               float b, float a, int shadowRadius);
 
-// An antialiased line of the given thickness. Wanted for glyphs a font cannot
-// supply, like the caption's close cross.
+// Draws an antialiased line of the given thickness.
 void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickness, float r, float g, float b,
               float a);
 

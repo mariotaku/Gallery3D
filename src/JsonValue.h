@@ -1,9 +1,5 @@
-// Reading fields out of json that may not be there, and may be there as null.
-//
-// nlohmann's value() covers a missing key and nothing else. A key that is
-// present and null throws type_error, and api.artic.edu sets date_end,
-// artist_title and plenty else to null whenever it has no answer. One null in
-// one record took the whole loader thread down, which is why these exist.
+// JSON field access with defaults for missing or null values. nlohmann::value()
+// throws for null, which api.artic.edu uses for unknown fields.
 #pragma once
 
 #include <cstdint>

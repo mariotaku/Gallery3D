@@ -1,24 +1,5 @@
-// Port of com.cooliris.media.CanvasTexture: a texture whose contents a widget
-// draws, rather than one loaded from a file.
-//
-// Two deliberate differences from the original.
-//
-// It subclasses Texture here. The original could not, because its Texture was
-// tied to the asynchronous load queue; it therefore carried its own GL id,
-// power of two sizing, normalized extents and bind path, which is most of its
-// 198 lines. RenderView already does all of that for a Texture, and
-// RenderView::loadTexture runs the load synchronously, which is what chrome
-// wants. So the subclass gets it for free and the class shrinks to the part
-// that matters: renderCanvas.
-//
-// And it draws through Canvas rather than android.graphics.Canvas. Subclasses
-// get a premultiplied Bitmap and compose into it.
-//
-// In the original the only subclass was PopupMenu. Here it is meant as the
-// shared base for HUD chrome, because compositing a widget once into a bitmap
-// is simpler than the original's many small draw2D calls per widget: the nine
-// patch art the original stretched at draw time gets stretched once here, into
-// the bitmap.
+// Port of com.cooliris.media.CanvasTexture. Widgets compose a premultiplied Bitmap
+// through Canvas; Texture and RenderView manage uploads, sizing and binding.
 #pragma once
 
 #include "Texture.h"

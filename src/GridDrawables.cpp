@@ -65,11 +65,8 @@ void GridDrawables::buildQuads(int itemWidth, int itemHeight) {
 }
 
 void GridDrawables::releaseQuads() {
-    // Every one of these is sized from PIXEL_DENSITY, so a density change makes
-    // the whole set wrong. Dropping them lets buildQuads start over.
-    //
-    // The GL buffers go back by hand: these types have no destructor, so delete
-    // alone would leak one set of buffers per density change.
+    // Release density-dependent quads before rebuilding. Their types lack destructors,
+    // so GL buffers must be released explicitly.
     GridQuad *quads[] = {sGrid,         sFullscreenGrid[0], sFullscreenGrid[1], sFullscreenGrid[2], sSelectedGrid,
                          sVideoGrid,    sLocationGrid,      sSourceIconGrid,    sTextGrid,          sTileGrid};
     for (GridQuad *quad : quads) {

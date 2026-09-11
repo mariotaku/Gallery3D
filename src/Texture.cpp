@@ -35,11 +35,8 @@ void Texture::clear() {
 
 namespace {
 
-// An item's pixels, wherever they live and whenever they arrive. A source that
-// keeps its photos somewhere other than this disk hands over the bytes;
-// everything else reads the file. Then the platform's decoder turns them into
-// pixels. Both halves may answer before this returns, which is what happens
-// natively, or much later from the browser.
+// Decode source bytes, falling back to a local path. Source and decoder
+// callbacks may complete inline or later in the browser.
 void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
     if (item == nullptr) {
         done(Bitmap());
@@ -68,9 +65,7 @@ void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
             decodeBytes(std::move(bytes));
             return;
         }
-        // The source had nothing, so fall back to the path. A local source
-        // answers false here by design: its photos are files, and this is the
-        // read.
+        // Local sources return false to request a file-path read.
         std::vector<uint8_t> fromFile;
         if (!Bitmap::readFile(path, &fromFile)) {
             done(Bitmap());
@@ -80,10 +75,7 @@ void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
     });
 }
 
-// What to key the thumbnail cache on. A remote item has no path, so it falls
-// back to the uri it was addressed by.
-// Whether this item's bytes come off the network. The same walk decodeItem
-// does: the set an item belongs to knows which source made it.
+// Whether the item's owning source loads over the network.
 bool itemLoadsOverNetwork(const MediaItem *item) {
     if (item == nullptr) {
         return false;
@@ -93,6 +85,7 @@ bool itemLoadsOverNetwork(const MediaItem *item) {
     return source != nullptr && source->readsBlockOnNetwork();
 }
 
+// Cache by local path, falling back to the remote content URI.
 const std::string &cacheIdentity(const MediaItem *item) {
     return item->mFilePath.empty() ? item->mContentUri : item->mFilePath;
 }
@@ -124,13 +117,8 @@ Bitmap ResourceTexture::load(RenderView *view) {
     if (!mScaled || !bitmap.valid()) {
         return bitmap;
     }
-    // What the scaled flag meant on Android: decodeResource sized the art for
-    // the screen density, so a caller could draw it at its own size and get a
-    // button the right size for the display. openRawResource did not, which is
-    // what the _unscaled art is named for, and those callers pass false.
-    //
-    // findDrawable has already picked the closest density, so this is usually
-    // the identity and nothing is resampled.
+    // Scale selected density-bucket art to display density. Unscaled callers retain baseline
+    // pixels.
     float factor = App::UI_DENSITY / drawable.density;
     if (factor > 0.99f && factor < 1.01f) {
         return bitmap;
@@ -181,10 +169,8 @@ void RegionTexture::startLoad(RenderView *view, const TexturePtr &self) {
                                        view->finishLoad(self, Bitmap());
                                        return;
                                    }
-                                   // No size limit here. The source was asked
-                                   // for a tile sized piece and that is what
-                                   // came back, so capping it again would only
-                                   // throw away pixels that were paid for.
+                                   // Keep the requested tile resolution; the source already
+                                   // sized it.
                                    ImageDecode::decode(std::move(bytes), 0, [view, self](Bitmap bitmap) {
                                        view->finishLoad(self, std::move(bitmap));
                                    });
@@ -192,8 +178,7 @@ void RegionTexture::startLoad(RenderView *view, const TexturePtr &self) {
 }
 
 Bitmap MediaItemTexture::load(RenderView *view) {
-    // Never used: startLoad below does the work, because a decode may not
-    // answer on this thread. Here because the base class still declares it.
+    // startLoad handles asynchronous decoding; load is required by the base class.
     (void)view;
     return Bitmap();
 }
@@ -204,49 +189,32 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
         return;
     }
     if (!mConfig) {
-        // Screennail, used once an item fills the screen, so it is sized to the
-        // window rather than to the original's handset era cap.
+        // Size fullscreen screennails to the window.
         decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE,
                    [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
         return;
     }
 
-    // Grid thumbnail. The original pulled a pre-baked, centre cropped
-    // thumbnail out of the disk cache, always 128x96, which the loader then
-    // padded to 128x128. That is why GridDrawables gives the grid quad
-    // texture extents of (1.0, oneByAspect): it expects the image to fill
-    // the full width and exactly oneByAspect of the height of a square
-    // power of two texture. The shipped grid_placeholder.png is 128x96 for
-    // the same reason.
-    //
-    // So pick a power of two side and crop to that ratio, whatever the
-    // display density. Anything else leaves the quad sampling the padding.
+    // Grid extents are (1.0, oneByAspect): centre-crop to that ratio with a
+    // power-of-two width so the quad does not sample texture padding.
     const int side = Shared::nextPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
     const int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
 
-    // Decoding a few hundred originals costs seconds on every launch, so
-    // keep the cropped result on disk. The key carries the modification
-    // time and the crop size, because the size follows the display density
-    // and can differ between runs.
+    // Cache cropped thumbnails by modification time and density-dependent crop size.
     char suffix[64];
     SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d", (long long)mItem->mDateModifiedInSec, side, height);
     const std::string key = cacheIdentity(mItem) + suffix;
     DiskCache &cache = DiskCache::thumbnails();
     Bitmap cached = cache.get(key);
-    // At most the size asked for, and possibly smaller: what is stored was
-    // fitted to the picture rather than enlarged to the request. The key
-    // already carries the requested size, so anything under it was fitted from
-    // this same image and is the right thing to reuse. Testing for equality
-    // here missed every one of those and re-fetched forever.
+    // Accept cached images up to the requested size; small originals are never enlarged.
     if (cached.valid() && cached.width() <= side &&
         cached.height() == cached.width() * mConfig->thumbnailHeight / mConfig->thumbnailWidth) {
         view->finishLoad(self, std::move(cached));
         return;
     }
 
-    // The cropping and the caching happen after the decode now, wherever that
-    // finishes. Everything the continuation needs is copied into it, since the
-    // texture may outlive this call by a long way.
+    // Crop and cache after decoding; capture continuation inputs by value for asynchronous
+    // completion.
     const int thumbnailWidth = mConfig->thumbnailWidth;
     const int thumbnailHeight = mConfig->thumbnailHeight;
     decodeItem(mItem, std::max(side, height) * 2,
@@ -256,17 +224,8 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
             return;
         }
 
-        // Never larger than the picture actually is.
-        //
-        // The size above follows the display density, and a dense phone asks
-        // for 1024x768 where a desktop asks for 512x384. A remote source hands
-        // over 843 pixels, so the larger of those is an enlargement: four times
-        // the texture memory for the same detail, slightly softer. Forty eight
-        // covers at three megabytes apiece also sit right on the texture budget
-        // and keep evicting each other.
-        //
-        // The quad's extents are (1.0, oneByAspect), which is a ratio rather
-        // than a resolution, so a smaller power of two is free to use.
+        // Do not enlarge beyond source resolution. Smaller power-of-two textures
+        // preserve the quad's (1.0, oneByAspect) extents.
         int fittedSide = side;
         int fittedHeight = height;
         while (fittedSide > thumbnailWidth &&
@@ -283,9 +242,7 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     });
 }
 
-// ---------------------------------------------------------------------------
 // StringTexture
-// ---------------------------------------------------------------------------
 
 
 StringTexture::StringTexture(std::string text, const Config &config) : mText(std::move(text)), mConfig(config) {

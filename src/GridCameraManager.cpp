@@ -69,9 +69,7 @@ bool GridCameraManager::constrainCameraForSlot(LayoutInterface *layout, int slot
     camera->mConvergenceSpeed = 2.0f;
     camera->mFriction = 0.0f;
 
-    // Gingerbread fix: when the viewport is wider than the image, centre it
-    // instead of clamping each edge, otherwise a zoomed out photo drifts into
-    // a corner. Only the smaller-viewport case still clamps.
+    // Centre the image when the viewport is larger; otherwise clamp to its edges.
     if ((bottomRight.x - topLeft.x) > (imgBottomRight.x - imgTopLeft.x)) {
         float hCenterExtent = (bottomRight.x + topLeft.x) / 2.0f - (imgBottomRight.x + imgTopLeft.x) / 2.0f;
         camera->moveBy(-hCenterExtent, 0.0f, 0.0f);

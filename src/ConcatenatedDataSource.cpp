@@ -3,8 +3,7 @@
 #include "MediaSet.h"
 
 void ConcatenatedDataSource::loadMediaSets(MediaFeed *feed) {
-    // In order, so the first source's albums come first on the wall. Each one
-    // passes itself to addMediaSet, which is what makes the routing below work.
+    // Enumerate sources in order; addMediaSet records each set's owner.
     if (mFirst != nullptr) {
         mFirst->loadMediaSets(feed);
     }
@@ -17,8 +16,7 @@ void ConcatenatedDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSe
     if (parentSet == nullptr) {
         return;
     }
-    // Straight to the owner. Asking both would let the wrong source fill a set
-    // that is not its own.
+    // Route to the set's owner.
     DataSource *owner = parentSet->mDataSource;
     if (owner != nullptr && owner != this) {
         owner->loadItemsForSet(feed, parentSet);
@@ -35,9 +33,7 @@ bool ConcatenatedDataSource::performOperation(int operation, MediaItem *item, co
 }
 
 bool ConcatenatedDataSource::supportsOperation(int operation) const {
-    // Asked without an item in hand, so the answer is whether anything behind
-    // here could do it. Once there is an item, the routing above picks the one
-    // source that owns it and its answer is the one that counts.
+    // Without an item, report whether either source supports the operation.
     return (mFirst != nullptr && mFirst->supportsOperation(operation)) ||
            (mSecond != nullptr && mSecond->supportsOperation(operation));
 }

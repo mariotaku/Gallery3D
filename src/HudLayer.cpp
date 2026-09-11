@@ -16,8 +16,7 @@ namespace {
 // Idle time in fullscreen before the chrome gets out of the way.
 const uint64_t AUTO_HIDE_MS = 5000;
 
-// The top right button is a wide tab. It is half as tall inside an album,
-// which is what the original did to keep it clear of the thumbnails.
+// The top-right tab uses half height inside albums to clear thumbnails.
 const float TOP_RIGHT_WIDTH = 100.0f;
 const float TOP_RIGHT_HEIGHT = 94.0f;
 const float ZOOM_BUTTON_WIDTH = 66.666f;
@@ -113,10 +112,7 @@ bool HudLayer::containsPoint(float x, float y) {
 }
 
 bool HudLayer::onTouchEvent(const MotionEvent &event) {
-    // Swallowed rather than acted on. Anything up here worth pressing - a
-    // crumb, the mode button, a window button - is its own layer and was asked
-    // first, because the hit test walks the list backwards and this went in
-    // before them.
+    // Consume remaining bar input after child controls; hit testing walks the list backwards.
     (void)event;
     return true;
 }
@@ -128,13 +124,7 @@ void HudLayer::onPointerMoved(float x, float y) {
 }
 
 void HudLayer::onSizeChanged() {
-    // Everything here lays out against the safe rect, not the window. On a
-    // desktop the two are the same. On a phone the difference is a cutout at
-    // the top or a home indicator at the bottom, and a control underneath
-    // either is one you cannot reliably touch.
-    //
-    // The wall and the backdrop are deliberately left alone: a photo wants the
-    // whole screen, and losing a strip of it to a notch is the right trade.
+    // Lay out HUD controls inside SDL's safe rectangle; wall and backdrop use the full window.
     const App::SafeAreaInsets &safe = App::SAFE_AREA;
     const float safeLeft = safe.left;
     const float safeTop = safe.top;
@@ -170,19 +160,12 @@ void HudLayer::onSizeChanged() {
     mZoomInButton.setPosition(safeRightEdge - zoomWidth, zoomY);
     mZoomOutButton.setPosition(safeRightEdge - zoomWidth * 2.0f, zoomY);
 
-    // The top selection bar takes the whole top edge, where the path bar sits
-    // the rest of the time. They are never both up.
-    //
-    // It starts below the caption though. It runs the full width, so unlike the
-    // path bar it reaches the window buttons, and a bar drawn across them hides
-    // the only way to close the window with the pointer.
+    // Selection replaces the path bar across the full width, below the caption buttons.
     const float captionHeight = WindowFrame::isExtended() ? WindowFrame::captionHeight() : 0.0f;
     mSelectionMenuTop.setPosition(safeLeft, selectionBarTop(safeTop, captionHeight));
     mSelectionMenuTop.setSize(safeWidth, MenuBar::preferredHeight());
 
-    // The window buttons sit in the top right corner of the window, not the
-    // safe rect: they belong to the frame rather than the content, and a corner
-    // is where the pointer goes to find them.
+    // Place window buttons at the window's top-right corner, outside the content safe rect.
     float captionButtonsWidth = 0.0f;
     if (WindowFrame::isExtended()) {
         mCaptionButtons.setSize(CaptionButtons::preferredWidth(), CaptionButtons::preferredHeight());
@@ -226,28 +209,19 @@ void HudLayer::computeBottomMenu() {
         topButtons.push_back({"", "Deselect all", [grid]() { grid->deselectOrCancelSelectMode(); }});
         mSelectionMenuTop.setButtons(topButtons);
 
-        // Delete and More, each opening a popup, which is what the original
-        // does. Its third button was Share, and there is no share to hand off
-        // to here, so this is its own no-share arrangement.
-        //
-        // Both are storage writes, so both are offered only when whatever holds
-        // the selection can actually carry them out. A read only source gets
-        // neither rather than a button that fails.
+        // Offer delete and rotation popups only when the selection's sources support writes.
         std::vector<MenuBar::ButtonSpec> buttons;
         if (!grid->noDeleteMode()) {
             size_t index = buttons.size();
             buttons.push_back({"icon_delete", "Delete", [this, grid, index]() {
-                                   // Deleting is not undoable past the recycle
-                                   // bin, so it asks first.
+                                   // Confirm deletion before moving files to the recycle bin.
                                    showPopupFor(mMenuBar, index,
                                                 {{"Confirm delete", "icon_delete",
                                                   [grid]() { grid->deleteSelection(); }},
                                                  {"Cancel", "icon_cancel", nullptr}});
                                }});
         }
-        // Details is always here. It reads what is already on screen, so unlike
-        // the two above it asks nothing of the storage behind the wall, and a
-        // read only source gets a More button holding just this one.
+        // Details uses loaded metadata and remains available for read-only sources.
         {
             const bool canRotate = grid->selectionSupports(MediaFeed::OPERATION_ROTATE);
             size_t moreIndex = buttons.size();
@@ -311,9 +285,7 @@ void HudLayer::computeTopRightButton() {
         mTopRightButton.setAction([grid]() { grid->setState(GridLayer::STATE_GRID_VIEW); });
         break;
     default:
-        // Over the stacks the original put a camera button here, which would
-        // hand off to the camera app. There is nothing to hand off to on the
-        // desktop, so the button stays away.
+        // No desktop camera-app button.
         mTopRightButton.setImages("", "");
         mTopRightButton.setAction(nullptr);
         break;

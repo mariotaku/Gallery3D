@@ -1,21 +1,5 @@
-// Turning encoded bytes into pixels, however the platform does it.
-//
-// Native decodes with SDL_image, on whichever thread asked, and returns the
-// Bitmap. That is the shape the rest of the code was written around.
-//
-// The web cannot. Every image decoder a browser offers - createImageBitmap,
-// WebCodecs, an <img> element - is a promise, and there is no synchronous one
-// to fall back on. So the seam is asynchronous, and the native side answers
-// immediately rather than the web side pretending to.
-//
-// Worth the trouble because the browser's decoder is native code with SIMD
-// behind it, against stb_image compiled to wasm, and a wall is a hundred
-// artworks.
-//
-// The pixels come back into memory rather than going straight to a texture,
-// because the wall does its own work on them: the backdrop blurs them, the
-// grid crops them to the cell's aspect, and DiskCache keeps the result. An
-// ImageBitmap handed to texImage2D would skip all three.
+// Decodes encoded bytes to Bitmap pixels for cropping, blur and caching.
+// Native SDL_image answers inline; browser decoders require asynchronous callbacks.
 #pragma once
 
 #include <cstddef>
@@ -36,8 +20,7 @@ using Callback = std::function<void(Bitmap)>;
 // browser is finished with them.
 void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done);
 
-// True when decode() may call back later rather than before it returns. Lets a
-// caller that must not block know which world it is in.
+// Whether decode() may invoke its callback after returning.
 bool isAsynchronous();
 
 }  // namespace ImageDecode

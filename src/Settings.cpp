@@ -109,8 +109,7 @@ void Store::readIni(const std::string &text, const std::string &describedAs) {
         }
         const std::string name = section + "." + key;
         if (!isKnown(name)) {
-            // Named rather than dropped: a typo here is indistinguishable from
-            // the setting having no effect.
+            // Report unknown settings.
             mComplaints.push_back(describedAs + ":" + std::to_string(lineNumber) + ": no such setting as " + name);
             continue;
         }
@@ -196,11 +195,9 @@ std::string Store::sourceOf(const std::string &name) const {
 
 std::vector<std::string> searchPaths() {
     std::vector<std::string> paths;
-    // The working directory first, so a checkout or a test rig can carry its
-    // own settings without touching anything of the user's.
+    // Search the working directory first.
     paths.push_back("gallery3d.ini");
-    // Then where this platform keeps a program's settings. SDL makes the
-    // directory if it is not there, which is also where to put one by hand.
+    // Then search the platform config directory; SDL creates it if missing.
     if (char *pref = SDL_GetPrefPath("mariotaku", "Gallery3D")) {
         paths.push_back(std::string(pref) + "gallery3d.ini");
         SDL_free(pref);

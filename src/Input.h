@@ -1,8 +1,5 @@
 // Stands in for android.view.MotionEvent and android.view.KeyEvent.
-//
-// SDL delivers mouse, wheel and touch on one thread, so the port carries the
-// same two pointer shape the original gesture detectors expect and fills the
-// second pointer only for real multi touch.
+// Carries two pointers; the second is populated only for multitouch.
 #pragma once
 
 #include <cstdint>

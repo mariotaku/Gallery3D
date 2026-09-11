@@ -8,7 +8,7 @@
 
 namespace {
 
-// All from the original, in the units its layout constants are written in.
+// Java popup layout units.
 const float POPUP_TRIANGLE_X_MARGIN = 16.0f;
 const float POPUP_Y_OFFSET = 20.0f;
 const float PADDING_LEFT = 15.0f;
@@ -23,14 +23,11 @@ const float ICON_SIZE = 34.0f;
 const float FONT_SIZE = 17.0f;
 // IconTitleDrawable adds this past the title before the padding.
 const float TITLE_TRAIL = 15.0f;
-// The triangle art, in the same units. It ships at one density like everything
-// else, so it is resized rather than drawn as it loads.
+// Triangle dimensions in layout units; art is resized for display density.
 const float TRIANGLE_WIDTH = 43.0f;
 const float TRIANGLE_HEIGHT = 28.0f;
-// How far short of the bottom the panel stops. Its nine-patch carries a soft
-// drop shadow below its border, so the border itself ends up one triangle
-// height above the bottom, which is where the triangle's own top two rows
-// continue it into the V.
+// Panel bottom offset accounts for the nine-patch shadow, aligning its border
+// with the triangle's top rows.
 const float POPUP_TRIANGLE_EXTRA_HEIGHT = 14.0f;
 
 const float OPEN_SECONDS = 0.4f;
@@ -197,8 +194,7 @@ void PopupMenu::renderBlended(RenderView *view) {
         return;
     }
 
-    // The original ran the open through a wipe shader. This does the part that
-    // reads: it grows past its size and settles back, and fades as it goes.
+    // Opening animation overshoots, settles, and fades in.
     float scale = 1.0f;
     const float split = 0.7f;
     if (mShow && showRatio < 1.0f) {
@@ -326,8 +322,7 @@ bool PopupMenu::onTouchEvent(const MotionEvent &event) {
             }
             return true;
         }
-        // A press that ends outside every row dismisses it, which is what makes
-        // the whole window the layer rect worth doing.
+        // Dismiss when a press ends outside all rows.
         close(true);
         break;
     case MotionEvent::ACTION_CANCEL:

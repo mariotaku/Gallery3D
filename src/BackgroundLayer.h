@@ -1,9 +1,6 @@
 // Port of com.cooliris.media.BackgroundLayer.
-//
-// Stitches a backdrop three times across the screen with parallax, at the far
-// plane so the wall occludes it. The backdrop itself is a blurred, darkened
-// copy of the photo under the cursor, and it crossfades as the cursor moves.
-// The shipped gradient stands in until the first thumbnail has loaded.
+// Crossfades blurred photos and tiles them with parallax at the far plane.
+// Uses the shipped gradient until the first thumbnail loads.
 #pragma once
 
 #include <map>

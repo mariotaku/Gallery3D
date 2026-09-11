@@ -88,8 +88,7 @@ class ScaleGestureDetector {
         return mFocusY;
     }
 
-    // Where the focus point sat on the previous move. Gingerbread added this so
-    // a pinch can pan as well as zoom.
+    // Previous focus point, used to pan during a pinch.
     float getPrevFocusX() const {
         return mPrevFocusX;
     }

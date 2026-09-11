@@ -1,15 +1,6 @@
-// Port of com.cooliris.media.MediaClustering: groups an album's photos into
-// the piles the timeline view shows.
-//
-// The shape is the original's. Items arrive in time order and land in the
-// current cluster while they stay close enough together; a gap starts a new
-// one. A cluster that grows too big is split at its largest change in pace, and
-// one that stays too small is merged back into the cluster before it. The split
-// time and the size bounds come from the album itself, so a decade of holidays
-// and an afternoon of burst shots both end up with a usable number of piles.
-//
-// The geographic split is ported too, but it is inert until something fills in
-// latitude and longitude: LocalDataSource does not read GPS tags yet.
+// Port of com.cooliris.media.MediaClustering. Groups time-ordered photos by temporal
+// and geographic gaps; splits large clusters at pace changes and merges small ones.
+// Time and size thresholds adapt to the album.
 #pragma once
 
 #include <cstdint>

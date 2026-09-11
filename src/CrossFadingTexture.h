@@ -1,8 +1,5 @@
 // Port of com.cooliris.media.CrossFadingTexture.
-//
-// Holds the texture being shown and the one it replaced, and walks a mix ratio
-// from the old to the new. The original blended the pair with a GL_INTERPOLATE
-// texture combiner; here RenderView::bindMixed runs the two texture program.
+// Fades between two textures using RenderView::bindMixed.
 #pragma once
 
 #include "Texture.h"

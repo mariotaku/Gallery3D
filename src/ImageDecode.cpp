@@ -26,9 +26,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gallery3dDecodeDone(void *handle, uint8_t *
     std::unique_ptr<PendingDecode> pending((PendingDecode *)handle);
     Bitmap bitmap;
     if (pixels != nullptr && width > 0 && height > 0) {
-        // The browser hands back straight alpha, which is not what the rest of
-        // this draws with: every blend here is premultiplied. Bitmap does that
-        // conversion on the way in, exactly as it does for SDL_image.
+        // Convert browser straight-alpha pixels to premultiplied Bitmap storage.
         bitmap = Bitmap::fromStraightRGBA(pixels, width, height);
         free(pixels);
     }
@@ -54,12 +52,8 @@ void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done) {
     }
     auto *pending = new PendingDecode{std::move(bytes), maxEdge, std::move(done)};
 
-    // createImageBitmap does the decode off whatever thread this is, in native
-    // code, and resizeWidth/resizeHeight let it do the downscale too rather
-    // than handing back a full size image for us to shrink.
-    //
-    // OffscreenCanvas is how the pixels come back: there is no way to read an
-    // ImageBitmap directly, so it is drawn once and read out.
+    // createImageBitmap decodes and downsizes asynchronously. Read pixels through
+    // OffscreenCanvas because ImageBitmap has no direct pixel-read API.
     MAIN_THREAD_ASYNC_EM_ASM({
         var handle = $0;
         var pointer = $1;
@@ -104,8 +98,7 @@ bool isAsynchronous() {
 }
 
 void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done) {
-    // SDL_image, on whichever thread asked, answering before this returns. The
-    // callback shape is the web's requirement, not this side's.
+    // SDL_image decodes on the calling thread and answers before returning.
     Bitmap bitmap = Bitmap::loadFromMemory(bytes.data(), bytes.size(), maxEdge);
     if (done) {
         done(std::move(bitmap));
