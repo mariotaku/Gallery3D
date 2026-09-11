@@ -421,6 +421,8 @@ void printUsage() {
     SDL_Log("");
     SDL_Log("Checking a build without a hand on the mouse. These drive the app to a");
     SDL_Log("state and render a fixed number of frames, so a screenshot is repeatable.");
+    SDL_Log("  --window-size WxH    open the window at this size, to see the layout");
+    SDL_Log("                       at one the mouse cannot reach");
     SDL_Log("  --screenshot PATH    save the framebuffer and exit");
     SDL_Log("  --frames N           how many frames to render first");
     SDL_Log("  --open N             open album N on the way");
@@ -539,6 +541,10 @@ int main(int argc, char **argv) {
     // Taps a button on the bottom selection bar, so the popup it opens can be
     // captured. Needs --select. -1 for off.
     int popupButton = -1;
+    // The window to open. Small sizes are what the minimum size is there to
+    // stop, and this is the only way to look at the layout at one.
+    int windowWidth = 1280;
+    int windowHeight = 800;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--screenshot" && i + 1 < argc) {
@@ -570,6 +576,15 @@ int main(int argc, char **argv) {
             if (!applyBackdropSigma((float)std::atof(argv[++i]))) {
                 return 1;
             }
+        } else if (arg == "--window-size" && i + 1 < argc) {
+            int width = 0;
+            int height = 0;
+            if (SDL_sscanf(argv[++i], "%dx%d", &width, &height) != 2 || width <= 0 || height <= 0) {
+                SDL_Log("A window size of \"%s\" is not WIDTHxHEIGHT", argv[i]);
+                return 1;
+            }
+            windowWidth = width;
+            windowHeight = height;
         } else if (arg == "--config" && i + 1 < argc) {
             // Already read, before any of this.
             ++i;
@@ -693,11 +708,16 @@ int main(int argc, char **argv) {
     // one: the frame stays, so snapping, the resize borders and the shadow are
     // the system's to handle rather than ours to imitate.
     SDL_WindowFlags windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    SDL_Window *window = SDL_CreateWindow("Gallery3D", 1280, 800, windowFlags);
+    SDL_Window *window = SDL_CreateWindow("Gallery3D", windowWidth, windowHeight, windowFlags);
     if (window == nullptr) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
     }
+    // Below this the HUD runs out of room: the path bar, the time bar and the
+    // bottom menu each want a row of their own, and the wall needs what is
+    // left. SDL clamps an existing window up to this as well as refusing to
+    // resize below it.
+    SDL_SetWindowMinimumSize(window, 320, 320);
 
     bool realES = true;
     SDL_GLContext context = SDL_GL_CreateContext(window);
