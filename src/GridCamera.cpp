@@ -127,11 +127,48 @@ void GridCamera::commitMoveInZ() {
     mPosZ = mTargetPosZ;
 }
 
+void GridCamera::scrollRange(const Vector3f &firstSlotPosition, const Vector3f &lastSlotPosition, float *minX,
+                             float *maxX) {
+    const float oneByItemHeight = (mItemHeight > 0) ? (1.0f / (float)mItemHeight) : 0.0f;
+    *minX = firstSlotPosition.x * oneByItemHeight;
+    *maxX = lastSlotPosition.x * oneByItemHeight;
+    if (mItemHeight <= 0) {
+        return;
+    }
+
+    // A wall narrower than the window has nowhere to scroll. Left as they are,
+    // these bounds bring it to rest against its own first slot, which puts that
+    // slot in the middle of the screen and the rest of the wall off to one
+    // side. Both bounds collapse to the middle of the wall instead.
+    Vector3f leftEdge;
+    Vector3f rightEdge;
+    convertToCameraSpace(0.0f, 0.0f, 0.0f, leftEdge);
+    convertToCameraSpace((float)mWidth, 0.0f, 0.0f, rightEdge);
+    const float wallWidth = (*maxX - *minX) + (float)mItemWidth * oneByItemHeight;
+    if (wallWidth <= (rightEdge.x - leftEdge.x)) {
+        const float middle = (*minX + *maxX) * 0.5f;
+        *minX = middle;
+        *maxX = middle;
+    }
+}
+
+void GridCamera::clampToScrollRange(const Vector3f &firstSlotPosition, const Vector3f &lastSlotPosition) {
+    float minX = 0.0f;
+    float maxX = 0.0f;
+    scrollRange(firstSlotPosition, lastSlotPosition, &minX, &maxX);
+    if (mTargetPosX < minX) {
+        moveXTo(minX);
+    } else if (mTargetPosX > maxX) {
+        moveXTo(maxX);
+    }
+}
+
 bool GridCamera::computeConstraints(bool applyConstraints, bool applyOverflowFeedback,
                                     const Vector3f &firstSlotPosition, const Vector3f &lastSlotPosition) {
     bool retVal = false;
-    float minX = firstSlotPosition.x * (1.0f / (float)mItemHeight);
-    float maxX = lastSlotPosition.x * (1.0f / (float)mItemHeight);
+    float minX = 0.0f;
+    float maxX = 0.0f;
+    scrollRange(firstSlotPosition, lastSlotPosition, &minX, &maxX);
     if (mTargetPosX < minX) {
         mAmountExceeding += mTargetPosX - minX;
         mTargetPosX = minX;

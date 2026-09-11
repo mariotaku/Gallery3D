@@ -62,6 +62,11 @@ class GridCamera {
     bool computeConstraints(bool applyConstraints, bool applyOverflowFeedback, const Vector3f &firstSlotPosition,
                             const Vector3f &lastSlotPosition);
 
+    // Pulls the camera inside the scroll range. Unlike computeConstraints this
+    // carries no bounce feedback, so it can run every frame: it is what keeps a
+    // wall that fits parked in the middle when nothing is being dragged.
+    void clampToScrollRange(const Vector3f &firstSlotPosition, const Vector3f &lastSlotPosition);
+
     void stopMovement();
     void stopMovementInX();
     void stopMovementInY();
@@ -73,6 +78,10 @@ class GridCamera {
     void update(float timeElapsed);
 
   private:
+    // Where the camera may look, between the first and last slot. A wall
+    // narrower than the window collapses this to a point in the middle of it.
+    void scrollRange(const Vector3f &firstSlotPosition, const Vector3f &lastSlotPosition, float *minX, float *maxX);
+
     static constexpr float DEFAULT_PORTRAIT_ASPECT = 320.0f / 480.0f;
     static constexpr float DEFAULT_LANDSCAPE_ASPECT = 480.0f / 320.0f;
 

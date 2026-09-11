@@ -53,10 +53,23 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     static int itemWidthForDensity();
     static int itemHeightForDensity();
 
-    // How many rows of slots fit in the height the wall is visible in, given
-    // the gaps this state puts between them. At least one, however small the
-    // window, and never more than the display slot array can hold.
+    // How many rows of slots the wall should use, for the window it is in and
+    // the set it is showing. At least one, however small the window, and never
+    // more than the display slot array can hold.
     int rowsForViewport(int spacingX, int spacingY) const;
+
+    // Puts that on the layout, for the state and feed as they are now. Called
+    // whenever either changes.
+    void updateRowsForLayout();
+
+    // Keeps the camera inside the range it may scroll over, which for a wall
+    // that fits the window is a single point in the middle of it.
+    void keepWallInRange();
+
+    // Forgets a run of display item entries. An entry left behind names an item
+    // the display list is free to destroy, so anything not refilled this pass
+    // has to be cleared in the same pass.
+    void clearDisplayItems(int begin, int end);
 
     GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view);
 

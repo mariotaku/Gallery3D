@@ -9,6 +9,7 @@
 #include "FloatUtils.h"
 #include "LocalDataSource.h"
 #include "MenuBar.h"
+#include "MediaFeed.h"
 #include "MediaItem.h"
 #include "PathBarLayer.h"
 #include "RenderView.h"
@@ -68,20 +69,83 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
     // n rows span n items and the n-1 gaps between them.
     int rows = (available + spacingY) / pitch;
 
+    const int columnPitch = mCamera->mItemWidth + spacingX;
+    if (columnPitch <= 0) {
+        return (rows < 1) ? 1 : rows;
+    }
+
     // Bounded by the display slot array, which is a fixed size. Every slot on
     // screen needs an entry, and the visible range is padded either side so
     // scrolling does not have to rebuild it, so the columns across decide how
     // many rows there is room for. A slot past the end of the array is drawn as
     // nothing at all rather than reported.
-    const int columnPitch = mCamera->mItemWidth + spacingX;
-    if (columnPitch > 0) {
-        const int columns = mCamera->mWidth / columnPitch + 2;
-        const int maxRows = (MAX_DISPLAY_SLOTS - kSlotRangePadding) / (columns > 0 ? columns : 1);
-        if (rows > maxRows) {
-            rows = maxRows;
+    const int columnsOnScreen = mCamera->mWidth / columnPitch;
+    const int maxRows = (MAX_DISPLAY_SLOTS - kSlotRangePadding) / (columnsOnScreen + 2);
+    if (rows > maxRows) {
+        rows = maxRows;
+    }
+    if (rows < 1) {
+        rows = 1;
+    }
+
+    // A wall longer than the window fills the width whatever the row count, so
+    // filling the height is the whole of it. A wall that fits is a block of a
+    // fixed size, and then the rows decide its shape: twelve albums over four
+    // rows is three columns, a tall block in a wide window. Pick the row count
+    // whose block comes closest to the window's own proportions.
+    const int slots = (mMediaFeed != nullptr) ? mMediaFeed->getNumSlots() : 0;
+    if (slots <= 0 || available <= 0) {
+        return rows;
+    }
+    const float windowAspect = (float)mCamera->mWidth / (float)available;
+    float bestError = -1.0f;
+    int bestRows = rows;
+    for (int candidate = 1; candidate <= rows; ++candidate) {
+        const int columns = (slots + candidate - 1) / candidate;
+        if (columns > columnsOnScreen) {
+            // Wider than the window, so this many rows does not make a block
+            // that can be seen at once.
+            continue;
+        }
+        const float blockAspect = (float)(columns * columnPitch) / (float)(candidate * pitch);
+        // Compared as a ratio rather than a difference, so being twice as wide
+        // and half as wide count the same.
+        float error = blockAspect / windowAspect;
+        if (error < 1.0f) {
+            error = 1.0f / error;
+        }
+        if (bestError < 0.0f || error < bestError) {
+            bestError = error;
+            bestRows = candidate;
         }
     }
-    return (rows < 1) ? 1 : rows;
+    return bestRows;
+}
+
+void GridLayer::keepWallInRange() {
+    // Fullscreen moves the camera photo by photo, and a slot being zoomed into
+    // owns the camera outright. Neither is scrolling the wall.
+    if (mState == STATE_FULL_SCREEN || mInputProcessor == nullptr ||
+        mInputProcessor->getCurrentSelectedSlot() != Shared::INVALID) {
+        return;
+    }
+    Vector3f firstPosition;
+    Vector3f lastPosition;
+    Vector3f deltaAnchorPosition(mDeltaAnchorPosition);
+    GridCameraManager::getSlotPositionForSlotIndex(0, mCamera.get(), mLayoutInterface, deltaAnchorPosition,
+                                                  firstPosition);
+    GridCameraManager::getSlotPositionForSlotIndex(mCompleteRange.end, mCamera.get(), mLayoutInterface,
+                                                  deltaAnchorPosition, lastPosition);
+    mCamera->clampToScrollRange(firstPosition, lastPosition);
+}
+
+void GridLayer::updateRowsForLayout() {
+    // Fullscreen is one photo at a time, so its single row is not a choice.
+    if (mState == GridLayer::STATE_FULL_SCREEN || mLayoutInterface == nullptr) {
+        return;
+    }
+    GridLayoutInterface *layout = (GridLayoutInterface *)mLayoutInterface;
+    layout->mNumRows = rowsForViewport(layout->mSpacingX, layout->mSpacingY);
 }
 
 GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view)
@@ -186,7 +250,7 @@ void GridLayer::setState(int state) {
         }
         layoutInterface->mSpacingX = (int)(10 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(10 * App::PIXEL_DENSITY);
-        layoutInterface->mNumRows = rowsForViewport(layoutInterface->mSpacingX, layoutInterface->mSpacingY);
+        updateRowsForLayout();
         if (mState == STATE_MEDIA_SETS) {
             // Entering an album.
             mInAlbum = true;
@@ -220,7 +284,7 @@ void GridLayer::setState(int state) {
         disableLocationFiltering();
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
-        layoutInterface->mNumRows = rowsForViewport(layoutInterface->mSpacingX, layoutInterface->mSpacingY);
+        updateRowsForLayout();
         break;
     case STATE_FULL_SCREEN:
         layoutInterface->mNumRows = 1;
@@ -251,7 +315,7 @@ void GridLayer::setState(int state) {
         mInputProcessor->clearSelection();
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
-        layoutInterface->mNumRows = rowsForViewport(layoutInterface->mSpacingX, layoutInterface->mSpacingY);
+        updateRowsForLayout();
         if (mInAlbum) {
             if (mState == STATE_FULL_SCREEN) {
                 mHud.getPathBar()->popLabel();
@@ -434,6 +498,7 @@ bool GridLayer::update(RenderView *view, float timeElapsed) {
     }
     mDisplayList.update(timeElapsed);
     mInputProcessor->update(timeElapsed);
+    keepWallInRange();
     mSelectedAlpha = FloatUtils::animate(mSelectedAlpha, mTargetAlpha, timeElapsed * 0.5f);
     if (mState == STATE_FULL_SCREEN) {
         mHud.autoHide(true);
@@ -477,6 +542,34 @@ void GridLayer::computeVisibleRange() {
     }
     mCameraManager->computeVisibleRange(mMediaFeed.get(), mLayoutInterface, mDeltaAnchorPosition, mVisibleRange,
                                         mBufferedVisibleRange, mCompleteRange, mState);
+
+    // The buffered range indexes the display slot and display item arrays, and
+    // the draw walks it without checking. It is padded out to whole buffers
+    // either side of what is on screen, so with enough rows on a wide window it
+    // can name more slots than those arrays hold - and then the draw reads off
+    // the end of them.
+    //
+    // Trimmed from the far end, so the slots nearest what is on screen are the
+    // ones kept.
+    const int span = mBufferedVisibleRange.end - mBufferedVisibleRange.begin + 1;
+    if (span > MAX_DISPLAY_SLOTS) {
+        mBufferedVisibleRange.end = mBufferedVisibleRange.begin + MAX_DISPLAY_SLOTS - 1;
+        if (mVisibleRange.end > mBufferedVisibleRange.end) {
+            mVisibleRange.end = mBufferedVisibleRange.end;
+        }
+    }
+}
+
+void GridLayer::clearDisplayItems(int begin, int end) {
+    if (begin < 0) {
+        begin = 0;
+    }
+    if (end > MAX_ITEMS_DRAWABLE) {
+        end = MAX_ITEMS_DRAWABLE;
+    }
+    for (int i = begin; i < end; ++i) {
+        mDisplayItems[i] = nullptr;
+    }
 }
 
 void GridLayer::computeVisibleItems() {
@@ -508,7 +601,16 @@ void GridLayer::computeVisibleItems() {
         GridCameraManager::getSlotPositionForSlotIndex(i, camera, layout, deltaAnchorPosition, position);
         MediaSet *set = feed ? feed->getSetForSlot(i) : nullptr;
         int indexIntoSlots = i - firstVisibleSlotIndex;
-        if (set == nullptr || indexIntoSlots < 0 || indexIntoSlots >= MAX_DISPLAY_SLOTS) {
+        if (indexIntoSlots < 0 || indexIntoSlots >= MAX_DISPLAY_SLOTS) {
+            continue;
+        }
+        const int baseIndex = indexIntoSlots * MAX_ITEMS_PER_SLOT;
+        if (set == nullptr) {
+            // A slot whose set has not arrived yet. Its entries have to be let
+            // go rather than left: they still name display items from whatever
+            // stood in this position before the range moved, and the display
+            // list frees everything these entries do not name.
+            clearDisplayItems(baseIndex, baseIndex + MAX_ITEMS_PER_SLOT);
             continue;
         }
 
@@ -534,7 +636,6 @@ void GridLayer::computeVisibleItems() {
             }
         }
         int numBestItems = (int)bestItems.size();
-        int baseIndex = (i - firstVisibleSlotIndex) * MAX_ITEMS_PER_SLOT;
         for (int j = 0; j < numBestItems; ++j) {
             if (baseIndex + j >= MAX_ITEMS_DRAWABLE) {
                 break;
@@ -557,12 +658,12 @@ void GridLayer::computeVisibleItems() {
             }
             mDisplayItems[baseIndex + j] = displayItem;
         }
-        for (int j = numBestItems; j < MAX_ITEMS_PER_SLOT; ++j) {
-            if (baseIndex + j < MAX_ITEMS_DRAWABLE) {
-                mDisplayItems[baseIndex + j] = nullptr;
-            }
-        }
+        clearDisplayItems(baseIndex + numBestItems, baseIndex + MAX_ITEMS_PER_SLOT);
     }
+
+    // And everything past the slots this range covers, for a range that got
+    // shorter - fewer slots left, or more rows over the same set.
+    clearDisplayItems((lastVisibleSlotIndex - firstVisibleSlotIndex + 1) * MAX_ITEMS_PER_SLOT, MAX_ITEMS_DRAWABLE);
 
     if (mFeedChanged) {
         mFeedChanged = false;
@@ -839,6 +940,10 @@ void GridLayer::onFeedChanged(MediaFeed *feed, bool needsLayout) {
             mHud.getPathBar()->changeLabel(set->mNoCountTitleString);
         }
     }
+
+    // The number of slots is half of what decides the row count, so a feed that
+    // grew or shrank gets the shape chosen again before anything is placed.
+    updateRowsForLayout();
 
     int firstBufferedVisibleSlotIndex = mBufferedVisibleRange.begin;
     int lastBufferedVisibleSlotIndex = mBufferedVisibleRange.end;
