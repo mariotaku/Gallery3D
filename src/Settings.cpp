@@ -45,13 +45,13 @@ bool isKnown(const std::string &name) {
 
 const std::vector<Known> &known() {
     static const std::vector<Known> entries = {
-        {"library.photos", "", "the directory of photos to browse, one stack per folder"},
-        {"library.also", "--also", "a second directory shown on the same wall"},
-        {"library.artic", "--artic", "browse the Art Institute of Chicago instead of a directory"},
-        {"wall.scale", "--scale", "how much bigger the wall is than the phone it was laid out for"},
-        {"backdrop.blur", "--backdrop-blur", "how the wash behind the wall is blurred: gaussian or box"},
-        {"backdrop.sigma", "--backdrop-sigma", "how strong the gaussian is, 2.58 matches the box"},
-        {"window.safe-area", "--safe-area", "pretend the window has cutouts: left,top,right,bottom"},
+        {"library.photos", "the directory of photos to browse, one stack per folder"},
+        {"library.also", "a second directory shown on the same wall"},
+        {"library.artic", "browse the Art Institute of Chicago instead of a directory"},
+        {"wall.scale", "how much bigger the wall is than the phone it was laid out for"},
+        {"backdrop.blur", "how the wash behind the wall is blurred: gaussian or box"},
+        {"backdrop.sigma", "how strong the gaussian is, 2.58 matches the box"},
+        {"window.safe-area", "pretend the window has cutouts: left,top,right,bottom"},
     };
     return entries;
 }

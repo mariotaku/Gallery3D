@@ -171,14 +171,12 @@ TEST(a_malformed_line_is_reported_and_the_rest_still_reads) {
     CHECK_NEAR(store.getFloat("backdrop.sigma", 0.0f), 5.0, 0.001);
 }
 
-TEST(every_setting_with_a_flag_names_it_with_two_dashes) {
+TEST(every_setting_is_a_section_and_a_key_with_something_to_say) {
     // The table is what the help prints from, so a malformed entry is a
     // malformed help page.
     for (const Settings::Known &setting : Settings::known()) {
         CHECK(setting.name != nullptr && setting.name[0] != '\0');
         CHECK(setting.summary != nullptr && setting.summary[0] != '\0');
         CHECK(std::string(setting.name).find('.') != std::string::npos);
-        const std::string flag = setting.flag;
-        CHECK(flag.empty() || flag.rfind("--", 0) == 0);
     }
 }

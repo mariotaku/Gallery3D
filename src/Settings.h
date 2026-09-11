@@ -1,24 +1,24 @@
 // Where the wall's settings come from.
 //
-// Four places, each beating the one before it:
+// Three places, each beating the one before it:
 //
 //   the defaults compiled in
 //   the ini file
 //   the environment
-//   the command line
 //
 // The file holds what you always want, the environment overrides it for one
-// shell, a flag overrides it for one run.
+// shell. No setting has a command line form: a value readable from three
+// places, one of them quietly beating the other two, is a value you have to go
+// looking for.
 //
 // What belongs here is a setting - something that says how the wall should
-// look. What stays on the command line alone is a verb: open this album,
-// render that many frames, then quit. A verb describes one run and there is
-// nothing to write down.
+// look. What stays on the command line is a verb: open this album, render that
+// many frames, then quit. A verb describes one run and there is nothing to
+// write down.
 //
 // One name per setting, written "section.key", and the rest follows from it.
 // "backdrop.sigma" is `sigma` under `[backdrop]` in the file and
-// GALLERY3D_BACKDROP_SIGMA in the environment. Flag spellings are their own,
-// so that a flag that worked before still works.
+// GALLERY3D_BACKDROP_SIGMA in the environment.
 #pragma once
 
 #include <functional>
@@ -32,7 +32,6 @@ namespace Settings {
 // it validates the file, names the environment variables, and prints the help.
 struct Known {
     const char *name;     // "backdrop.sigma"
-    const char *flag;     // "--backdrop-sigma", or "" where there is none
     const char *summary;  // one line, for the usage text
 };
 

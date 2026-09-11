@@ -200,9 +200,6 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
     return SDL_HITTEST_NORMAL;
 }
 
-// The flag list lives here and only here. A copy of it in the readme would be
-// wrong within a release or two; this one cannot drift from the parser below
-// without somebody noticing on the next run.
 // Everything that follows the display rather than the window's contents. Called
 // at startup and again whenever the window lands on a display with a different
 // scale, because a laptop plugged into an external monitor does exactly that.
