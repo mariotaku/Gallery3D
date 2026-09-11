@@ -101,6 +101,9 @@ class RenderView {
 
     // ---- input -----------------------------------------------------------
     void queueTouchEvent(const MotionEvent &event);
+    // Coalesced to the last position, since only where the pointer ended up
+    // matters and a mouse produces these faster than frames.
+    void queuePointerMove(float x, float y);
     bool dispatchKeyDown(int keyCode, const KeyEvent &event);
 
     // ---- textures --------------------------------------------------------
@@ -245,6 +248,11 @@ class RenderView {
     std::atomic<bool> mThreadIsLoading[NUM_TEXTURE_LOAD_THREADS];
 
     std::deque<MotionEvent> mTouchEventQueue;
+    // The pointer's last position, and whether it has moved since the render
+    // thread last looked.
+    float mPointerX = 0.0f;
+    float mPointerY = 0.0f;
+    bool mPointerMoved = false;
     std::vector<GLuint> mPendingTextureDeletes;
     std::mutex mDeleteMutex;
 };

@@ -10,13 +10,15 @@ find_package(SDL3_ttf CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
-# Both targets want the same crash reporting, so it is set up in one place.
+# Both targets want the same platform libraries, so they are set up in one place.
 function(gallery3d_add_backtrace target)
     # Crash handler. dbghelp turns return addresses into names, and without /Zi plus
     # /DEBUG there are no names to find - Release drops them by default, which is
     # exactly when a stack trace is hardest to get any other way.
     if(WIN32)
-        target_link_libraries(${target} PRIVATE dbghelp)
+        # dbghelp for the stack trace; dwmapi and comctl32 for the extended
+        # window frame in WindowFrame.cpp.
+        target_link_libraries(${target} PRIVATE dbghelp dwmapi comctl32)
     endif()
     if(MSVC)
         target_compile_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/Zi>)

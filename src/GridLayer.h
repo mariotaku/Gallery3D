@@ -56,6 +56,8 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     // with RenderView::onSurfaceChanged to put the new sizes through the
     // layout.
     void onDensityChanged();
+
+    void onPointerMoved(float x, float y) override;
     ~GridLayer() override;
 
     HudLayer *getHud() {

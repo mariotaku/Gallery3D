@@ -379,7 +379,24 @@ void RenderView::queueTouchEvent(const MotionEvent &event) {
     requestRender();
 }
 
+void RenderView::queuePointerMove(float x, float y) {
+    if (mPointerMoved && mPointerX == x && mPointerY == y) {
+        return;
+    }
+    mPointerX = x;
+    mPointerY = y;
+    mPointerMoved = true;
+    requestRender();
+}
+
 void RenderView::processTouchEvents() {
+    if (mPointerMoved) {
+        mPointerMoved = false;
+        if (mRootLayer != nullptr) {
+            mRootLayer->onPointerMoved(mPointerX, mPointerY);
+        }
+    }
+
     size_t numEvents = mTouchEventQueue.size();
     for (size_t i = 0; i < numEvents; ++i) {
         if (mTouchEventQueue.empty()) {

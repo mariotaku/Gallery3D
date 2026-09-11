@@ -115,5 +115,14 @@ class RootLayer : public Layer {
         (void)height;
     }
 
+    // Where the pointer is, with no button held. Separate from the touch queue
+    // on purpose: that one models a finger, and a finger is either down or not
+    // there at all. Only chrome that lights under the pointer wants this, so
+    // the default is to ignore it.
+    virtual void onPointerMoved(float x, float y) {
+        (void)x;
+        (void)y;
+    }
+
     virtual void handleLowMemory() {}
 };

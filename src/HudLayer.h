@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "CaptionButtons.h"
 #include "ImageButton.h"
 #include "Layer.h"
 #include "MenuBar.h"
@@ -31,6 +32,14 @@ class HudLayer : public Layer {
     HudLayer();
 
     void generate(RenderView *view, RenderLists &lists) override;
+
+    // Straight to the window buttons, the only chrome here that answers to a
+    // pointer that is merely passing over.
+    void onPointerMoved(float x, float y);
+
+    CaptionButtons *getCaptionButtons() {
+        return &mCaptionButtons;
+    }
     bool update(RenderView *view, float frameInterval) override;
     void renderBlended(RenderView *view) override;
 
@@ -122,6 +131,7 @@ class HudLayer : public Layer {
     MenuBar mSelectionMenuTop;
     // One popup, reused. Only ever one is open.
     PopupMenu mPopupMenu;
+    CaptionButtons mCaptionButtons;
     ImageButton mTopRightButton;
     ImageButton mZoomInButton;
     ImageButton mZoomOutButton;

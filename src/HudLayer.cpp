@@ -1,5 +1,7 @@
 #include "HudLayer.h"
 
+#include "WindowFrame.h"
+
 #include <SDL3/SDL.h>
 
 #include "App.h"
@@ -57,9 +59,18 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
     mTopRightButton.generate(view, lists);
     mZoomInButton.generate(view, lists);
     mZoomOutButton.generate(view, lists);
+    if (WindowFrame::isExtended()) {
+        mCaptionButtons.generate(view, lists);
+    }
     // Last, so it is on top of the bars and sees input before them: the hit
     // test walks the list backwards.
     mPopupMenu.generate(view, lists);
+}
+
+void HudLayer::onPointerMoved(float x, float y) {
+    if (WindowFrame::isExtended()) {
+        mCaptionButtons.onPointerMoved(x, y);
+    }
 }
 
 void HudLayer::onSizeChanged() {
@@ -110,7 +121,18 @@ void HudLayer::onSizeChanged() {
     mSelectionMenuTop.setPosition(safeLeft, safeTop);
     mSelectionMenuTop.setSize(safeWidth, MenuBar::preferredHeight());
 
-    mTopRightButton.setPosition(safeRightEdge - TOP_RIGHT_WIDTH * App::UI_DENSITY, safeTop);
+    // The window buttons sit in the top right corner of the window, not the
+    // safe rect: they belong to the frame rather than the content, and a corner
+    // is where the pointer goes to find them.
+    float captionButtonsWidth = 0.0f;
+    if (WindowFrame::isExtended()) {
+        mCaptionButtons.setSize(CaptionButtons::preferredWidth(), CaptionButtons::preferredHeight());
+        mCaptionButtons.setPosition(mWidth - CaptionButtons::preferredWidth(), 0.0f);
+        captionButtonsWidth = CaptionButtons::preferredWidth();
+    }
+
+    // And the mode button steps left to make room for them.
+    mTopRightButton.setPosition(safeRightEdge - TOP_RIGHT_WIDTH * App::UI_DENSITY - captionButtonsWidth, safeTop);
     computeBottomMenu();
 }
 

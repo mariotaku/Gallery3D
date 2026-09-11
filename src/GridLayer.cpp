@@ -596,6 +596,10 @@ void GridLayer::onSurfaceCreated(RenderView *view) {
     mBackground.clear();
 }
 
+void GridLayer::onPointerMoved(float x, float y) {
+    mHud.onPointerMoved(x, y);
+}
+
 void GridLayer::onDensityChanged() {
     if (mView == nullptr) {
         return;

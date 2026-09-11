@@ -89,6 +89,11 @@ Bitmap blurredCoverage(const Bitmap &src, int radius);
 void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize, bool bold, float r, float g,
               float b, float a, int shadowRadius);
 
+// An antialiased line of the given thickness. Wanted for glyphs a font cannot
+// supply, like the caption's close cross.
+void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickness, float r, float g, float b,
+              float a);
+
 void fillRect(Bitmap &dst, int x, int y, int width, int height, float r, float g, float b, float a);
 
 }  // namespace Canvas

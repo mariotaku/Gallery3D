@@ -1,10 +1,9 @@
 // Entry point, replacing com.cooliris.media.Gallery.
 //
-// Usage: gallery3d [photo directory] [--also directory] [--scale N] [--bordered]
+// Usage: gallery3d [photo directory] [--also directory] [--scale N]
 //        [--safe-area L,T,R,B]
 // Defaults to the user's Pictures folder. --also shows a second directory
-// alongside the first, through ConcatenatedDataSource. --bordered puts the
-// system title bar back.
+// alongside the first, through ConcatenatedDataSource. --help lists the rest.
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
@@ -31,7 +30,10 @@
 #include "Input.h"
 #include "LocalDataSource.h"
 #include "RenderView.h"
+#include "CaptionButtons.h"
+#include "HudLayer.h"
 #include "Texture.h"
+#include "WindowFrame.h"
 #include "gles2.h"
 
 namespace {
@@ -164,18 +166,20 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
         return SDL_HITTEST_RESIZE_RIGHT;
     }
 
-    // A strip along the top to drag by, between the two things that already
-    // live up there. A draggable region swallows the click, so it has to stop
-    // short of the path bar on the left and the mode button on the right or
-    // neither would be usable.
+    // The caption strip, which is the app's to drag by now that it is inside
+    // the client area. A draggable region swallows the click before the app
+    // ever sees it, so it has to stop short of everything up there that is
+    // meant to be clicked: the path bar on the left, and the mode button and
+    // the window buttons on the right.
     const int safeLeft = (int)App::SAFE_AREA.left;
     const int safeTop = (int)App::SAFE_AREA.top;
     const int safeRight = width - (int)App::SAFE_AREA.right;
-    const int captionHeight = safeTop + (int)(44.0f * App::UI_DENSITY + 0.5f);
+    const int captionBottom = safeTop + (int)(44.0f * App::UI_DENSITY + 0.5f);
     const int pathBarWidth = safeLeft + (int)(560.0f * App::UI_DENSITY + 0.5f);
-    const int topRightWidth = (int)(100.0f * App::UI_DENSITY + 0.5f);
-    if (area->y >= safeTop && area->y < captionHeight && area->x > pathBarWidth &&
-        area->x < safeRight - topRightWidth) {
+    const int modeButtonWidth = (int)(100.0f * App::UI_DENSITY + 0.5f);
+    const int windowButtonsWidth = (int)(CaptionButtons::preferredWidth() + 0.5f);
+    if (area->y >= safeTop && area->y < captionBottom && area->x > pathBarWidth &&
+        area->x < safeRight - modeButtonWidth - windowButtonsWidth) {
         return SDL_HITTEST_DRAGGABLE;
     }
     return SDL_HITTEST_NORMAL;
@@ -275,8 +279,6 @@ void printUsage() {
     SDL_Log("  --also DIR           show a second directory on the same wall");
     SDL_Log("  --scale N            how much bigger the wall is than the phone it was");
     SDL_Log("                       laid out for; raise for bigger stacks, fewer on screen");
-    SDL_Log("  --bordered           keep the system title bar instead of running the");
-    SDL_Log("                       backdrop to the top of the window");
     SDL_Log("  --safe-area L,T,R,B  pretend the window has cutouts, so the layout that");
     SDL_Log("                       keeps controls clear of a notch can be seen here");
     SDL_Log("  --help               this");
@@ -311,8 +313,6 @@ int main(int argc, char **argv) {
     std::string photoDirectory;
     // A second library, shown after the first. Two sources behind one feed.
     std::string alsoDirectory;
-    // The system title bar, off by default so the backdrop reaches the top.
-    bool bordered = false;
     // A museum catalogue over http, rather than a directory.
     bool artic = false;
     // Stands in for a notch and a home indicator. Desktops report no insets, so
@@ -424,8 +424,6 @@ int main(int argc, char **argv) {
             return 2;
         } else if (arg == "--artic") {
             artic = true;
-        } else if (arg == "--bordered") {
-            bordered = true;
         } else if (arg == "--safe-area" && i + 1 < argc) {
             float values[4] = {0.0f, 0.0f, 0.0f, 0.0f};
             if (SDL_sscanf(argv[++i], "%f,%f,%f,%f", &values[0], &values[1], &values[2], &values[3]) == 4) {
@@ -467,10 +465,11 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
+    // A window with its ordinary frame. WindowFrame then takes the caption area
+    // into the client area, which is not the same as asking for a borderless
+    // one: the frame stays, so snapping, the resize borders and the shadow are
+    // the system's to handle rather than ours to imitate.
     SDL_WindowFlags windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    if (!bordered) {
-        windowFlags |= SDL_WINDOW_BORDERLESS;
-    }
     SDL_Window *window = SDL_CreateWindow("Gallery3D", 1280, 800, windowFlags);
     if (window == nullptr) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
@@ -504,8 +503,10 @@ int main(int argc, char **argv) {
     applyDisplayScale(window);
     applySafeArea(window, safeAreaOverridden, safeAreaOverride);
 
-    if (!bordered) {
-        // After the density is known, since the hit test regions follow it.
+    if (WindowFrame::install(window)) {
+        // After the density is known, since the hit test regions follow it. The
+        // top edge and the caption strip now sit inside the client area, so the
+        // app answers for them; the other three edges are still the frame's.
         SDL_SetWindowHitTest(window, windowHitTest, nullptr);
     }
     Canvas::initFonts();
@@ -548,6 +549,31 @@ int main(int argc, char **argv) {
     renderView.onSurfaceChanged(pixelWidth, pixelHeight);
 
     applyPhotoResolution(pixelWidth, pixelHeight);
+
+    if (WindowFrame::isExtended()) {
+        // The caption is the app's to draw now, so the buttons in it are the
+        // app's to act on. The layer has no window, so the window comes from
+        // here.
+        gridLayer.getHud()->getCaptionButtons()->setActions(
+            [window]() { SDL_MinimizeWindow(window); },
+            [window]() {
+                if ((SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0) {
+                    SDL_RestoreWindow(window);
+                } else {
+                    SDL_MaximizeWindow(window);
+                }
+            },
+            []() {
+                // Through the queue rather than straight out, so the shutdown
+                // at the end of main still runs.
+                SDL_Event quit;
+                SDL_zero(quit);
+                quit.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&quit);
+            });
+        gridLayer.getHud()->getCaptionButtons()->setMaximized(
+            (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0);
+    }
 
     gridLayer.setDataSource(feedSource);
     if (!artic) {
@@ -619,6 +645,17 @@ int main(int argc, char **argv) {
                 renderView.onSurfaceChanged(pixelWidth, pixelHeight);
                 renderView.requestRender();
                 break;
+            case SDL_EVENT_WINDOW_MAXIMIZED:
+            case SDL_EVENT_WINDOW_RESTORED:
+                // The maximise button shows a different glyph either side of
+                // this, and the window can be maximised from the keyboard or by
+                // snapping it, not only by that button.
+                if (WindowFrame::isExtended()) {
+                    gridLayer.getHud()->getCaptionButtons()->setMaximized(
+                        (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0);
+                }
+                renderView.requestRender();
+                break;
             case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
             case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
                 // Dragged to a monitor with a different scale, or the scale on
@@ -656,6 +693,10 @@ int main(int argc, char **argv) {
                 }
                 break;
             case SDL_EVENT_MOUSE_MOTION:
+                // Always, so chrome that lights under the pointer hears about
+                // it. The touch queue below still only sees a drag.
+                renderView.queuePointerMove(sdlEvent.motion.x * pointerScale(),
+                                            sdlEvent.motion.y * pointerScale());
                 if (mouseDown) {
                     event.action = MotionEvent::ACTION_MOVE;
                     event.xs[0] = sdlEvent.motion.x * pointerScale();

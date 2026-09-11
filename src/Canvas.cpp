@@ -579,6 +579,56 @@ void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize
     blendOver(dst, glyphs, x, y, r, g, b, a);
 }
 
+void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickness, float r, float g, float b,
+              float a) {
+    if (!dst.valid() || a <= 0.0f || thickness <= 0.0f) {
+        return;
+    }
+    // Coverage from the distance to the segment, so a diagonal comes out smooth
+    // rather than as a staircase. The caption's close glyph is a diagonal at
+    // whatever size the display asks for, and a jagged one is obvious.
+    const float half = thickness * 0.5f;
+    const float dx = x1 - x0;
+    const float dy = y1 - y0;
+    const float lengthSquared = dx * dx + dy * dy;
+
+    const int minX = std::max(0, (int)std::floor(std::min(x0, x1) - half - 1.0f));
+    const int maxX = std::min(dst.width() - 1, (int)std::ceil(std::max(x0, x1) + half + 1.0f));
+    const int minY = std::max(0, (int)std::floor(std::min(y0, y1) - half - 1.0f));
+    const int maxY = std::min(dst.height() - 1, (int)std::ceil(std::max(y0, y1) + half + 1.0f));
+
+    for (int py = minY; py <= maxY; ++py) {
+        uint8_t *row = dst.pixels() + (size_t)py * (size_t)dst.width() * 4;
+        for (int px = minX; px <= maxX; ++px) {
+            const float sampleX = (float)px + 0.5f;
+            const float sampleY = (float)py + 0.5f;
+            float t = 0.0f;
+            if (lengthSquared > 0.0f) {
+                t = ((sampleX - x0) * dx + (sampleY - y0) * dy) / lengthSquared;
+                t = std::max(0.0f, std::min(1.0f, t));
+            }
+            const float nearestX = x0 + t * dx;
+            const float nearestY = y0 + t * dy;
+            const float distance = std::sqrt((sampleX - nearestX) * (sampleX - nearestX) +
+                                             (sampleY - nearestY) * (sampleY - nearestY));
+            // One pixel of falloff at the edge, which is as much as a glyph
+            // this small can use.
+            float coverage = half + 0.5f - distance;
+            coverage = std::max(0.0f, std::min(1.0f, coverage));
+            if (coverage <= 0.0f) {
+                continue;
+            }
+            const float alpha = a * coverage;
+            const float inv = 1.0f - alpha;
+            uint8_t *d = row + (size_t)px * 4;
+            d[0] = (uint8_t)std::min(255.0f, r * alpha * 255.0f + d[0] * inv);
+            d[1] = (uint8_t)std::min(255.0f, g * alpha * 255.0f + d[1] * inv);
+            d[2] = (uint8_t)std::min(255.0f, b * alpha * 255.0f + d[2] * inv);
+            d[3] = (uint8_t)std::min(255.0f, alpha * 255.0f + d[3] * inv);
+        }
+    }
+}
+
 void fillRect(Bitmap &dst, int x, int y, int width, int height, float r, float g, float b, float a) {
     if (!dst.valid() || a <= 0.0f) {
         return;
