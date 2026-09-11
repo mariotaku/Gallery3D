@@ -383,6 +383,40 @@ void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaB
     }
 }
 
+bool MediaFeed::selectionSupports(int operation, const std::vector<MediaBucket> *mediaBuckets) const {
+    // Nothing picked yet, so answer for the source behind the feed. Otherwise
+    // the bar would offer a button for the moment between entering selection
+    // mode and the first item being chosen, then take it away again.
+    if (mediaBuckets == nullptr || mediaBuckets->empty()) {
+        return mDataSource != nullptr && mDataSource->supportsOperation(operation);
+    }
+    bool sawItem = false;
+    for (const MediaBucket &bucket : *mediaBuckets) {
+        std::vector<MediaItem *> items;
+        if (bucket.hasItems) {
+            items = bucket.mediaItems;
+        } else if (bucket.mediaSet != nullptr) {
+            items = bucket.mediaSet->getItems();
+        }
+        for (const MediaItem *item : items) {
+            if (item == nullptr) {
+                continue;
+            }
+            sawItem = true;
+            const MediaSet *set = item->mParentMediaSet;
+            const DataSource *source = (set != nullptr && set->mDataSource != nullptr) ? set->mDataSource
+                                                                                      : mDataSource;
+            if (source == nullptr || !source->supportsOperation(operation)) {
+                return false;
+            }
+        }
+    }
+    if (!sawItem) {
+        return mDataSource != nullptr && mDataSource->supportsOperation(operation);
+    }
+    return true;
+}
+
 bool MediaFeed::performOperationOnItem(int operation, MediaItem *item, const void *data) {
     MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
     DataSource *source = (set != nullptr && set->mDataSource != nullptr) ? set->mDataSource : mDataSource;

@@ -36,6 +36,24 @@ class DataSource {
         (void)data;
         return false;
     }
+
+    // Whether this source can carry an operation out at all. The HUD asks
+    // before it offers the button: a source with no delete should not show one
+    // that fails. Operations are MediaFeed's OPERATION_ constants.
+    virtual bool supportsOperation(int operation) const {
+        (void)operation;
+        return false;
+    }
+
+    // Hands back the encoded bytes of an item, for a source whose photos are
+    // not files on this disk. Returning false means the item is a local file
+    // and mFilePath should be read instead, which is what keeps the local
+    // source free of any copying. Called on a loader thread.
+    virtual bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
+        (void)item;
+        (void)bytes;
+        return false;
+    }
     virtual void shutdown() {}
 };
 
@@ -49,6 +67,7 @@ class LocalDataSource : public DataSource {
     void loadMediaSets(MediaFeed *feed) override;
     void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
     bool performOperation(int operation, MediaItem *item, const void *data) override;
+    bool supportsOperation(int operation) const override;
 
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);

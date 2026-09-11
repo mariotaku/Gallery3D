@@ -1123,7 +1123,20 @@ bool GridLayer::onKeyDown(int keyCode, const KeyEvent &event) {
 }
 
 bool GridLayer::noDeleteMode() const {
-    return mNoDeleteMode || (mMediaFeed && mMediaFeed->isSingleImageMode());
+    if (mNoDeleteMode || (mMediaFeed && mMediaFeed->isSingleImageMode())) {
+        return true;
+    }
+    // And when whatever holds the selection cannot delete. A read only source,
+    // a gallery served over an api for instance, should not be offered a button
+    // that can only fail.
+    return !selectionSupports(MediaFeed::OPERATION_DELETE);
+}
+
+bool GridLayer::selectionSupports(int operation) const {
+    if (mMediaFeed == nullptr) {
+        return false;
+    }
+    return mMediaFeed->selectionSupports(operation, &mSelectedBucketList.get());
 }
 
 void GridLayer::setZoomValue(float f) {

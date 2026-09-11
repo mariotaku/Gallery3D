@@ -96,7 +96,7 @@ TexturePtr DisplayItem::getScreennailImage() {
 
 TexturePtr DisplayItem::getHiResImage() {
     if (!mHiResImage && mItemRef) {
-        mHiResImage = std::make_shared<FileTexture>(mItemRef->mContentUri, App::HI_RES_MAX_EDGE);
+        mHiResImage = std::make_shared<FileTexture>(mItemRef->mContentUri, App::HI_RES_MAX_EDGE, mItemRef);
     }
     return mHiResImage;
 }

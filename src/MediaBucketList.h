@@ -21,6 +21,9 @@ class MediaBucketList {
     std::vector<MediaBucket> &get() {
         return mBuckets;
     }
+    const std::vector<MediaBucket> &get() const {
+        return mBuckets;
+    }
 
     int size();
     void add(int slotId, MediaFeed *feed, bool removeIfAlreadyAdded);

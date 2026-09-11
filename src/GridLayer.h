@@ -129,6 +129,9 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
         return mSlideshowMode;
     }
     bool noDeleteMode() const;
+    // Whether the sources behind the current selection can do this at all. The
+    // HUD asks before it offers the button.
+    bool selectionSupports(int operation) const;
 
     float getZoomValue() const {
         return mZoomValue;

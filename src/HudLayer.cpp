@@ -4,6 +4,7 @@
 
 #include "App.h"
 #include "GridLayer.h"
+#include "MediaFeed.h"
 #include "MediaItem.h"
 #include "FloatUtils.h"
 
@@ -147,6 +148,10 @@ void HudLayer::computeBottomMenu() {
         // Delete and More, each opening a popup, which is what the original
         // does. Its third button was Share, and there is no share to hand off
         // to here, so this is its own no-share arrangement.
+        //
+        // Both are storage writes, so both are offered only when whatever holds
+        // the selection can actually carry them out. A read only source gets
+        // neither rather than a button that fails.
         std::vector<MenuBar::ButtonSpec> buttons;
         if (!grid->noDeleteMode()) {
             size_t index = buttons.size();
@@ -159,14 +164,16 @@ void HudLayer::computeBottomMenu() {
                                                  {"Cancel", "icon_cancel", nullptr}});
                                }});
         }
-        size_t moreIndex = buttons.size();
-        buttons.push_back({"icon_more", "More", [this, grid, moreIndex]() {
-                               showPopupFor(mMenuBar, moreIndex,
-                                            {{"Rotate left", "ic_menu_rotate_left",
-                                              [grid]() { grid->rotateSelectedItems(-90.0f); }},
-                                             {"Rotate right", "ic_menu_rotate_right",
-                                              [grid]() { grid->rotateSelectedItems(90.0f); }}});
-                           }});
+        if (grid->selectionSupports(MediaFeed::OPERATION_ROTATE)) {
+            size_t moreIndex = buttons.size();
+            buttons.push_back({"icon_more", "More", [this, grid, moreIndex]() {
+                                   showPopupFor(mMenuBar, moreIndex,
+                                                {{"Rotate left", "ic_menu_rotate_left",
+                                                  [grid]() { grid->rotateSelectedItems(-90.0f); }},
+                                                 {"Rotate right", "ic_menu_rotate_right",
+                                                  [grid]() { grid->rotateSelectedItems(90.0f); }}});
+                               }});
+        }
         mMenuBar.setButtons(buttons);
     } else {
         mMenuBar.clearButtons();
@@ -255,6 +262,19 @@ void HudLayer::swapFullscreenLabel() {
 }
 
 void HudLayer::updateNumItemsSelected(int count) {
+    // What the selection can have done to it changes with what is in it, so the
+    // bar is rebuilt when that flips rather than only when the mode does.
+    if (mGridLayer != nullptr && mMode == MODE_SELECT) {
+        bool canDelete = !mGridLayer->noDeleteMode();
+        bool canRotate = mGridLayer->selectionSupports(MediaFeed::OPERATION_ROTATE);
+        if (canDelete != mSelectionCanDelete || canRotate != mSelectionCanRotate) {
+            mSelectionCanDelete = canDelete;
+            mSelectionCanRotate = canRotate;
+            mNumItemsSelected = count;
+            computeBottomMenu();
+            return;
+        }
+    }
     if (mNumItemsSelected == count) {
         return;
     }

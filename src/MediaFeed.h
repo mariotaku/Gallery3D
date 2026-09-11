@@ -114,6 +114,12 @@ class MediaFeed {
 
     // Deletes the selection to the recycle bin, or rotates it by data degrees.
     void performOperation(int operation, std::vector<MediaBucket> *mediaBuckets, const void *data);
+
+    // Whether every source behind the selection can carry the operation out.
+    // False for an empty selection, and false if even one item's source cannot,
+    // since a partial delete is worse than none. The HUD asks before offering
+    // the button.
+    bool selectionSupports(int operation, const std::vector<MediaBucket> *mediaBuckets) const;
     void setFilter(void *filter);
     void removeFilter();
     const std::vector<int> *getBreaks() const {

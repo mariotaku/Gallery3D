@@ -112,14 +112,17 @@ class FileTexture : public Texture {
   public:
     static const int MAX_RESOLUTION = 1024;
 
-    explicit FileTexture(std::string path, int maxEdge = MAX_RESOLUTION)
-        : mPath(std::move(path)), mMaxEdge(maxEdge) {}
+    // Pass the item when there is one, so a source that does not keep its
+    // photos on this disk is asked for the bytes rather than the path.
+    explicit FileTexture(std::string path, int maxEdge = MAX_RESOLUTION, MediaItem *item = nullptr)
+        : mPath(std::move(path)), mMaxEdge(maxEdge), mItem(item) {}
 
     Bitmap load(RenderView *view) override;
 
   private:
     std::string mPath;
     int mMaxEdge;
+    MediaItem *mItem;
 };
 
 // The grid thumbnail for one media item. Replaces MediaItemTexture.

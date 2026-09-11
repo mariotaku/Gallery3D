@@ -10,7 +10,9 @@
 #include "App.h"
 #include "Canvas.h"
 #include "DiskCache.h"
+#include "LocalDataSource.h"
 #include "MediaItem.h"
+#include "MediaSet.h"
 #include "RenderView.h"
 #include "Shared.h"
 
@@ -29,6 +31,34 @@ void Texture::clear() {
     mNormalizedHeight = 0.0f;
     mBitmap = Bitmap();
 }
+
+namespace {
+
+// Gets an item's pixels, wherever they live. A source that keeps its photos
+// somewhere other than this disk hands over the encoded bytes; everything else
+// reads the file. Runs on a loader thread either way.
+Bitmap decodeItem(MediaItem *item, int maxEdge) {
+    if (item == nullptr) {
+        return Bitmap();
+    }
+    MediaSet *set = item->mParentMediaSet;
+    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
+    if (source != nullptr) {
+        std::vector<uint8_t> bytes;
+        if (source->readItemBytes(item, &bytes) && !bytes.empty()) {
+            return Bitmap::loadFromMemory(bytes.data(), bytes.size(), maxEdge);
+        }
+    }
+    return Bitmap::load(item->mFilePath, maxEdge);
+}
+
+// What to key the thumbnail cache on. A remote item has no path, so it falls
+// back to the uri it was addressed by.
+const std::string &cacheIdentity(const MediaItem *item) {
+    return item->mFilePath.empty() ? item->mContentUri : item->mFilePath;
+}
+
+}  // namespace
 
 Bitmap ResourceTexture::load(RenderView *view) {
     (void)view;
@@ -60,6 +90,9 @@ Bitmap ResourceTexture::load(RenderView *view) {
 
 Bitmap FileTexture::load(RenderView *view) {
     (void)view;
+    if (mItem != nullptr) {
+        return decodeItem(mItem, mMaxEdge);
+    }
     return Bitmap::load(mPath, mMaxEdge);
 }
 
@@ -89,14 +122,14 @@ Bitmap MediaItemTexture::load(RenderView *view) {
         char suffix[64];
         SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d", (long long)mItem->mDateModifiedInSec,
                      side, height);
-        std::string key = mItem->mFilePath + suffix;
+        std::string key = cacheIdentity(mItem) + suffix;
         DiskCache &cache = DiskCache::thumbnails();
         Bitmap cached = cache.get(key);
         if (cached.valid() && cached.width() == side && cached.height() == height) {
             return cached;
         }
 
-        Bitmap decoded = Bitmap::load(mItem->mFilePath, std::max(side, height) * 2);
+        Bitmap decoded = decodeItem(mItem, std::max(side, height) * 2);
         if (!decoded.valid()) {
             return decoded;
         }
@@ -108,7 +141,7 @@ Bitmap MediaItemTexture::load(RenderView *view) {
     }
     // Screennail, used once an item fills the screen, so it is sized to the
     // window rather than to the original's handset era cap.
-    return Bitmap::load(mItem->mFilePath, App::SCREEN_NAIL_MAX_EDGE);
+    return decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE);
 }
 
 // ---------------------------------------------------------------------------

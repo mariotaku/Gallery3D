@@ -105,9 +105,34 @@ Bitmap::Bitmap(int width, int height) : mWidth(width), mHeight(height) {
     }
 }
 
+namespace {
+
+// Shared tail of both loaders: take the surface, convert, and bring it down to
+// maxEdge if it is over.
+Bitmap finishDecode(SDL_Surface *surface, int maxEdge);
+
+}  // namespace
+
 Bitmap Bitmap::load(const std::string &path, int maxEdge) {
-    SDL_Surface *surface = IMG_Load(path.c_str());
-    if (!surface) {
+    return finishDecode(IMG_Load(path.c_str()), maxEdge);
+}
+
+Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
+    if (bytes == nullptr || size == 0) {
+        return Bitmap();
+    }
+    SDL_IOStream *stream = SDL_IOFromConstMem(bytes, size);
+    if (stream == nullptr) {
+        return Bitmap();
+    }
+    // IMG_Load_IO closes the stream for us, including on failure.
+    return finishDecode(IMG_Load_IO(stream, true), maxEdge);
+}
+
+namespace {
+
+Bitmap finishDecode(SDL_Surface *surface, int maxEdge) {
+    if (surface == nullptr) {
         return Bitmap();
     }
     Bitmap decoded = fromSurface(surface);
@@ -115,15 +140,17 @@ Bitmap Bitmap::load(const std::string &path, int maxEdge) {
     if (!decoded.valid() || maxEdge <= 0) {
         return decoded;
     }
-    int longest = std::max(decoded.mWidth, decoded.mHeight);
+    int longest = std::max(decoded.width(), decoded.height());
     if (longest <= maxEdge) {
         return decoded;
     }
     float ratio = (float)maxEdge / (float)longest;
-    int newWidth = std::max(1, (int)(decoded.mWidth * ratio));
-    int newHeight = std::max(1, (int)(decoded.mHeight * ratio));
+    int newWidth = std::max(1, (int)(decoded.width() * ratio));
+    int newHeight = std::max(1, (int)(decoded.height() * ratio));
     return decoded.scaled(newWidth, newHeight);
 }
+
+}  // namespace
 
 Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
     if (!valid() || newWidth <= 0 || newHeight <= 0) {

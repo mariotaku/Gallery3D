@@ -23,6 +23,8 @@ class ConcatenatedDataSource : public DataSource {
     void loadMediaSets(MediaFeed *feed) override;
     void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
     bool performOperation(int operation, MediaItem *item, const void *data) override;
+    bool supportsOperation(int operation) const override;
+    bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
     void shutdown() override;
 
   private:

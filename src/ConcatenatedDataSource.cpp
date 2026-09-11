@@ -34,6 +34,23 @@ bool ConcatenatedDataSource::performOperation(int operation, MediaItem *item, co
     return owner->performOperation(operation, item, data);
 }
 
+bool ConcatenatedDataSource::supportsOperation(int operation) const {
+    // Asked without an item in hand, so the answer is whether anything behind
+    // here could do it. Once there is an item, the routing above picks the one
+    // source that owns it and its answer is the one that counts.
+    return (mFirst != nullptr && mFirst->supportsOperation(operation)) ||
+           (mSecond != nullptr && mSecond->supportsOperation(operation));
+}
+
+bool ConcatenatedDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
+    MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
+    DataSource *owner = (set != nullptr) ? set->mDataSource : nullptr;
+    if (owner == nullptr || owner == this) {
+        return false;
+    }
+    return owner->readItemBytes(item, bytes);
+}
+
 void ConcatenatedDataSource::shutdown() {
     if (mFirst != nullptr) {
         mFirst->shutdown();

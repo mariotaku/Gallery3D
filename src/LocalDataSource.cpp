@@ -181,3 +181,9 @@ bool LocalDataSource::performOperation(int operation, MediaItem *item, const voi
         return false;
     }
 }
+
+bool LocalDataSource::supportsOperation(int operation) const {
+    // A file on this disk can be recycled and its EXIF rewritten. Anything else
+    // the port might add has to say so here before the HUD will offer it.
+    return operation == MediaFeed::OPERATION_DELETE || operation == MediaFeed::OPERATION_ROTATE;
+}

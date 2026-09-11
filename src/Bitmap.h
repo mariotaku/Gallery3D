@@ -38,6 +38,11 @@ class Bitmap {
     // the natural size.
     static Bitmap load(const std::string &path, int maxEdge);
 
+    // The same, from bytes already in hand. A source that does not keep its
+    // photos on this disk hands those over instead of a path, so nothing has to
+    // be written out just to be read straight back.
+    static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge);
+
     // Scales into a new bitmap. Uses SDL's linear scaler.
     Bitmap scaled(int newWidth, int newHeight) const;
 

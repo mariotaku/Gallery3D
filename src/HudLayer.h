@@ -127,6 +127,10 @@ class HudLayer : public Layer {
     ImageButton mZoomOutButton;
     bool mZoomButtonsHidden = false;
     int mNumItemsSelected = 0;
+    // What the current selection could have done to it last time the bar was
+    // built, so a change can be noticed.
+    bool mSelectionCanDelete = false;
+    bool mSelectionCanRotate = false;
     // What the path bar shows in fullscreen. The caption can be empty, which is
     // why the position is kept separately rather than derived.
     std::string mCachedCaption;
