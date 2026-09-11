@@ -6,6 +6,7 @@
 
 #include "App.h"
 #include "GridLayer.h"
+#include "MediaDetails.h"
 #include "MediaFeed.h"
 #include "MediaItem.h"
 #include "FloatUtils.h"
@@ -244,14 +245,23 @@ void HudLayer::computeBottomMenu() {
                                                  {"Cancel", "icon_cancel", nullptr}});
                                }});
         }
-        if (grid->selectionSupports(MediaFeed::OPERATION_ROTATE)) {
+        // Details is always here. It reads what is already on screen, so unlike
+        // the two above it asks nothing of the storage behind the wall, and a
+        // read only source gets a More button holding just this one.
+        {
+            const bool canRotate = grid->selectionSupports(MediaFeed::OPERATION_ROTATE);
             size_t moreIndex = buttons.size();
-            buttons.push_back({"icon_more", "More", [this, grid, moreIndex]() {
-                                   showPopupFor(mMenuBar, moreIndex,
-                                                {{"Rotate left", "ic_menu_rotate_left",
-                                                  [grid]() { grid->rotateSelectedItems(-90.0f); }},
-                                                 {"Rotate right", "ic_menu_rotate_right",
-                                                  [grid]() { grid->rotateSelectedItems(90.0f); }}});
+            buttons.push_back({"icon_more", "More", [this, grid, moreIndex, canRotate]() {
+                                   std::vector<PopupMenu::Option> options;
+                                   if (canRotate) {
+                                       options.push_back({"Rotate left", "ic_menu_rotate_left",
+                                                          [grid]() { grid->rotateSelectedItems(-90.0f); }});
+                                       options.push_back({"Rotate right", "ic_menu_rotate_right",
+                                                          [grid]() { grid->rotateSelectedItems(90.0f); }});
+                                   }
+                                   options.push_back({"Details", "ic_menu_view_details",
+                                                      [this, grid, moreIndex]() { showDetails(moreIndex); }});
+                                   showPopupFor(mMenuBar, moreIndex, options);
                                }});
         }
         mMenuBar.setButtons(buttons);
@@ -317,6 +327,18 @@ void HudLayer::showPopupFor(const MenuBar &bar, size_t index, const std::vector<
     // it and its triangle points down at the button.
     mPopupMenu.showAtPoint(bar.buttonCenterX(index), bar.getY(), App::SAFE_AREA.left,
                            mWidth - App::SAFE_AREA.left - App::SAFE_AREA.right);
+}
+
+void HudLayer::showDetails(size_t buttonIndex) {
+    std::vector<PopupMenu::Option> options;
+    for (const std::string &line : MediaDetails::linesFor(mGridLayer->getSelectedBucketList())) {
+        options.push_back({line, "", nullptr});
+    }
+    if (options.empty()) {
+        return;
+    }
+    options.push_back({"OK", "", nullptr});
+    showPopupFor(mMenuBar, buttonIndex, options);
 }
 
 void HudLayer::closeSelectionMenu() {

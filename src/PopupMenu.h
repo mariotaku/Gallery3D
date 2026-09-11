@@ -59,6 +59,10 @@ class PopupMenu : public Layer {
     Bitmap compose();
     bool onTouchEvent(const MotionEvent &event) override;
 
+    // The middle of one row, for a press that has no pointer behind it. -1 for
+    // a row that is not there.
+    bool rowCenter(size_t index, float *x, float *y) const;
+
   private:
     struct Row {
         Option option;

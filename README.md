@@ -267,17 +267,25 @@ through `SDL_GL_GetProcAddress`, so there is no GL loader dependency.
 
 The 3D grid and the HUD are done: album stacks, drill down, fling, fullscreen,
 the path bar, the selection and fullscreen bars with their popup menus, and the
-time bar. Timeline clustering is the real thing, delete and rotate work, and a
-video opens in whatever the desktop plays it with.
+time bar. Timeline clustering is the real thing, delete and rotate work, the
+details sheet says what is known about a selection, and a video opens in
+whatever the desktop plays it with.
 
 Still missing, and wanted: reverse geocoding, which needs a service the port
-does not have, and a build on anything other than Windows.
+does not have, and a build on anything other than Windows. Location filtering
+is written and wired - the button, the crumb, the filter - but the place name
+it filters on is what the geocoder would have supplied, so it is the one
+control here with nothing behind it.
 
-Deliberately not ported: the crop screen and the wallpaper service. Tilt, which
-leaned the wall with the accelerometer and has no desktop equivalent. Picasa
-sync, whose service is long gone, though the `DataSource` interface it
-implemented is still the seam another storage backend would use. And the
-`ImageManager` content provider plumbing, which is Android specific throughout.
+Deliberately not ported: the crop screen and the wallpaper service, since this
+gallery shows pictures rather than edits them. Picasa sync, whose service is
+long gone, though the `DataSource` interface it implemented is still the seam
+another storage backend would use. The home screen widget, which has no desktop
+equivalent. And the `ImageManager` content provider plumbing, which is Android
+specific throughout.
+
+Share is gone for the same reason as crop: the original opened Android's share
+sheet, and a desktop has nothing to open in its place.
 
 ## Licence
 

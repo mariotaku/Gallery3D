@@ -172,6 +172,11 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     // HUD asks before it offers the button.
     bool selectionSupports(int operation) const;
 
+    // What is selected, for anything that only reads it.
+    const MediaBucketList &getSelectedBucketList() const {
+        return mSelectedBucketList;
+    }
+
     float getZoomValue() const {
         return mZoomValue;
     }

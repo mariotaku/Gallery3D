@@ -9,3 +9,10 @@ vcpkg_installed/
 # Crash dumps, written next to the binary.
 *.dmp
 build-web/
+
+# The Java this is a port of, at the tag it was taken from:
+#   git clone --depth 1 --branch android-2.3.7_r1 \
+#     https://android.googlesource.com/platform/packages/apps/Gallery3D reference
+# Not committed, because it is someone else's repository and it is one command
+# to get back. Every file here has a counterpart in src/ under the same name.
+reference/

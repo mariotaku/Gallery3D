@@ -286,6 +286,16 @@ int PopupMenu::hitTestOptions(float x, float y) const {
     return -1;
 }
 
+bool PopupMenu::rowCenter(size_t index, float *x, float *y) const {
+    if (!mShow || index >= mRows.size()) {
+        return false;
+    }
+    const float top = (index == 0) ? 0.0f : mRows[index - 1].bottom;
+    *x = mPopupX + mPopupWidth * 0.5f;
+    *y = mPopupY + (top + mRows[index].bottom) * 0.5f;
+    return true;
+}
+
 void PopupMenu::setSelectedItem(int index) {
     if (mSelectedItem == index) {
         return;

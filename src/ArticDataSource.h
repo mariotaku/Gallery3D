@@ -63,6 +63,11 @@ class ArticDataSource : public DataSource {
     // supportsOperation is left alone. A museum's catalogue is not ours to
     // delete from, and the default already says no to everything.
 
+    // One artwork record to one item, or null when it has no picture. Public
+    // because the mapping from the api's fields is worth checking on its own,
+    // without a network between the record and the item.
+    std::unique_ptr<MediaItem> makeItem(const nlohmann::json &artwork) const;
+
   private:
     // How much of the downloaded jpeg to keep. Enough for a couple of albums
     // being browsed at once, and small next to what the textures themselves
@@ -104,9 +109,6 @@ class ArticDataSource : public DataSource {
 
     // Turns one artworks/search response into items.
     std::vector<std::unique_ptr<MediaItem>> itemsFromResponse(const nlohmann::json &parsed) const;
-
-    // One artwork record to one item, or null when it has no picture.
-    std::unique_ptr<MediaItem> makeItem(const nlohmann::json &artwork) const;
 
     int mAlbumCount;
     int mCoversPerAlbum;

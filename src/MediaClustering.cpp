@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 
-#include "Dates.h"
+#include "DateLabels.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,68 +30,6 @@ const int PARTITION_CLUSTER_SPLIT_TIME_FACTOR = 2;
 MediaItem *lastItemOf(const MediaSet &set) {
     const std::vector<MediaItem *> &items = set.getItems();
     return items.empty() ? nullptr : items.back();
-}
-
-// Breaks a timestamp into a date.
-//
-// Local time where the C library can answer, because that is how a camera wrote
-// it, and this is the case every photograph falls into.
-//
-// Its own arithmetic otherwise. localtime refuses anything before 1970 - and on
-// Windows it does so by filling the tm with -1 and returning an error, which
-// this code used to ignore, after which strftime saw tm_mon == -1 and took the
-// process down with it. A museum's catalogue is almost entirely before 1970.
-Dates::Civil dateOf(int64_t millis) {
-    const std::time_t seconds = (std::time_t)(millis / 1000);
-    if (seconds >= 0) {
-        std::tm parts {};
-#if defined(_WIN32)
-        const bool ok = localtime_s(&parts, &seconds) == 0;
-#else
-        const bool ok = localtime_r(&seconds, &parts) != nullptr;
-#endif
-        if (ok) {
-            Dates::Civil civil;
-            civil.year = parts.tm_year + 1900;
-            civil.month = parts.tm_mon + 1;
-            civil.day = parts.tm_mday;
-            return civil;
-        }
-    }
-    return Dates::civilFromMs(millis);
-}
-
-std::string dayMonthYear(int64_t millis) {
-    const Dates::Civil date = dateOf(millis);
-    char buffer[64];
-    SDL_snprintf(buffer, sizeof(buffer), "%02d %s %s", date.day,
-                 Dates::monthAbbreviation(date.month), Dates::yearLabel(date.year).c_str());
-    return std::string(buffer);
-}
-
-std::string dayMonth(int64_t millis) {
-    const Dates::Civil date = dateOf(millis);
-    char buffer[32];
-    SDL_snprintf(buffer, sizeof(buffer), "%02d %s", date.day, Dates::monthAbbreviation(date.month));
-    return std::string(buffer);
-}
-
-std::string monthYear(int64_t millis) {
-    const Dates::Civil date = dateOf(millis);
-    char buffer[64];
-    SDL_snprintf(buffer, sizeof(buffer), "%s %s", Dates::monthAbbreviation(date.month),
-                 Dates::yearLabel(date.year).c_str());
-    return std::string(buffer);
-}
-
-// Sortable, for deciding whether two instants share a day or a year.
-int64_t dayKey(int64_t millis) {
-    const Dates::Civil date = dateOf(millis);
-    return (int64_t)date.year * 10000 + date.month * 100 + date.day;
-}
-
-int yearOf(int64_t millis) {
-    return dateOf(millis).year;
 }
 
 }  // namespace
@@ -292,10 +230,10 @@ void MediaClustering::generateCaptions() {
         if (!dated) {
             cluster->mName.clear();
         } else {
-            const int64_t minDay = dayKey(minTimestamp);
-            const int64_t maxDay = dayKey(maxTimestamp);
-            const int minYear = yearOf(minTimestamp);
-            const int maxYear = yearOf(maxTimestamp);
+            const int64_t minDay = DateLabels::dayKey(minTimestamp);
+            const int64_t maxDay = DateLabels::dayKey(maxTimestamp);
+            const int minYear = DateLabels::yearOf(minTimestamp);
+            const int maxYear = DateLabels::yearOf(maxTimestamp);
             // Never finer than what is known. A catalogue that gave only a
             // year is stored as the first of January, and saying "Jan" out
             // loud invents a month nobody recorded.
@@ -305,16 +243,16 @@ void MediaClustering::generateCaptions() {
                                      ? Dates::yearLabel(minYear)
                                      : Dates::yearLabel(minYear) + " - " + Dates::yearLabel(maxYear);
             } else if (precision >= MediaItem::PRECISION_MONTH) {
-                cluster->mName = monthYear(minTimestamp) == monthYear(maxTimestamp)
-                                     ? monthYear(minTimestamp)
-                                     : monthYear(minTimestamp) + " - " + monthYear(maxTimestamp);
+                cluster->mName = DateLabels::monthYear(minTimestamp) == DateLabels::monthYear(maxTimestamp)
+                                     ? DateLabels::monthYear(minTimestamp)
+                                     : DateLabels::monthYear(minTimestamp) + " - " + DateLabels::monthYear(maxTimestamp);
             } else if (minDay == maxDay) {
-                cluster->mName = dayMonthYear(minTimestamp);
+                cluster->mName = DateLabels::dayMonthYear(minTimestamp);
             } else if (minYear == maxYear) {
                 // Same year, so the year only needs saying once.
-                cluster->mName = dayMonth(minTimestamp) + " - " + dayMonthYear(maxTimestamp);
+                cluster->mName = DateLabels::dayMonth(minTimestamp) + " - " + DateLabels::dayMonthYear(maxTimestamp);
             } else {
-                cluster->mName = monthYear(minTimestamp) + " - " + monthYear(maxTimestamp);
+                cluster->mName = DateLabels::monthYear(minTimestamp) + " - " + DateLabels::monthYear(maxTimestamp);
             }
         }
         cluster->updateNumExpectedItems();

@@ -1,9 +1,9 @@
 // Entry point, replacing com.cooliris.media.Gallery.
 //
-// Usage: gallery3d [photo directory] [--also directory] [--scale N]
-//        [--safe-area L,T,R,B]
-// Defaults to the user's Pictures folder. --also shows a second directory
-// alongside the first, through ConcatenatedDataSource. --help lists the rest.
+// What to browse and how it should look are settings, read from an ini file
+// and the environment by Settings.h. The arguments here are verbs that describe
+// one run: drive the app to a state, render a fixed number of frames, save the
+// framebuffer, quit. --help lists them.
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
@@ -34,6 +34,7 @@
 #include "GridLayoutInterface.h"
 #include "Input.h"
 #include "LocalDataSource.h"
+#include "PopupMenu.h"
 #include "RenderView.h"
 #include "CaptionButtons.h"
 #include "HudLayer.h"
@@ -443,7 +444,8 @@ void printUsage() {
     SDL_Log("  --select             enter selection mode and pick one item");
     SDL_Log("  --rotate             rotate the selection (needs --select)");
     SDL_Log("  --delete             delete the selection (needs --select)");
-    SDL_Log("  --popup N            tap button N on the selection bar (needs --select)");
+    SDL_Log("  --popup N[,R]        tap button N on the selection bar, then row R of the");
+    SDL_Log("                       popup it opens (needs --select)");
     SDL_Log("  --scrub [0..1]       hold a drag on the time bar (needs --open)");
     SDL_Log("  --tilt N             lean the wall as though the accelerometer read N along");
     SDL_Log("                       the screen, for a machine that has no sensor");
@@ -557,6 +559,8 @@ int main(int argc, char **argv) {
     // Taps a button on the bottom selection bar, so the popup it opens can be
     // captured. Needs --select. -1 for off.
     int popupButton = -1;
+    // Which row of the popup that button opens, -1 for none.
+    int popupRow = -1;
     // The window to open. Small sizes are what the minimum size is there to
     // stop, and this is the only way to look at the layout at one.
     int windowWidth = 1280;
@@ -583,7 +587,13 @@ int main(int argc, char **argv) {
         } else if (arg == "--delete") {
             deleteSelection = true;
         } else if (arg == "--popup" && i + 1 < argc) {
-            popupButton = std::atoi(argv[++i]);
+            // "N" taps that button on the bar. "N,R" then taps row R of the
+            // popup it opened, which is the only way to reach anything the
+            // popup leads to.
+            if (SDL_sscanf(argv[++i], "%d,%d", &popupButton, &popupRow) < 1) {
+                SDL_Log("--popup wants a button index, and optionally a row after a comma");
+                return 1;
+            }
         } else if (arg == "--window-size" && i + 1 < argc) {
             int width = 0;
             int height = 0;
@@ -1092,6 +1102,24 @@ int main(int argc, char **argv) {
             bar->onTouchEvent(press);
             press.action = MotionEvent::ACTION_UP;
             bar->onTouchEvent(press);
+        }
+        // And a row of the popup that opened, a few frames later so it has
+        // been laid out and knows where its rows are.
+        if (popupButton >= 0 && popupRow >= 0 && frameNumber == (screenshotFrames * 7) / 8 + 4) {
+            PopupMenu *popup = gridLayer.getHud()->getPopupMenu();
+            float x = 0.0f;
+            float y = 0.0f;
+            if (popup->rowCenter((size_t)popupRow, &x, &y)) {
+                MotionEvent press;
+                press.xs[0] = x;
+                press.ys[0] = y;
+                press.action = MotionEvent::ACTION_DOWN;
+                popup->onTouchEvent(press);
+                press.action = MotionEvent::ACTION_UP;
+                popup->onTouchEvent(press);
+            } else {
+                SDL_Log("--popup row %d is not there", popupRow);
+            }
         }
         // Just after the photo goes fullscreen, rather than near the end. The
         // tiles of a zoomed picture are fetched over the network, and a

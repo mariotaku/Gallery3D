@@ -96,7 +96,15 @@ std::unique_ptr<MediaItem> ArticDataSource::makeItem(const nlohmann::json &artwo
     // does not know, and that is also what a missing field reads as.
     const int year = (int)intOr(artwork, "date_end", 0);
     if (year != 0 && year > -5000 && year < 2100) {
-        item->mDateTakenInMs = Dates::startOfYearMs(year);
+        // The api counts BC the way people write it, with no year zero:
+        // date_end -889 is the 889 BC on the label of a coffin from the reign
+        // of Osorkon I. ISO does have a year zero, where 1 BC is 0, so a BC
+        // year is one further along the ISO line than its number.
+        //
+        // Everything downstream speaks ISO, so the conversion belongs here
+        // rather than at each place a date is read.
+        const int isoYear = (year < 0) ? year + 1 : year;
+        item->mDateTakenInMs = Dates::startOfYearMs(isoYear);
         // The first of January, because the timestamp has to name some day.
         // Nobody knows the month, and the label says so.
         item->mDatePrecision = MediaItem::PRECISION_YEAR;

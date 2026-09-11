@@ -116,6 +116,10 @@ class HudLayer : public Layer {
     void computeTopRightButton();
     // Opens the popup above a bar button, pointing back at it.
     void showPopupFor(const MenuBar &bar, size_t index, const std::vector<PopupMenu::Option> &options);
+
+    // Reopens the popup over the same button, holding what is known about the
+    // selection. The rows carry no action; the last one closes it.
+    void showDetails(size_t buttonIndex);
     void updateNumItemsSelected(int count);
     // Fullscreen puts the photo's position in the path bar instead of the album
     // name, and a tap on it swaps to the caption.
@@ -147,6 +151,13 @@ class HudLayer : public Layer {
     MenuBar mSelectionMenuTop;
     // One popup, reused. Only ever one is open.
     PopupMenu mPopupMenu;
+
+  public:
+    PopupMenu *getPopupMenu() {
+        return &mPopupMenu;
+    }
+
+  private:
     CaptionButtons mCaptionButtons;
     ImageButton mTopRightButton;
     ImageButton mZoomInButton;
