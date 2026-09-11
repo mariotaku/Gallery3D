@@ -5,6 +5,7 @@
 #include <string>
 
 #include "Bitmap.h"
+#include "ImageDecode.h"
 #include "gles2.h"
 
 class RenderView;
@@ -12,6 +13,17 @@ class MediaItem;
 
 class Texture;
 using TexturePtr = std::shared_ptr<Texture>;
+
+// An item's pixels, wherever its source keeps them, downscaled so neither edge
+// exceeds maxEdge (0 for no limit). A source that does not keep its photos on
+// this disk hands over the bytes; everything else reads the file. Then the
+// platform's decoder turns them into pixels.
+//
+// May answer before it returns, which is what happens natively, or much later
+// from the browser. Anything that wants an item's pixels has to come through
+// here: a Texture's load() runs on a loader thread and has to return a bitmap
+// there and then, which a browser decode cannot do.
+void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done);
 
 class Texture {
   public:

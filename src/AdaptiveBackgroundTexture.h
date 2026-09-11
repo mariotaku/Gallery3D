@@ -8,10 +8,12 @@
 
 #include "Texture.h"
 
+class MediaItem;
+
 class AdaptiveBackgroundTexture : public Texture {
   public:
-    AdaptiveBackgroundTexture(TexturePtr base, int width, int height)
-        : mBase(std::move(base)), mDestWidth(width), mDestHeight(height) {}
+    AdaptiveBackgroundTexture(MediaItem *item, int width, int height)
+        : mItem(item), mDestWidth(width), mDestHeight(height) {}
 
     bool isCached() const override {
         return true;
@@ -21,12 +23,26 @@ class AdaptiveBackgroundTexture : public Texture {
         return true;
     }
 
+    bool loadsOverNetwork() const override;
+
     Bitmap load(RenderView *view) override;
+    void startLoad(RenderView *view, const TexturePtr &self) override;
+
+    // The blur itself, given the photo to build it from. Separate from the
+    // loading so it can be checked without a decoder or a GL context.
+    static Bitmap backdropFrom(const Bitmap &photo, int destWidth, int destHeight);
 
   private:
-    // The thumbnail this backdrop is derived from. Reloaded rather than read
-    // back from GL, because the render view drops the bitmap after upload.
-    TexturePtr mBase;
+    // The photo this backdrop is derived from, decoded again rather than read
+    // back from GL: the render view drops the bitmap after upload, and a
+    // texture's own pixels are not reachable once they are on the card.
+    //
+    // The item, not the thumbnail texture. Asking the texture to load itself a
+    // second time used to work and does not any more - a decode can answer
+    // later than the call that started it, so a texture's load() returns
+    // nothing and startLoad does the work. That left this reading an empty
+    // bitmap and the wall sitting on its fallback gradient for good.
+    MediaItem *mItem;
     int mDestWidth;
     int mDestHeight;
 };

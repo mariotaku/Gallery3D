@@ -99,6 +99,10 @@ const std::string &cacheIdentity(const MediaItem *item) {
 
 }  // namespace
 
+void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
+    decodeItem(item, maxEdge, std::move(done));
+}
+
 void Texture::startLoad(RenderView *view, const TexturePtr &self) {
     view->finishLoad(self, load(view));
 }

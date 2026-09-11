@@ -4,6 +4,10 @@
 #include <vector>
 
 #include "FloatUtils.h"
+#include "LocalDataSource.h"
+#include "MediaItem.h"
+#include "MediaSet.h"
+#include "RenderView.h"
 
 namespace {
 
@@ -71,11 +75,39 @@ void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int
 
 }  // namespace
 
+bool AdaptiveBackgroundTexture::loadsOverNetwork() const {
+    MediaSet *set = (mItem != nullptr) ? mItem->mParentMediaSet : nullptr;
+    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
+    return source != nullptr && source->readsBlockOnNetwork();
+}
+
 Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
-    if (!mBase || mDestWidth <= 0 || mDestHeight <= 0) {
+    // Never used: startLoad does the work, because a decode may answer later
+    // than the call that started it. Here because the base class declares it.
+    (void)view;
+    return Bitmap();
+}
+
+void AdaptiveBackgroundTexture::startLoad(RenderView *view, const TexturePtr &self) {
+    if (mItem == nullptr || mDestWidth <= 0 || mDestHeight <= 0) {
+        view->finishLoad(self, Bitmap());
+        return;
+    }
+    // Small on purpose. The result is blurred past recognition, so the photo it
+    // comes from need only carry the colours, and at this size the disk cache
+    // usually has it already.
+    const int destWidth = mDestWidth;
+    const int destHeight = mDestHeight;
+    decodeItemPixels(mItem, THUMBNAIL_MAX_X, [view, self, destWidth, destHeight](Bitmap photo) {
+        view->finishLoad(self, backdropFrom(photo, destWidth, destHeight));
+    });
+}
+
+Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidth, int destHeight) {
+    if (destWidth <= 0 || destHeight <= 0) {
         return Bitmap();
     }
-    Bitmap source = resizeBitmap(mBase->load(view), THUMBNAIL_MAX_X);
+    Bitmap source = resizeBitmap(photo, THUMBNAIL_MAX_X);
     if (!source.valid()) {
         return Bitmap();
     }
@@ -83,8 +115,8 @@ Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
     // Crop the source to the aspect ratio of the destination.
     int sourceWidth = source.width();
     int sourceHeight = source.height();
-    float fitX = (float)sourceWidth / (float)mDestWidth;
-    float fitY = (float)sourceHeight / (float)mDestHeight;
+    float fitX = (float)sourceWidth / (float)destWidth;
+    float fitY = (float)sourceHeight / (float)destHeight;
     int cropX;
     int cropY;
     int cropWidth;
@@ -92,7 +124,7 @@ Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
     if (fitX < fitY) {
         // Full width, partial height.
         cropWidth = sourceWidth;
-        cropHeight = (int)(mDestHeight * fitX);
+        cropHeight = (int)(destHeight * fitX);
         cropX = 0;
         cropY = (sourceHeight - cropHeight) / 2;
     } else {
@@ -100,7 +132,7 @@ Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
         // against the destination height, which only works while the two are
         // square; use the width so a panorama crops instead of leaving the
         // right of the backdrop empty.
-        cropWidth = (int)(mDestWidth * fitY);
+        cropWidth = (int)(destWidth * fitY);
         cropHeight = sourceHeight;
         cropX = (sourceWidth - cropWidth) / 2;
         cropY = 0;
@@ -145,5 +177,5 @@ Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
 
     // BackgroundLayer draws this with GL_SRC_ALPHA, so the fade stays straight
     // alpha rather than being premultiplied like the rest of the port.
-    return filtered.scaled(mDestWidth, mDestHeight);
+    return filtered.scaled(destWidth, destHeight);
 }

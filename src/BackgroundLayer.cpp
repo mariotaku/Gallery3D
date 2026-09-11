@@ -5,6 +5,7 @@
 #include "AdaptiveBackgroundTexture.h"
 #include "App.h"
 #include "DisplayItem.h"
+#include "MediaItem.h"
 #include "GridLayer.h"
 
 // The backdrop sits at the far end of the depth buffer so everything the grid
@@ -51,7 +52,11 @@ TexturePtr BackgroundLayer::getAdaptive(RenderView *view, DisplayItem *item) {
     if (found != mCacheAdaptiveTexture.end()) {
         return found->second;
     }
-    TexturePtr adaptive = std::make_shared<AdaptiveBackgroundTexture>(itemThumbnail, ADAPTIVE_BACKGROUND_WIDTH,
+    // Keyed by the thumbnail, built from the item. The thumbnail says the
+    // wall has this photo in hand, which is when a backdrop is worth making;
+    // the pixels have to come from the item, because a texture's are gone to
+    // the card by then.
+    TexturePtr adaptive = std::make_shared<AdaptiveBackgroundTexture>(item->mItemRef, ADAPTIVE_BACKGROUND_WIDTH,
                                                                      ADAPTIVE_BACKGROUND_HEIGHT);
     if (mCount == MAX_ADAPTIVES_TO_KEEP_IN_MEMORY) {
         mCount = 0;
