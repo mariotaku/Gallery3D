@@ -39,13 +39,34 @@ void MediaFeed::loadItemsForSet(MediaSet *set) {
     if (source == nullptr) {
         return;
     }
+    {
+        // One page at a time per set. The wall asks as it approaches the end of
+        // what is loaded, which is every frame while it is scrolling, and
+        // without this each of those frames would start another request for the
+        // same page.
+        std::lock_guard<std::mutex> lock(mInFlightMutex);
+        if (!mLoadsInFlight.insert(set).second) {
+            return;
+        }
+    }
     postJob([this, source, set]() {
         if (mShuttingDown.load()) {
+            finishLoadingItemsForSet(set);
             return;
         }
         source->loadItemsForSet(this, set);
         updateListener(true);
     });
+}
+
+void MediaFeed::finishLoadingItemsForSet(MediaSet *set) {
+    std::lock_guard<std::mutex> lock(mInFlightMutex);
+    mLoadsInFlight.erase(set);
+}
+
+bool MediaFeed::isLoadingItemsForSet(MediaSet *set) {
+    std::lock_guard<std::mutex> lock(mInFlightMutex);
+    return mLoadsInFlight.count(set) != 0;
 }
 
 MediaFeed::~MediaFeed() {

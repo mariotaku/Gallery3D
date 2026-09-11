@@ -203,6 +203,10 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     // the list owns and has just destroyed.
     void clearDisplayList();
 
+    // Asks the feed for the next page when the wall is running out of loaded
+    // items to show.
+    void requestMoreItemsIfNearTheEnd();
+
 
   private:
     int hitTest(const Vector3f &worldPos, int itemWidth, int itemHeight);

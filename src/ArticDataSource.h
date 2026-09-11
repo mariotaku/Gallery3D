@@ -62,12 +62,22 @@ class ArticDataSource : public DataSource {
     // take on the card.
     static constexpr size_t kImageCacheBudget = 32 * 1024 * 1024;
 
-    // A category worth putting on the wall. Small and copyable, because it is
-    // kept until the album is opened.
+    // A category worth putting on the wall, and where the walk through it has
+    // got to.
+    //
+    // The position is the sort key of the last artwork handed over: its year
+    // and, to break ties, its id. The next page asks for whatever sorts after
+    // that pair. It has to work this way: the api refuses any request where
+    // from plus limit passes a thousand, and there are fifty thousand prints.
     struct Album {
         std::string categoryId;  // "PC-13"
         std::string title;
         int total = 0;  // artworks in it that have a picture
+        // Where the last page ended. Unset until one has.
+        bool started = false;
+        int lastYear = 0;
+        int64_t lastId = 0;
+        bool exhausted = false;
     };
 
     // An album and the covers that came back with it, in the one response.
@@ -80,9 +90,9 @@ class ArticDataSource : public DataSource {
     // callback, which may run before this returns or long after.
     void fetchAlbums(MediaFeed *feed, std::function<void(std::vector<AlbumPage>)> done);
 
-    // Artworks from one category, skipping the first `from`. For opening an
-    // album; the first page already has its covers.
-    void fetchArtworks(MediaFeed *feed, const std::string &categoryId, int from, int limit,
+    // The next page of one category, in date order, continuing after `album`'s
+    // position.
+    void fetchArtworks(MediaFeed *feed, const Album &album, int limit,
                        std::function<void(std::vector<std::unique_ptr<MediaItem>>)> done);
 
     // Turns one artworks/search response into items.

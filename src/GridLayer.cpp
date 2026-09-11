@@ -449,6 +449,7 @@ void GridLayer::computeVisibleItems() {
         return;
     }
     computeVisibleRange();
+    requestMoreItemsIfNearTheEnd();
     int deltaBegin = mBufferedVisibleRange.begin - mPreviousDataRange.begin;
     int deltaEnd = mBufferedVisibleRange.end - mPreviousDataRange.end;
     if (deltaBegin == 0 && deltaEnd == 0) {
@@ -594,6 +595,37 @@ void GridLayer::onSurfaceCreated(RenderView *view) {
     GridDrawables::sStringTextureTable.clear();
     mDrawables->onSurfaceCreated(view);
     mBackground.clear();
+}
+
+void GridLayer::requestMoreItemsIfNearTheEnd() {
+    // A collection of fifty thousand arrives a page at a time, and this is what
+    // asks for the next one: the wall is within a screenful of the last thing
+    // it has, so more is wanted before the scroll reaches the gap.
+    if (mState != STATE_GRID_VIEW || !mMediaFeed) {
+        return;
+    }
+    MediaSet *expanded = mMediaFeed->getExpandedMediaSet();
+    if (expanded == nullptr) {
+        return;
+    }
+    // Nothing to fetch if everything the source has is already here.
+    if (expanded->getNumItems() >= expanded->getNumExpectedItems()) {
+        return;
+    }
+    // One request at a time. Without this the ask repeats every frame for as
+    // long as the scroll is near the end, which is most of the time.
+    if (mMediaFeed->isLoadingItemsForSet(expanded)) {
+        return;
+    }
+
+    const int loaded = expanded->getNumItems();
+    // A screen's worth of slack, so the next page is on its way before the
+    // empty slots would come into view.
+    const int lookAhead = MAX_ITEMS_DRAWABLE;
+    if (mBufferedVisibleRange.end + lookAhead < loaded) {
+        return;
+    }
+    mMediaFeed->loadItemsForSet(expanded);
 }
 
 void GridLayer::onPointerMoved(float x, float y) {

@@ -163,9 +163,12 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
 }
 
 void LocalDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
-    (void)feed;
-    (void)parentSet;
-    // loadMediaSets already filled every set in.
+    // loadMediaSets already filled every set in, so there is never a next page.
+    // Saying so straight away is what keeps the feed from holding the set as
+    // loading forever.
+    if (feed != nullptr) {
+        feed->finishLoadingItemsForSet(parentSet);
+    }
 }
 
 bool LocalDataSource::performOperation(int operation, MediaItem *item, const void *data) {

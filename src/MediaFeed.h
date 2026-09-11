@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -125,6 +126,14 @@ class MediaFeed {
     // later has to say so itself.
     void finishLoadingMediaSets();
 
+    // Told by the source when a page for one set has landed. Until it is, that
+    // set is not asked again: the wall keeps scrolling towards the end of what
+    // is loaded and would otherwise stack a request per frame.
+    void finishLoadingItemsForSet(MediaSet *set);
+
+    // Whether a page for this set is already on its way.
+    bool isLoadingItemsForSet(MediaSet *set);
+
     bool selectionSupports(int operation, const std::vector<MediaBucket> *mediaBuckets) const;
     void setFilter(void *filter);
     void removeFilter();
@@ -180,6 +189,11 @@ class MediaFeed {
 
     std::atomic<bool> mLoading{false};
     // shutdown() runs once, however many times it is called.
+    // Sets with a page in flight. A raw pointer is the key because the set
+    // outlives the request either way: the feed owns it.
+    std::set<MediaSet *> mLoadsInFlight;
+    std::mutex mInFlightMutex;
+
     bool mShutDown = false;
     std::atomic<bool> mShuttingDown{false};
     std::atomic<bool> mListenerNeedsUpdate{false};

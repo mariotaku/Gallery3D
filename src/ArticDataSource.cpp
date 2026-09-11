@@ -18,10 +18,10 @@ namespace {
 
 const char *const kApi = "https://api.artic.edu/api/v1";
 
-// A department can hold fifty thousand records. The wall is not a catalogue
-// browser, and asking for all of them is a long wait for a page nobody
-// scrolls to the end of.
-const int kMaxItemsPerAlbum = 100;
+// How many to fetch at a time, which is also as many as the api will hand over
+// at once. A department can hold fifty thousand records, so the wall walks it a
+// page at a time as it is scrolled rather than trying to hold the lot.
+const int kItemsPerPage = 100;
 
 // The fields an artwork needs to become a MediaItem. Asking for only these
 // keeps the responses small enough to parse without noticing.
@@ -105,19 +105,49 @@ std::vector<std::unique_ptr<MediaItem>> ArticDataSource::itemsFromResponse(const
     return items;
 }
 
-void ArticDataSource::fetchArtworks(MediaFeed *feed, const std::string &categoryId, int from, int limit,
+void ArticDataSource::fetchArtworks(MediaFeed *feed, const Album &album, int limit,
                                     std::function<void(std::vector<std::unique_ptr<MediaItem>>)> done) {
-    if (categoryId.empty() || limit <= 0) {
+    if (album.categoryId.empty() || limit <= 0) {
         done({});
         return;
     }
-    // In this category, and having a picture: both halves of a bool query.
-    // Without the second half this pages through records that can never be
-    // drawn, and an album comes up short for no visible reason.
-    const std::string url = std::string(kApi) + "/artworks/search?fields=" + kArtworkFields +
-                            "&limit=" + std::to_string(limit) + "&from=" + std::to_string(from) +
-                            "&query[bool][must][0][term][category_ids]=" + categoryId +
-                            "&query[bool][must][1][exists][field]=image_id";
+
+    // In this category, having a picture, and having a date.
+    //
+    // The picture is obvious. The date is what the walk is ordered by, so an
+    // artwork without one has no place in the sequence - and a sort puts those
+    // at the end where the position cannot name them. It costs a little:
+    // thirty four of the fifty thousand prints are undated. The count corrects
+    // itself when the walk runs out.
+    std::string url = std::string(kApi) + "/artworks/search?fields=" + kArtworkFields +
+                      "&limit=" + std::to_string(limit) +
+                      "&query[bool][filter][0][term][category_ids]=" + album.categoryId +
+                      "&query[bool][filter][1][exists][field]=image_id"
+                      "&query[bool][filter][2][exists][field]=date_end"
+                      // Oldest first, with the id breaking ties so the order is
+                      // total. A sort that leaves ties unordered cannot be
+                      // paged: the boundary is ambiguous and rows fall through
+                      // it.
+                      "&sort[0][date_end][order]=asc"
+                      "&sort[1][id][order]=asc";
+
+    if (album.started) {
+        // Everything that sorts after the last one seen:
+        //
+        //   date_end > year  OR  (date_end == year AND id > lastId)
+        //
+        // The second half is what makes this exact. Asking only for a later
+        // year drops every artwork sharing the boundary year - a page of five
+        // was seen moving the remaining count by thirty nine, and those thirty
+        // four went without a word.
+        const std::string year = std::to_string(album.lastYear);
+        url += "&query[bool][filter][3][bool][minimum_should_match]=1"
+               "&query[bool][filter][3][bool][should][0][range][date_end][gt]=" +
+               year + "&query[bool][filter][3][bool][should][1][bool][must][0][term][date_end]=" + year +
+               "&query[bool][filter][3][bool][should][1][bool][must][1][range][id][gt]=" +
+               std::to_string(album.lastId);
+    }
+
     fetchJson(url, [this, feed, done](bool ok, nlohmann::json parsed) {
         if (!ok || feed->isCancelled()) {
             done({});
@@ -137,11 +167,28 @@ void ArticDataSource::fetchAlbums(MediaFeed *feed, std::function<void(std::vecto
     // thirteen round trips before anything could be drawn; now it is this one.
     const std::string covers = std::to_string(mCoversPerAlbum);
     const std::string url = std::string(kApi) +
-                            "/artworks/search?limit=0&query[exists][field]=image_id"
+                            "/artworks/search?limit=0"
+                            // Having a picture, and having a date. The walk
+                            // through an album is ordered by date and so
+                            // excludes the undated; counting them here would
+                            // make the stack promise more than it can reach,
+                            // and a cover without a date sorts to the end of
+                            // the first page and leaves the album out of order
+                            // at that one seam.
+                            "&query[bool][filter][0][exists][field]=image_id"
+                            "&query[bool][filter][1][exists][field]=date_end"
                             "&aggs[categories][terms][field]=category_ids"
                             "&aggs[categories][terms][size]=60"
                             "&aggs[categories][aggs][covers][top_hits][size]=" +
                             covers +
+                            // In the same order the album is walked in, so the
+                            // covers are its first few rather than an arbitrary
+                            // handful from the middle. Without this the stack
+                            // showed work from anywhere in the collection, and
+                            // opening it put those alongside the oldest with a
+                            // five hundred year step between them.
+                            "&aggs[categories][aggs][covers][top_hits][sort][0][date_end][order]=asc"
+                            "&aggs[categories][aggs][covers][top_hits][sort][1][id][order]=asc" +
                             "&aggs[categories][aggs][covers][top_hits][_source][includes][]=id"
                             "&aggs[categories][aggs][covers][top_hits][_source][includes][]=title"
                             "&aggs[categories][aggs][covers][top_hits][_source][includes][]=image_id"
@@ -246,9 +293,18 @@ void ArticDataSource::fetchAlbums(MediaFeed *feed, std::function<void(std::vecto
                     // A category with no cover cannot be drawn as a stack.
                     continue;
                 }
+                // The covers are the first page of the walk, so the next one
+                // carries on after them rather than fetching them again.
+                page.album.started = true;
+                page.album.lastYear = Dates::civilFromMs(page.covers.back()->mDateTakenInMs).year;
+                page.album.lastId = page.covers.back()->mId;
                 page.album.categoryId = key;
                 page.album.title = title->second;
                 page.album.total = (int)intOr(bucket, "doc_count", 0);
+            // The covers came out of a top_hits aggregation rather than the
+            // sorted walk, so the walk still starts from the beginning. The
+            // first few artworks appear twice for it, which the wall shows as
+            // the stack's covers and then again in the album.
                 pages.push_back(std::move(page));
             }
             done(std::move(pages));
@@ -298,47 +354,87 @@ void ArticDataSource::loadMediaSets(MediaFeed *feed) {
 }
 
 void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
-    if (parentSet == nullptr) {
+    if (feed == nullptr) {
         return;
     }
-    Album album;
-    {
-        std::lock_guard<std::mutex> lock(mAlbumMutex);
-        if (mFullyLoaded.count(parentSet->mId) != 0) {
-            return;
-        }
-        auto found = mAlbumsBySet.find(parentSet->mId);
-        if (found == mAlbumsBySet.end()) {
-            return;
-        }
-        album = found->second;
-        mFullyLoaded.insert(parentSet->mId);
+    if (parentSet == nullptr) {
+        feed->finishLoadingItemsForSet(parentSet);
+        return;
     }
 
-    // The covers are already here, so start past them.
-    const int have = parentSet->getNumItems();
-    const int wanted = std::min(kMaxItemsPerAlbum, album.total) - have;
-    if (wanted <= 0) {
+    Album album;
+    bool haveAlbum = false;
+    {
+        std::lock_guard<std::mutex> lock(mAlbumMutex);
+        auto found = mAlbumsBySet.find(parentSet->mId);
+        if (found != mAlbumsBySet.end() && !found->second.exhausted) {
+            album = found->second;
+            haveAlbum = true;
+        }
+    }
+    if (!haveAlbum) {
+        // Nothing left to fetch, and saying so is what lets the feed ask again
+        // about some other set.
+        feed->finishLoadingItemsForSet(parentSet);
         return;
     }
-    const std::string name = parentSet->mName;
-    const int total = album.total;
-    fetchArtworks(feed, album.categoryId, have, wanted,
-                  [feed, parentSet, name, total](std::vector<std::unique_ptr<MediaItem>> items) {
+
+    const int64_t setId = parentSet->mId;
+    const bool firstPage = !album.started;
+    fetchArtworks(feed, album, kItemsPerPage,
+                  [this, feed, parentSet, setId, firstPage](std::vector<std::unique_ptr<MediaItem>> items) {
                       const int added = (int)items.size();
+
+                      // Where the next page picks up, read before the items are
+                      // given away. The year comes back out of the timestamp
+                      // rather than being carried separately: it went in as the
+                      // first of January of that year and comes out the same.
+                      int lastYear = 0;
+                      int64_t lastId = 0;
+                      if (added > 0) {
+                          lastYear = Dates::civilFromMs(items.back()->mDateTakenInMs).year;
+                          lastId = items.back()->mId;
+                      }
+
                       for (std::unique_ptr<MediaItem> &item : items) {
                           parentSet->addItem(std::move(item));
                       }
-                      // The api returns them by its own idea of relevance, and
-                      // the album is read as a timeline.
-                      parentSet->sortItemsByDate();
-                      // Not updateNumExpectedItems: that would set the count to
-                      // what is loaded and the label would fall from the
-                      // category's real size to a hundred the moment the album
-                      // opened.
+                      if (firstPage) {
+                          // Once, and only now. The stack's covers came from an
+                          // aggregation rather than from the walk, so they sit
+                          // wherever they happened to be picked and the first
+                          // page starts back at the oldest. Sorting here puts
+                          // that right while nothing has been scrolled yet.
+                          parentSet->sortItemsByDate();
+                      }
+                      // Every page after is appended rather than re-sorted. The
+                      // server ordered them, so each one is already later than
+                      // the last, and nothing already on screen moves.
                       parentSet->generateTitle(true);
-                      SDL_Log("artic: %s filled in with %d more of %d", name.c_str(), added, total);
+
+                      {
+                          std::lock_guard<std::mutex> lock(mAlbumMutex);
+                          auto found = mAlbumsBySet.find(setId);
+                          if (found != mAlbumsBySet.end()) {
+                              if (added > 0) {
+                                  found->second.started = true;
+                                  found->second.lastYear = lastYear;
+                                  found->second.lastId = lastId;
+                              }
+                              if (added < kItemsPerPage) {
+                                  // A short page is the end of the collection.
+                                  // The count becomes what was actually
+                                  // reached, which is a little under the
+                                  // catalogue's total because the undated are
+                                  // not in the walk.
+                                  found->second.exhausted = true;
+                                  parentSet->setNumExpectedItems(parentSet->getNumItems());
+                              }
+                          }
+                      }
+
                       feed->updateListener(true);
+                      feed->finishLoadingItemsForSet(parentSet);
                   });
 }
 
