@@ -36,6 +36,10 @@
 #include "GridLayoutInterface.h"
 #include "Input.h"
 #include "LocalDataSource.h"
+#if defined(__ANDROID__)
+#include "AndroidBridge.h"
+#include "MediaStoreDataSource.h"
+#endif
 #include "PopupMenu.h"
 #include "RenderView.h"
 #include "CaptionButtons.h"
@@ -415,6 +419,12 @@ int main(int argc, char **argv) {
     // First thing, so a crash while parsing arguments still names itself.
     Backtrace::install();
 
+#if defined(__ANDROID__)
+    // Here, because this is the one thread that can look an app class up by
+    // name. The loader threads start later and cannot.
+    AndroidBridge::init();
+#endif
+
     // Read --config before loading settings, then process run arguments.
     std::string configPath;
     for (int i = 1; i < argc - 1; ++i) {
@@ -680,6 +690,12 @@ int main(int argc, char **argv) {
     std::unique_ptr<LocalDataSource> alsoSource;
     std::unique_ptr<ConcatenatedDataSource> combinedSource;
     DataSource *feedSource = &dataSource;
+#if defined(__ANDROID__)
+    // The library is the media store's, not a directory's. Scoped storage
+    // leaves an app nothing to walk from Android 10 on.
+    MediaStoreDataSource mediaStoreSource;
+    feedSource = &mediaStoreSource;
+#endif
     if (artic) {
         articSource = std::make_unique<ArticDataSource>();
         feedSource = articSource.get();
@@ -751,9 +767,13 @@ int main(int argc, char **argv) {
     }
 
     gridLayer.setDataSource(feedSource);
+#if defined(__ANDROID__)
+    SDL_Log("Reading the photo library from the media store");
+#else
     if (!artic) {
         SDL_Log("Scanning %s", photoDirectory.c_str());
     }
+#endif
 
     // Pointer state, turned into the MotionEvents the ported gesture code wants.
     // SDL reports pointer positions in window units; the renderer works in
