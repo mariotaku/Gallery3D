@@ -267,6 +267,7 @@ void ArticDataSource::loadMediaSets(MediaFeed *feed) {
             for (std::unique_ptr<MediaItem> &cover : page.covers) {
                 set->addItem(std::move(cover));
             }
+            set->sortItemsByDate();
             {
                 std::lock_guard<std::mutex> lock(mAlbumMutex);
                 mAlbumsBySet[setId] = page.album;
@@ -316,6 +317,9 @@ void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
                       for (std::unique_ptr<MediaItem> &item : items) {
                           parentSet->addItem(std::move(item));
                       }
+                      // The api returns them by its own idea of relevance, and
+                      // the album is read as a timeline.
+                      parentSet->sortItemsByDate();
                       // Not updateNumExpectedItems: that would set the count to
                       // what is loaded and the label would fall from the
                       // category's real size to a hundred the moment the album

@@ -53,6 +53,21 @@ void MediaSet::addItemRef(MediaItem *item) {
     }
 }
 
+void MediaSet::sortItemsByDate() {
+    std::stable_sort(mItems.begin(), mItems.end(), [](const MediaItem *a, const MediaItem *b) {
+        const bool aDated = a->mDateTakenInMs != 0;
+        const bool bDated = b->mDateTakenInMs != 0;
+        if (aDated != bDated) {
+            return aDated;
+        }
+        if (!aDated) {
+            // Both undated: stable_sort keeps them in the order they arrived.
+            return false;
+        }
+        return a->mDateTakenInMs < b->mDateTakenInMs;
+    });
+}
+
 void MediaSet::addItem(std::unique_ptr<MediaItem> item) {
     if (!item) {
         return;

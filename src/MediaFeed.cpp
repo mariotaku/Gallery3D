@@ -293,12 +293,16 @@ void MediaFeed::performClustering() {
     }
     MediaSet *setToUse = mMediaSets[(size_t)mExpandedMediaSetIndex].get();
 
-    // Newest first, the order the original's feed delivered items in. The
-    // clusterer walks the sequence and only ever compares neighbours, so the
-    // order is what makes a run of shots a run.
+    // Oldest first. The original never sorted here at all: it fed the clusterer
+    // as items arrived, and its queries ended in DATE_TAKEN ASC, so the
+    // sequence was ascending. This sorted the other way round and said in a
+    // comment that descending was what the original did, which it was not.
+    //
+    // It matters because the clusterer only ever compares neighbours, so the
+    // order is what decides where one run of shots ends and the next begins.
     std::vector<MediaItem *> items = setToUse->getItems();
-    std::sort(items.begin(), items.end(),
-              [](const MediaItem *a, const MediaItem *b) { return a->mDateTakenInMs > b->mDateTakenInMs; });
+    std::stable_sort(items.begin(), items.end(),
+                     [](const MediaItem *a, const MediaItem *b) { return a->mDateTakenInMs < b->mDateTakenInMs; });
 
     mClustering.clear();
     if (!items.empty()) {

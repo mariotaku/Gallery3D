@@ -149,6 +149,10 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             }
             set->addItem(std::move(item));
         }
+        // The folder was walked in filename order, which is not the order the
+        // album is meant to be read in. The dates are only known once the EXIF
+        // has been read, so the sort waits until here.
+        set->sortItemsByDate();
         set->updateNumExpectedItems();
         set->generateTitle(true);
         feed->updateListener(true);

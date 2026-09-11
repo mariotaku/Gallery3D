@@ -92,6 +92,20 @@ class MediaSet {
     // Takes ownership and folds the item's time and location into the set bounds.
     void addItem(std::unique_ptr<MediaItem> item);
 
+    // Oldest first, which is the order the original's albums came in: its
+    // queries ended in DATE_TAKEN ASC, so the set was already sorted by the
+    // time anything drew it, and the time bar and the clusterer both read the
+    // sequence as a timeline.
+    //
+    // A source here delivers whatever order it has - a directory listing, an
+    // api's idea of relevance - so the sort has to happen after. Call it once a
+    // batch has been added rather than per item.
+    //
+    // Items with no date keep their arrival order and go last. Sorting them to
+    // the front by their zero timestamp would put everything undated before
+    // every dated thing, which for a museum's catalogue is most of the wall.
+    void sortItemsByDate();
+
     // References an item owned by another set. Used by the clustering pass.
     void addItemRef(MediaItem *item);
 
