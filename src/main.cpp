@@ -7,6 +7,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
+
 #include <cstdlib>
 #include <algorithm>
 #include <cstring>
@@ -50,12 +54,18 @@ std::string defaultPhotoDirectory() {
 }
 
 std::string assetRoot() {
+#if defined(__EMSCRIPTEN__)
+    // Preloaded into the runtime's filesystem at this path, by the
+    // --preload-file in CMakeLists. There is no binary to sit next to.
+    return "/assets";
+#else
     // Assets are copied next to the binary at build time.
     const char *base = SDL_GetBasePath();
     if (base == nullptr) {
         return "assets";
     }
     return std::string(base) + "assets";
+#endif
 }
 
 int keyCodeFromSDL(SDL_Keycode key) {
@@ -447,11 +457,17 @@ int main(int argc, char **argv) {
                 std::abort();
             } else if (kind == "crt") {
                 SDL_Log("crash: handing the CRT an argument it refuses");
+#if defined(_WIN32)
                 char room[4];
                 // Deliberately too long. This is what a container going out of
                 // range looks like from the outside: a bare 0xC0000409.
                 strcpy_s(room, sizeof(room), "far too long for this");
                 SDL_Log("crash: the CRT let that through, which it should not");
+#else
+                // The bounds checked string functions are a Microsoft
+                // extension, and so is the handler that catches their failure.
+                SDL_Log("crash: nothing to demonstrate here, this one is MSVC's");
+#endif
             } else if (kind == "fastfail") {
                 SDL_Log("crash: fail fast");
                 // Nothing catches this one. It leaves through the kernel
@@ -696,7 +712,11 @@ int main(int argc, char **argv) {
     const uint64_t startTicks = SDL_GetTicks();
     const uint64_t screenshotAfterMs = (uint64_t)screenshotFrames * 1000ull / 60ull;
     bool running = true;
-    while (running) {
+    // One frame, as a callable, because the browser owns the frame clock and
+    // calls back rather than letting the app spin. Captured by reference: with
+    // simulate_infinite_loop set, Emscripten leaves main's stack standing, so
+    // everything here stays alive for as long as the callback runs.
+    auto drawFrame = [&]() {
         SDL_Event sdlEvent;
         while (SDL_PollEvent(&sdlEvent)) {
             switch (sdlEvent.type) {
@@ -931,7 +951,23 @@ int main(int argc, char **argv) {
                 running = false;
             }
         }
+    };
+
+#if defined(__EMSCRIPTEN__)
+    // Zero means "whenever the browser next paints", which is
+    // requestAnimationFrame, and is what a page should be pacing off. The call
+    // does not return.
+    emscripten_set_main_loop_arg(
+        [](void *arg) {
+            auto *frame = (decltype(drawFrame) *)arg;
+            (*frame)();
+        },
+        &drawFrame, 0, 1);
+#else
+    while (running) {
+        drawFrame();
     }
+#endif
 
     if (accelerometer != nullptr) {
         SDL_CloseSensor(accelerometer);

@@ -14,9 +14,14 @@
 // After windows.h, which dbghelp.h needs.
 #include <dbghelp.h>
 #include <crtdbg.h>
+#elif defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#include <unistd.h>
+#include <cstring>
 #else
 #include <cxxabi.h>
 #include <execinfo.h>
+#include <unistd.h>
 #include <cstring>
 #endif
 
@@ -234,6 +239,32 @@ void onAbort(int) {
     // handler both end here.
     report("abort", nullptr);
     _exit(3);
+}
+
+#elif defined(__EMSCRIPTEN__)
+
+void printStack() {
+    // The browser knows the stack, not us: there is no execinfo here, and the
+    // wasm frames are the engine's to name. emscripten_run_script hands the
+    // job to the JS console, which prints it with the source map applied.
+    emscripten_run_script("console.trace('gallery3d');");
+}
+
+void report(const char *reason) {
+    if (gPrinting.exchange(true)) {
+        return;
+    }
+    say("");
+    say("--- %s ---", reason);
+    printStack();
+    say("--- end of trace ---");
+    gPrinting = false;
+}
+
+void onSignal(int number) {
+    report(strsignal(number));
+    signal(number, SIG_DFL);
+    raise(number);
 }
 
 #else

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Gallery3D</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #1a1a1a;
+    color: #bbb;
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  /* The wall fills the window. SDL sizes its drawing buffer from this. */
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: none;
+    /* The wall has its own drag handling, and the browser's would fight it. */
+    touch-action: none;
+  }
+  #status {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    letter-spacing: 0.02em;
+  }
+  #status.done { display: none; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1"></canvas>
+<div id="status">Loading the wall…</div>
+
+<script>
+  var statusEl = document.getElementById('status');
+  var canvas = document.getElementById('canvas');
+
+  var Module = {
+    canvas: canvas,
+    // The app reads its own arguments, and the web build browses the museum:
+    // there is no local directory to point it at.
+    arguments: ['--artic'],
+    print: function (text) { console.log(text); },
+    printErr: function (text) { console.error(text); },
+    setStatus: function (text) {
+      if (!statusEl) return;
+      if (text) {
+        statusEl.textContent = text;
+        statusEl.classList.remove('done');
+      } else {
+        statusEl.classList.add('done');
+      }
+    },
+  };
+
+  // The canvas backing store has to be in device pixels, or the wall is drawn
+  // at CSS resolution and then stretched. SDL asks the canvas for its size, so
+  // the size it reports has to be the real one.
+  function resize() {
+    var ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(canvas.clientWidth * ratio);
+    canvas.height = Math.round(canvas.clientHeight * ratio);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  window.onerror = function (message) {
+    Module.setStatus('Failed: ' + message);
+  };
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
