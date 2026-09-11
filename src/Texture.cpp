@@ -196,7 +196,13 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     const std::string key = cacheIdentity(mItem) + suffix;
     DiskCache &cache = DiskCache::thumbnails();
     Bitmap cached = cache.get(key);
-    if (cached.valid() && cached.width() == side && cached.height() == height) {
+    // At most the size asked for, and possibly smaller: what is stored was
+    // fitted to the picture rather than enlarged to the request. The key
+    // already carries the requested size, so anything under it was fitted from
+    // this same image and is the right thing to reuse. Testing for equality
+    // here missed every one of those and re-fetched forever.
+    if (cached.valid() && cached.width() <= side &&
+        cached.height() == cached.width() * mConfig->thumbnailHeight / mConfig->thumbnailWidth) {
         view->finishLoad(self, std::move(cached));
         return;
     }
@@ -204,12 +210,35 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     // The cropping and the caching happen after the decode now, wherever that
     // finishes. Everything the continuation needs is copied into it, since the
     // texture may outlive this call by a long way.
-    decodeItem(mItem, std::max(side, height) * 2, [view, self, side, height, key](Bitmap decoded) {
+    const int thumbnailWidth = mConfig->thumbnailWidth;
+    const int thumbnailHeight = mConfig->thumbnailHeight;
+    decodeItem(mItem, std::max(side, height) * 2,
+               [view, self, side, height, key, thumbnailWidth, thumbnailHeight](Bitmap decoded) {
         if (!decoded.valid()) {
             view->finishLoad(self, std::move(decoded));
             return;
         }
-        Bitmap cropped = decoded.coverCropped(side, height);
+
+        // Never larger than the picture actually is.
+        //
+        // The size above follows the display density, and a dense phone asks
+        // for 1024x768 where a desktop asks for 512x384. A remote source hands
+        // over 843 pixels, so the larger of those is an enlargement: four times
+        // the texture memory for the same detail, slightly softer. Forty eight
+        // covers at three megabytes apiece also sit right on the texture budget
+        // and keep evicting each other.
+        //
+        // The quad's extents are (1.0, oneByAspect), which is a ratio rather
+        // than a resolution, so a smaller power of two is free to use.
+        int fittedSide = side;
+        int fittedHeight = height;
+        while (fittedSide > thumbnailWidth &&
+               (fittedSide > decoded.width() || fittedHeight > decoded.height())) {
+            fittedSide /= 2;
+            fittedHeight = fittedSide * thumbnailHeight / thumbnailWidth;
+        }
+
+        Bitmap cropped = decoded.coverCropped(fittedSide, fittedHeight);
         if (cropped.valid()) {
             DiskCache::thumbnails().put(key, cropped);
         }
