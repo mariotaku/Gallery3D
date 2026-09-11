@@ -17,8 +17,24 @@ const int MAX_COLOR_VALUE = 255;
 // The original ran a LightingColorFilter of 0xffaaaaaa over the result, which
 // multiplies the colour channels and leaves alpha alone.
 const int MULTIPLY_COLOR = 0xaa;
-const int START_FADE_X = 96;
 const int THUMBNAIL_MAX_X = 128;
+
+// How much of the backdrop's right edge fades out.
+//
+// It has to be exactly what BackgroundLayer overlaps its copies by, or the
+// joins show: too narrow and a copy ends while still opaque, too wide and the
+// wash goes thin in a band.
+//
+// The original wrote this as a pixel index, 96 of a 128 wide thumbnail. That
+// held only while every thumbnail was 128 by 96. Here the crop is as wide as
+// the photo allows, so a portrait one came out 89 wide, the index fell outside
+// it, and the fade was skipped entirely - leaving a hard vertical edge down the
+// wall wherever a copy ended.
+const float FADE_FRACTION = 0.25f;
+
+int fadeFromFor(int width) {
+    return (int)((float)width * (1.0f - FADE_FRACTION));
+}
 
 // Utils.resizeBitmap: scale down so neither edge is longer than maxSize.
 Bitmap resizeBitmap(const Bitmap &bitmap, int maxSize) {
@@ -38,7 +54,11 @@ Bitmap resizeBitmap(const Bitmap &bitmap, int maxSize) {
 // the output transposed. Run it twice and the image comes back the right way
 // round, blurred on both axes. The source alpha is discarded; the second pass
 // writes the horizontal fade instead.
-void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int startFadeX) {
+//
+// `fadeFrom` counts along the output's rows, which is this pass's height
+// because of the transpose. Pass `height` itself to mean no fade, which is what
+// the first pass wants.
+void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int fadeFrom) {
     int inPos = 0;
     int maxX = width - 1;
     for (int y = 0; y < height; ++y) {
@@ -53,8 +73,12 @@ void boxBlurFilter(const uint32_t *in, uint32_t *out, int width, int height, int
             blue += (int)(argb & 0xff);
         }
         int alpha = MAX_COLOR_VALUE;
-        if (y >= startFadeX && height > startFadeX) {
-            alpha = (height - y - 1) * MAX_COLOR_VALUE / (height - startFadeX);
+        if (y >= fadeFrom && height - 1 > fadeFrom) {
+            // Full at the first row of the fade and nothing at the last. The
+            // original divided by the width of the fade rather than the number
+            // of steps across it, which starts a few percent down from opaque -
+            // enough to leave a faint line where the copies meet.
+            alpha = (height - 1 - y) * MAX_COLOR_VALUE / (height - 1 - fadeFrom);
         }
         int outPos = y;
         for (int x = 0; x < width; ++x) {
@@ -161,9 +185,11 @@ Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidt
 
     // Horizontal pass, then vertical, each transposing as it goes. The fade
     // belongs on the destination x axis, so it is the second pass that writes
-    // it, while the first leaves every pixel opaque.
-    boxBlurFilter(in.data(), tmp.data(), cropWidth, cropHeight, cropWidth);
-    boxBlurFilter(tmp.data(), in.data(), cropHeight, cropWidth, START_FADE_X);
+    // it. The first says no fade by passing its own height; either way its
+    // alpha is thrown away, since each pass reads only colour and writes its
+    // own.
+    boxBlurFilter(in.data(), tmp.data(), cropWidth, cropHeight, cropHeight);
+    boxBlurFilter(tmp.data(), in.data(), cropHeight, cropWidth, fadeFromFor(cropWidth));
 
     Bitmap filtered(cropWidth, cropHeight);
     uint8_t *out = filtered.pixels();

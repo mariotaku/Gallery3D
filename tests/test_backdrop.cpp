@@ -72,6 +72,49 @@ TEST(the_backdrop_fades_out_on_its_right) {
     CHECK(rightAlpha < 40);
 }
 
+TEST(the_backdrop_fades_out_whatever_shape_the_photo_is) {
+    // The one that was wrong. BackgroundLayer stitches the backdrop with a
+    // quarter of its width overlapping, and the fade has to be that quarter
+    // whatever the photo looked like.
+    //
+    // The crop is as wide as the photo allows, so a portrait photo makes a
+    // narrower one - 89 pixels against a landscape photo's 128. With the fade
+    // written as a pixel index of 96 it fell outside the narrow crop and was
+    // skipped, and the backdrop ended with a hard vertical edge down the wall.
+    struct Shape {
+        const char *name;
+        int width;
+        int height;
+    };
+    const Shape shapes[] = {{"landscape", 128, 96}, {"portrait", 89, 128}, {"square", 128, 128},
+                            {"panorama", 128, 32}};
+    for (const Shape &shape : shapes) {
+        Bitmap backdrop = AdaptiveBackgroundTexture::backdropFrom(solid(shape.width, shape.height, 180, 150, 90), 256,
+                                                                 128);
+        CHECK(backdrop.valid());
+        if (!backdrop.valid()) {
+            continue;
+        }
+        const uint8_t *pixels = backdrop.pixels();
+        const size_t row = (size_t)(backdrop.height() / 2) * (size_t)backdrop.width();
+        CHECK(pixels[row * 4 + 3] > 200);
+        CHECK(pixels[(row + (size_t)backdrop.width() - 1) * 4 + 3] < 40);
+
+        // And the fade is a quarter of the width, not some other slice:
+        // everything left of three quarters across is fully opaque, and it is
+        // still opaque at the last pixel before the fade starts rather than
+        // already a few percent down, which would leave a faint line where one
+        // copy of the backdrop meets the next.
+        int dipped = 0;
+        for (int x = 0; x < backdrop.width() * 3 / 4 - 2; ++x) {
+            if (pixels[(row + (size_t)x) * 4 + 3] < 254) {
+                ++dipped;
+            }
+        }
+        CHECK_EQ(dipped, 0);
+    }
+}
+
 TEST(a_photo_that_never_arrived_makes_no_backdrop) {
     // The failure this has to survive: the decode answered with nothing. The
     // fallback gradient shows instead, which is what an invalid bitmap asks the
