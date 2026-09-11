@@ -241,8 +241,11 @@ int main(int argc, char **argv) {
         displayScale = 1.0f;
     }
     App::PIXEL_DENSITY = displayScale * App::CONTENT_SCALE;
-    SDL_Log("PIXEL_DENSITY %.3f (display scale %.3f x content scale %.3f), drawables from the %.1fx bucket",
-            App::PIXEL_DENSITY, displayScale, App::CONTENT_SCALE, App::drawableBucketDensity());
+    // The chrome follows the display and not the wall, so a button is the size
+    // the screen asks for rather than that times the wall's enlargement.
+    App::UI_DENSITY = displayScale;
+    SDL_Log("PIXEL_DENSITY %.3f (display %.3f x content %.3f), UI_DENSITY %.3f, drawables from the %.1fx bucket",
+            App::PIXEL_DENSITY, displayScale, App::CONTENT_SCALE, App::UI_DENSITY, App::drawableBucketDensity());
     Canvas::initFonts();
 
     RenderView renderView;

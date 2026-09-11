@@ -64,7 +64,7 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
 void HudLayer::onSizeChanged() {
     // The bar runs along the top edge. It sizes itself to its crumbs, so what
     // it needs here is the room it may use and where it starts.
-    float inset = 3.0f * App::PIXEL_DENSITY;
+    float inset = 3.0f * App::UI_DENSITY;
     mPathBar.setPosition(inset, inset);
     mPathBar.setSize(mWidth - inset * 2.0f, PathBarLayer::preferredHeight());
 
@@ -73,7 +73,7 @@ void HudLayer::onSizeChanged() {
     mMenuBar.setSize(mWidth, MenuBar::preferredHeight());
 
     // So does the time bar, and only one of the two is ever up.
-    float timeBarHeight = TimeBar::HEIGHT * App::PIXEL_DENSITY;
+    float timeBarHeight = TimeBar::HEIGHT * App::UI_DENSITY;
     mTimeBar.setPosition(0.0f, mHeight - timeBarHeight);
     mTimeBar.setSize(mWidth, timeBarHeight);
 
@@ -82,8 +82,8 @@ void HudLayer::onSizeChanged() {
     mFullscreenMenu.setSize(mWidth, MenuBar::preferredHeight());
 
     // The zoom buttons stack up from the right end of that bar.
-    float zoomWidth = ZOOM_BUTTON_WIDTH * App::PIXEL_DENSITY;
-    float zoomHeight = ZOOM_BUTTON_HEIGHT * App::PIXEL_DENSITY;
+    float zoomWidth = ZOOM_BUTTON_WIDTH * App::UI_DENSITY;
+    float zoomHeight = ZOOM_BUTTON_HEIGHT * App::UI_DENSITY;
     float zoomY = mHeight - MenuBar::preferredHeight() - zoomHeight;
     mZoomInButton.setSize(zoomWidth, zoomHeight);
     mZoomOutButton.setSize(zoomWidth, zoomHeight);
@@ -95,7 +95,7 @@ void HudLayer::onSizeChanged() {
     mSelectionMenuTop.setPosition(0.0f, 0.0f);
     mSelectionMenuTop.setSize(mWidth, MenuBar::preferredHeight());
 
-    mTopRightButton.setPosition(mWidth - TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, 0.0f);
+    mTopRightButton.setPosition(mWidth - TOP_RIGHT_WIDTH * App::UI_DENSITY, 0.0f);
     computeBottomMenu();
 }
 
@@ -187,7 +187,7 @@ void HudLayer::computeBottomMenu() {
 
 void HudLayer::computeTopRightButton() {
     GridLayer *grid = mGridLayer;
-    float height = TOP_RIGHT_HEIGHT * App::PIXEL_DENSITY;
+    float height = TOP_RIGHT_HEIGHT * App::UI_DENSITY;
     switch (mGridState) {
     case GridLayer::STATE_GRID_VIEW:
         // Half height inside an album, so it sits over less of the wall.
@@ -207,7 +207,7 @@ void HudLayer::computeTopRightButton() {
         mTopRightButton.setAction(nullptr);
         break;
     }
-    mTopRightButton.setSize(TOP_RIGHT_WIDTH * App::PIXEL_DENSITY, height);
+    mTopRightButton.setSize(TOP_RIGHT_WIDTH * App::UI_DENSITY, height);
 }
 
 void HudLayer::showPopupFor(const MenuBar &bar, size_t index, const std::vector<PopupMenu::Option> &options) {

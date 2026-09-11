@@ -39,7 +39,7 @@ bool ImageButton::containsPoint(float x, float y, bool addTrackingMargin) const 
     float maxX = minX + mWidth;
     float maxY = minY + mHeight;
     if (addTrackingMargin) {
-        float margin = TRACKING_MARGIN * App::PIXEL_DENSITY;
+        float margin = TRACKING_MARGIN * App::UI_DENSITY;
         minX -= margin;
         minY -= margin;
         maxX += margin;

@@ -14,10 +14,19 @@ namespace App {
 // the display scale times CONTENT_SCALE.
 extern float PIXEL_DENSITY;
 
+// What the chrome scales by: the display scale alone, without CONTENT_SCALE.
+//
+// A button wants to be the right size for the screen. The wall wants to be
+// bigger than the phone it was laid out for. Those are different wishes, and
+// multiplying them together gives a phone sized touch target enlarged again,
+// which is how the zoom buttons ended up 173 pixels wide.
+extern float UI_DENSITY;
+
 // How much bigger the wall is than the phone it was drawn for. The ported
 // constants come from a 320x480 handset, so on a monitor they leave the wall as
 // a small cluster in the middle of the backdrop. This factor stretches the
-// whole wall at once. --scale overrides it.
+// whole wall at once, and it deliberately does not reach the chrome. --scale
+// overrides it.
 extern float CONTENT_SCALE;
 
 // Longest edge a fullscreen photo is decoded to. The original capped this at

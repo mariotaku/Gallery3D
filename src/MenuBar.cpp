@@ -17,7 +17,7 @@ const float HIGHLIGHT_INSET = 9.0f;
 const float HIGHLIGHT_EDGE_WIDTH = 21.0f;
 
 float scaled(float value) {
-    return value * App::PIXEL_DENSITY;
+    return value * App::UI_DENSITY;
 }
 
 }  // namespace

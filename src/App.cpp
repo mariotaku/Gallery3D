@@ -18,6 +18,7 @@ bool fileExists(const std::string &path) {
 }  // namespace
 
 float PIXEL_DENSITY = 1.0f;
+float UI_DENSITY = 1.0f;
 // 1.5 fills the default 1280x800 window with two rows of stacks and no
 // clipping. It also crosses the 1.5 threshold that DisplaySlot and
 // GridDrawables use to pick the 256x64 label texture over the 128x32 one, so
@@ -57,12 +58,11 @@ std::string pathIn(const char *directory, const std::string &name) {
 Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
     if (allowHigherDensity) {
         // The smallest bucket that still has enough pixels, so art is reduced
-        // rather than blown up. PIXEL_DENSITY is the right thing to compare
-        // against, not the display scale on its own: every size the art is
-        // drawn at has already been multiplied by it.
+        // rather than blown up, compared against the density the chrome is
+        // actually drawn at.
         const Bucket *best = nullptr;
         for (const Bucket &bucket : kBuckets) {
-            if (bucket.density + 0.001f < PIXEL_DENSITY) {
+            if (bucket.density + 0.001f < UI_DENSITY) {
                 continue;
             }
             if (fileExists(pathIn(bucket.directory, name))) {
@@ -96,7 +96,7 @@ Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
 
 float drawableBucketDensity() {
     for (const Bucket &bucket : kBuckets) {
-        if (bucket.density + 0.001f >= PIXEL_DENSITY) {
+        if (bucket.density + 0.001f >= UI_DENSITY) {
             return bucket.density;
         }
     }

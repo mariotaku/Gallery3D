@@ -21,7 +21,7 @@ const float TEXT_GAP = 4.0f;
 const float TRAILING_PAD = 10.0f;
 
 float scaled(float value) {
-    return value * App::PIXEL_DENSITY;
+    return value * App::UI_DENSITY;
 }
 
 }  // namespace

@@ -441,7 +441,7 @@ NinePatch loadNinePatch(const std::string &name) {
     readGuide(raw, false, &patch.stretchY0, &patch.stretchY1);
     patch.image = subImage(raw, 1, 1, raw.width() - 2, raw.height() - 2);
 
-    float factor = App::PIXEL_DENSITY / drawable.density;
+    float factor = App::UI_DENSITY / drawable.density;
     if (factor > 0.99f && factor < 1.01f) {
         return patch;
     }

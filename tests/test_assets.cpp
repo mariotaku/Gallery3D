@@ -9,13 +9,15 @@
 
 namespace {
 
-// Restores whatever the density was, so the order tests run in cannot matter.
+// Chrome art follows UI_DENSITY, not PIXEL_DENSITY: a button is sized for the
+// display, while PIXEL_DENSITY also carries the wall's enlargement. Restored on
+// the way out so the order tests run in cannot matter.
 struct ScopedDensity {
-    explicit ScopedDensity(float density) : previous(App::PIXEL_DENSITY) {
-        App::PIXEL_DENSITY = density;
+    explicit ScopedDensity(float density) : previous(App::UI_DENSITY) {
+        App::UI_DENSITY = density;
     }
     ~ScopedDensity() {
-        App::PIXEL_DENSITY = previous;
+        App::UI_DENSITY = previous;
     }
     float previous;
 };

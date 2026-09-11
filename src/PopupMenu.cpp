@@ -37,7 +37,7 @@ const float OPEN_SECONDS = 0.4f;
 const float CLOSE_SECONDS = 0.3f;
 
 float scaled(float value) {
-    return value * App::PIXEL_DENSITY;
+    return value * App::UI_DENSITY;
 }
 
 }  // namespace

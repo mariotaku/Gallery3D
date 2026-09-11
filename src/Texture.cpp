@@ -46,7 +46,7 @@ Bitmap ResourceTexture::load(RenderView *view) {
     //
     // findDrawable has already picked the closest density, so this is usually
     // the identity and nothing is resampled.
-    float factor = App::PIXEL_DENSITY / drawable.density;
+    float factor = App::UI_DENSITY / drawable.density;
     if (factor > 0.99f && factor < 1.01f) {
         return bitmap;
     }
