@@ -30,9 +30,16 @@ void MediaFeed::loadItemsForSet(MediaSet *set) {
         return;
     }
     DataSource *source = (set->mDataSource != nullptr) ? set->mDataSource : mDataSource;
-    if (source != nullptr) {
-        source->loadItemsForSet(this, set);
+    if (source == nullptr) {
+        return;
     }
+    postJob([this, source, set]() {
+        if (mShuttingDown.load()) {
+            return;
+        }
+        source->loadItemsForSet(this, set);
+        updateListener(true);
+    });
 }
 
 MediaFeed::~MediaFeed() {
@@ -48,7 +55,10 @@ void MediaFeed::start() {
 }
 
 void MediaFeed::shutdown() {
+    // Set before waking anyone, so a source polling isCancelled sees it and a
+    // slow fetch does not hold the quit up.
     mShuttingDown.store(true);
+    mJobCondition.notify_all();
     if (mLoaderThread.joinable()) {
         mLoaderThread.join();
     }
@@ -63,9 +73,54 @@ void MediaFeed::loaderThread() {
     }
     mLoading.store(false);
     updateListener(true);
+
+    // Then stay alive for everything else slow: a set's items, a delete, a
+    // rotation. One thread draining in order, so a source is never re-entered.
+    for (;;) {
+        std::function<void()> job;
+        {
+            std::unique_lock<std::mutex> lock(mJobMutex);
+            mJobCondition.wait(lock, [this]() { return !mJobs.empty() || mShuttingDown.load(); });
+            if (mShuttingDown.load()) {
+                return;
+            }
+            job = std::move(mJobs.front());
+            mJobs.pop_front();
+        }
+        job();
+    }
+}
+
+void MediaFeed::postJob(std::function<void()> job) {
+    if (mShuttingDown.load()) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mJobMutex);
+        mJobs.push_back(std::move(job));
+    }
+    mJobCondition.notify_one();
 }
 
 void MediaFeed::pumpListener() {
+    // Deletions confirmed by the worker are applied here, between frames, so
+    // nothing the draw code is holding disappears mid frame.
+    {
+        std::vector<MediaItem *> deleted;
+        {
+            std::lock_guard<std::mutex> lock(mDeletedMutex);
+            deleted.swap(mDeletedItems);
+        }
+        if (!deleted.empty()) {
+            if (mListener) {
+                mListener->onFeedAboutToChange(this);
+            }
+            for (MediaItem *item : deleted) {
+                removeItem(item);
+            }
+        }
+    }
+
     if (!mListenerNeedsUpdate.exchange(false)) {
         return;
     }
@@ -149,17 +204,17 @@ void MediaFeed::expandMediaSet(int mediaSetIndex) {
     if (mListener) {
         mListener->onFeedAboutToChange(this);
     }
+    // A source that fills its sets lazily is asked here, but not waited for.
+    // This runs on the render thread, and the album opens on whatever is there
+    // now; the items arrive later and the listener rebuilds the slots.
+    MediaSet *setToFill = nullptr;
     {
-        // A source that fills its sets lazily needs the items before the slot
-        // model is rebuilt around them.
         std::lock_guard<std::mutex> lock(mSetsMutex);
         if (mediaSetIndex >= 0 && mediaSetIndex < (int)mMediaSets.size()) {
-            MediaSet *set = mMediaSets[(size_t)mediaSetIndex].get();
-            if (set->getNumItems() == 0 && set->mDataSource != nullptr) {
-                set->mDataSource->loadItemsForSet(this, set);
-            }
+            setToFill = mMediaSets[(size_t)mediaSetIndex].get();
         }
     }
+    loadItemsForSet(setToFill);
     {
         std::lock_guard<std::mutex> lock(mSetsMutex);
         mExpandedMediaSetIndex = mediaSetIndex;
@@ -267,53 +322,76 @@ void MediaFeed::performOperation(int operation, std::vector<MediaBucket> *mediaB
         return;
     }
 
-    // Whoever owns the item carries the operation out. The feed only updates
-    // itself for the ones that reported success, so a source that cannot do
-    // something leaves the wall matching its storage rather than diverging
-    // from it.
-    auto sourceFor = [this](MediaItem *item) -> DataSource * {
-        MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
-        if (set != nullptr && set->mDataSource != nullptr) {
-            return set->mDataSource;
-        }
-        return mDataSource;
-    };
-
+    // The slow half goes to the loader thread; the structural half does not.
+    //
+    // Talking to storage can block, and on a remote source it certainly will,
+    // so that happens on the worker. Dropping an item from the model cannot go
+    // there: the draw code holds raw MediaItem pointers across frames, so
+    // freeing one underneath it would leave those dangling. The worker reports
+    // what actually succeeded and pumpListener does the removal between frames.
     if (operation == OPERATION_DELETE) {
-        int deleted = 0;
-        for (MediaItem *item : items) {
-            DataSource *source = sourceFor(item);
-            if (source != nullptr && source->performOperation(operation, item, data)) {
-                removeItem(item);
-                ++deleted;
+        postJob([this, operation, items]() {
+            std::vector<MediaItem *> deleted;
+            for (MediaItem *item : items) {
+                if (mShuttingDown.load()) {
+                    return;
+                }
+                if (performOperationOnItem(operation, item, nullptr)) {
+                    deleted.push_back(item);
+                }
             }
-        }
-        if (deleted > 0) {
-            if (mListener) {
-                mListener->onFeedAboutToChange(this);
+            if (deleted.empty()) {
+                return;
+            }
+            {
+                std::lock_guard<std::mutex> lock(mDeletedMutex);
+                mDeletedItems.insert(mDeletedItems.end(), deleted.begin(), deleted.end());
             }
             updateListener(true);
-        }
+        });
         return;
     }
 
     if (operation == OPERATION_ROTATE) {
         float degrees = (data != nullptr) ? *(const float *)data : 0.0f;
+        // The wall turns now, on this thread, because that is only a number and
+        // the picture should follow the click immediately.
         for (MediaItem *item : items) {
-            if (item == nullptr) {
-                continue;
-            }
-            // The wall turns either way. Whether the turn outlives the session
-            // is up to the source, which is why its answer is not checked here.
-            float rotation = Shared::normalizePositive(item->mRotation + degrees);
-            item->mRotation = rotation;
-            DataSource *source = sourceFor(item);
-            if (source != nullptr) {
-                source->performOperation(operation, item, &rotation);
+            if (item != nullptr) {
+                item->mRotation = Shared::normalizePositive(item->mRotation + degrees);
             }
         }
+        // Whether the turn outlives the session is up to the source, and that
+        // is the part that touches storage, so it waits its turn on the worker.
+        std::vector<std::pair<MediaItem *, float>> rotations;
+        rotations.reserve(items.size());
+        for (MediaItem *item : items) {
+            if (item != nullptr) {
+                rotations.emplace_back(item, item->mRotation);
+            }
+        }
+        postJob([this, operation, rotations]() {
+            for (const std::pair<MediaItem *, float> &entry : rotations) {
+                if (mShuttingDown.load()) {
+                    return;
+                }
+                float rotation = entry.second;
+                performOperationOnItem(operation, entry.first, &rotation);
+            }
+        });
         return;
     }
+}
+
+bool MediaFeed::performOperationOnItem(int operation, MediaItem *item, const void *data) {
+    MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
+    DataSource *source = (set != nullptr && set->mDataSource != nullptr) ? set->mDataSource : mDataSource;
+    if (source == nullptr) {
+        return false;
+    }
+    // Only what the source confirmed counts, so the wall never shows a state
+    // the storage behind it does not agree with.
+    return source->performOperation(operation, item, data);
 }
 
 void MediaFeed::removeItem(MediaItem *item) {

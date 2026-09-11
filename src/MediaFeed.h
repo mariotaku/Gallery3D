@@ -7,6 +7,9 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -61,10 +64,18 @@ class MediaFeed {
     // means the feed's own source, which is the single source case.
     MediaSet *addMediaSet(int64_t setId, DataSource *source = nullptr);
 
-    // Fills in a set's items by asking whoever created it. Does nothing for a
-    // set that already has them, so a source that loads everything up front
+    // Asks whoever created the set for its items, on the loader thread. Returns
+    // at once: the set fills in later and the listener hears about it, which is
+    // the same shape the first scan already has. A set that has its items
+    // already is not queued at all, so a source that loads everything up front
     // costs nothing here.
     void loadItemsForSet(MediaSet *set);
+
+    // True once shutdown has begun. A data source doing slow work should poll
+    // this and give up: without it, quitting waits for the network.
+    bool isCancelled() const {
+        return mShuttingDown.load();
+    }
 
     int getNumSlots();
     MediaSet *getSetForSlot(int slotIndex);
@@ -117,6 +128,10 @@ class MediaFeed {
 
   private:
     void loaderThread();
+    // Hands a job to the loader thread. Ignored once shutdown has begun.
+    void postJob(std::function<void()> job);
+    // Runs on the loader thread, one item at a time.
+    bool performOperationOnItem(int operation, MediaItem *item, const void *data);
 
     DataSource *mDataSource = nullptr;
     Listener *mListener = nullptr;
@@ -136,6 +151,21 @@ class MediaFeed {
     MediaClustering mClustering;
 
     std::thread mLoaderThread;
+
+    // Everything slow happens here. The queue is drained in order by the one
+    // loader thread, so a source never sees two calls at once and does not
+    // have to be thread safe with itself.
+    std::deque<std::function<void()>> mJobs;
+    std::mutex mJobMutex;
+    std::condition_variable mJobCondition;
+
+    // Items whose delete went through, waiting for the render thread to drop
+    // them. The structural change cannot happen on the loader thread: the draw
+    // code holds raw MediaItem pointers across frames, so removing one
+    // underneath it would leave those dangling.
+    std::vector<MediaItem *> mDeletedItems;
+    std::mutex mDeletedMutex;
+
     std::atomic<bool> mLoading{false};
     std::atomic<bool> mShuttingDown{false};
     std::atomic<bool> mListenerNeedsUpdate{false};
