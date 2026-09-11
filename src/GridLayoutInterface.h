@@ -13,8 +13,16 @@ class LayoutInterface {
 
 class GridLayoutInterface : public LayoutInterface {
   public:
-    explicit GridLayoutInterface(int numRows)
-        : mNumRows(numRows), mSpacingX((int)(20 * App::PIXEL_DENSITY)), mSpacingY((int)(40 * App::PIXEL_DENSITY)) {}
+    explicit GridLayoutInterface(int numRows) : mNumRows(numRows) {
+        onDensityChanged();
+    }
+
+    // The gaps between slots are in pixels, so they follow the density. Called
+    // again when the window moves to a display with a different scale.
+    void onDensityChanged() {
+        mSpacingX = (int)(20 * App::PIXEL_DENSITY);
+        mSpacingY = (int)(40 * App::PIXEL_DENSITY);
+    }
 
     float getSpacingForBreak() const {
         return (float)mSpacingX / 2.0f;

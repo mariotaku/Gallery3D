@@ -41,6 +41,14 @@ bool contains(const std::vector<MediaItem *> &items, MediaItem *item) {
 
 }  // namespace
 
+int GridLayer::itemWidthForDensity() {
+    return (int)(96.0f * App::PIXEL_DENSITY);
+}
+
+int GridLayer::itemHeightForDensity() {
+    return (int)(72.0f * App::PIXEL_DENSITY);
+}
+
 GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view)
     : mBackground(this), mLoading(this), mView(view), mLayoutInterface(layoutInterface) {
     mBufferedVisibleRange.set(Shared::INVALID, Shared::INVALID);
@@ -308,10 +316,20 @@ void GridLayer::setDataSource(DataSource *dataSource) {
         mMediaFeed->copySlotStateFrom(*feed);
         feed->shutdown();
         feed.reset();
-        mDisplayList.clear();
+        clearDisplayList();
         mBackground.clear();
     }
     mMediaFeed->start();
+}
+
+void GridLayer::clearDisplayList() {
+    // The list owns the items, so emptying it leaves mDisplayItems pointing at
+    // freed memory. Anything that reads a slot before the next computeVisibleItems
+    // refills it - entering fullscreen, say - reads through those pointers.
+    mDisplayList.clear();
+    for (int i = 0; i < MAX_ITEMS_DRAWABLE; ++i) {
+        mDisplayItems[i] = nullptr;
+    }
 }
 
 int GridLayer::hitTest(const Vector3f &worldPos, int itemWidth, int itemHeight) {
@@ -570,12 +588,47 @@ void GridLayer::clearUnusedThumbnails() {
 }
 
 void GridLayer::onSurfaceCreated(RenderView *view) {
-    mDisplayList.clear();
+    clearDisplayList();
     mHud.clear();
     mHud.reset();
     GridDrawables::sStringTextureTable.clear();
     mDrawables->onSurfaceCreated(view);
     mBackground.clear();
+}
+
+void GridLayer::onDensityChanged() {
+    if (mView == nullptr) {
+        return;
+    }
+    const int itemWidth = itemWidthForDensity();
+    const int itemHeight = itemHeightForDensity();
+
+    mCamera->mItemWidth = itemWidth;
+    mCamera->mItemHeight = itemHeight;
+    ((GridLayoutInterface *)mLayoutInterface)->onDensityChanged();
+
+    // The shared quads are all sized from the cell and the density, so they go
+    // back and come out again at the new one.
+    GridDrawables::releaseQuads();
+    GridDrawables::buildQuads(itemWidth, itemHeight);
+
+    // Drawables are picked from a density bucket, so what is cached is now the
+    // art for the wrong screen. Dropping the cache makes onSurfaceCreated fetch
+    // them again, and findDrawable answers with the bucket the new density
+    // asks for.
+    mView->clearCache();
+    onSurfaceCreated(mView);
+
+    // Thumbnails are decoded to a size that follows the density too, so the
+    // ones in hand are the wrong resolution. They are reloaded as the wall
+    // scrolls rather than all at once, which keeps the change cheap.
+    clearUnusedThumbnails();
+
+    // The chrome sits in a window that has not changed size, so setSize would
+    // decide there was nothing to do. Every position in it is in density units
+    // though, so the layout has to run again regardless.
+    mHud.relayout();
+    mBackground.relayout();
 }
 
 void GridLayer::onSurfaceChanged(RenderView *view, int width, int height) {

@@ -21,6 +21,10 @@ void GridDrawables::releaseStringTextures() {
 }
 
 GridDrawables::GridDrawables(int itemWidth, int itemHeight) {
+    buildQuads(itemWidth, itemHeight);
+}
+
+void GridDrawables::buildQuads(int itemWidth, int itemHeight) {
     if (sGrid != nullptr) {
         return;
     }
@@ -55,6 +59,37 @@ GridDrawables::GridDrawables(int itemWidth, int itemHeight) {
     sTextGrid = GridQuad::createGridQuad(textWidth, textHeight, 0, 0.0f, 1.0f, 1.0f, false);
 
     sFrame = GridQuadFrame::createFrame(width, height, itemWidth, itemHeight);
+}
+
+void GridDrawables::releaseQuads() {
+    // Every one of these is sized from PIXEL_DENSITY, so a density change makes
+    // the whole set wrong. Dropping them lets buildQuads start over.
+    //
+    // The GL buffers go back by hand: these types have no destructor, so delete
+    // alone would leak one set of buffers per density change.
+    GridQuad *quads[] = {sGrid,         sFullscreenGrid[0], sFullscreenGrid[1], sFullscreenGrid[2], sSelectedGrid,
+                         sVideoGrid,    sLocationGrid,      sSourceIconGrid,    sTextGrid};
+    for (GridQuad *quad : quads) {
+        if (quad != nullptr) {
+            quad->freeHardwareBuffers();
+            delete quad;
+        }
+    }
+    sGrid = nullptr;
+    for (int i = 0; i < 3; ++i) {
+        sFullscreenGrid[i] = nullptr;
+    }
+    sSelectedGrid = nullptr;
+    sVideoGrid = nullptr;
+    sLocationGrid = nullptr;
+    sSourceIconGrid = nullptr;
+    sTextGrid = nullptr;
+
+    if (sFrame != nullptr) {
+        sFrame->freeHardwareBuffers();
+        delete sFrame;
+        sFrame = nullptr;
+    }
 }
 
 void GridDrawables::onSurfaceCreated(RenderView *view) {

@@ -184,6 +184,84 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
 // The flag list lives here and only here. A copy of it in the readme would be
 // wrong within a release or two; this one cannot drift from the parser below
 // without somebody noticing on the next run.
+// Everything that follows the display rather than the window's contents. Called
+// at startup and again whenever the window lands on a display with a different
+// scale, because a laptop plugged into an external monitor does exactly that.
+//
+// Returns true when the scale actually moved, so the caller knows whether the
+// wall has to be rebuilt or only resized.
+// Set by --dpi-change, so a scripted run can go through the whole reflow
+// without a second monitor to drag the window onto.
+float sForcedDisplayScale = 0.0f;
+
+bool applyDisplayScale(SDL_Window *window) {
+    float displayScale = (sForcedDisplayScale > 0.0f) ? sForcedDisplayScale : SDL_GetWindowDisplayScale(window);
+    if (displayScale <= 0.0f) {
+        displayScale = 1.0f;
+    }
+    // Two separate things, multiplied into the one knob the ported code reads.
+    // The display scale is what SDL reports for the monitor: how many physical
+    // pixels a logical pixel is worth, so text and assets stay crisp on HiDPI.
+    // The content scale says how big the wall should be, because the ported
+    // constants were picked for a 320x480 phone. Everything downstream keys off
+    // App::PIXEL_DENSITY - grid item size, slot spacing in GridLayoutInterface,
+    // labels in DisplaySlot, quads in GridDrawables, thumbnail resolution in
+    // Texture - so scaling it here scales the whole wall coherently.
+    const float wanted = displayScale * App::CONTENT_SCALE;
+    if (SDL_fabsf(wanted - App::PIXEL_DENSITY) < 0.001f) {
+        return false;
+    }
+    App::PIXEL_DENSITY = wanted;
+    // The chrome follows the display and not the wall, so a button is the size
+    // the screen asks for rather than that times the wall's enlargement.
+    App::UI_DENSITY = displayScale;
+    SDL_Log("PIXEL_DENSITY %.3f (display %.3f x content %.3f), UI_DENSITY %.3f, drawables from the %.1fx bucket",
+            App::PIXEL_DENSITY, displayScale, App::CONTENT_SCALE, App::UI_DENSITY, App::drawableBucketDensity());
+    return true;
+}
+
+// What the platform says is safe to put controls in. SDL reports the whole
+// client area on a desktop, so these come out zero and nothing moves; on a
+// phone it is the rect left over once the cutouts are taken off. The insets are
+// in window coordinates, so they move when the window does.
+void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInsets &overrideInsets) {
+    SDL_Rect safeRect;
+    int windowWidth = 0;
+    int windowHeight = 0;
+    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+    if (SDL_GetWindowSafeArea(window, &safeRect)) {
+        App::SAFE_AREA.left = (float)safeRect.x;
+        App::SAFE_AREA.top = (float)safeRect.y;
+        App::SAFE_AREA.right = (float)(windowWidth - (safeRect.x + safeRect.w));
+        App::SAFE_AREA.bottom = (float)(windowHeight - (safeRect.y + safeRect.h));
+    }
+    if (overridden) {
+        App::SAFE_AREA = overrideInsets;
+    }
+    if (App::SAFE_AREA.left != 0.0f || App::SAFE_AREA.top != 0.0f || App::SAFE_AREA.right != 0.0f ||
+        App::SAFE_AREA.bottom != 0.0f) {
+        SDL_Log("Safe area insets: left %.0f top %.0f right %.0f bottom %.0f", App::SAFE_AREA.left, App::SAFE_AREA.top,
+                App::SAFE_AREA.right, App::SAFE_AREA.bottom);
+    }
+}
+
+// A fullscreen photo is drawn about as wide as the window, so decode it to at
+// least that. Below the old 1024 there is nothing to gain, and the cap keeps a
+// very large window from turning every photo into a 4096 texture.
+void applyPhotoResolution(int pixelWidth, int pixelHeight) {
+    int longEdge = (pixelWidth > pixelHeight) ? pixelWidth : pixelHeight;
+    int screenNail = std::min(2048, std::max(1024, longEdge));
+    // Twice that when zoomed, which covers the fill-screen zoom without trying
+    // to hold a whole 24 megapixel photo on the card.
+    int hiRes = std::min(4096, screenNail * 2);
+    if (screenNail == App::SCREEN_NAIL_MAX_EDGE && hiRes == App::HI_RES_MAX_EDGE) {
+        return;
+    }
+    App::SCREEN_NAIL_MAX_EDGE = screenNail;
+    App::HI_RES_MAX_EDGE = hiRes;
+    SDL_Log("Screennail max edge %d, hi-res max edge %d", App::SCREEN_NAIL_MAX_EDGE, App::HI_RES_MAX_EDGE);
+}
+
 void printUsage() {
     SDL_Log("Usage: gallery3d [photo directory] [options]");
     SDL_Log("");
@@ -217,6 +295,8 @@ void printUsage() {
     SDL_Log("  --delete             delete the selection (needs --select)");
     SDL_Log("  --popup N            tap button N on the selection bar (needs --select)");
     SDL_Log("  --scrub [0..1]       hold a drag on the time bar (needs --open)");
+    SDL_Log("  --dpi-change N       part way through, act as though the window moved to a");
+    SDL_Log("                       display of scale N, and reflow for it");
     SDL_Log("  --crash KIND         die on purpose, to check the stack trace comes out.");
     SDL_Log("                       KIND is read, write, throw, abort, crt or");
     SDL_Log("                       fastfail");
@@ -262,6 +342,8 @@ int main(int argc, char **argv) {
     // the knob already sits, so anything else also scrolls the wall.
     bool scrub = false;
     float scrubAt = 0.5f;
+    // The scale to move to part way through, so the reflow can be captured.
+    float dpiChangeTo = 0.0f;
     // Zooms the fullscreen photo, which is the only thing that reaches for the
     // hi-res texture. Needs --fullscreen, and fires after it.
     bool zoom = false;
@@ -290,6 +372,8 @@ int main(int argc, char **argv) {
             popupButton = std::atoi(argv[++i]);
         } else if (arg == "--zoom") {
             zoom = true;
+        } else if (arg == "--dpi-change" && i + 1 < argc) {
+            dpiChangeTo = (float)std::atof(argv[++i]);
         } else if (arg == "--scrub") {
             scrub = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -417,54 +501,13 @@ int main(int argc, char **argv) {
     SDL_Log("GL_RENDERER : %s", (const char *)glGetString(GL_RENDERER));
 
     App::ASSET_ROOT = assetRoot();
-    // Two separate things, multiplied into the one knob the ported code reads.
-    // The display scale is what SDL reports for the monitor: how many physical
-    // pixels a logical pixel is worth, so text and assets stay crisp on HiDPI.
-    // The content scale says how big the wall should be, because the ported
-    // constants were picked for a 320x480 phone. Everything downstream keys off
-    // App::PIXEL_DENSITY - grid item size below, slot spacing in
-    // GridLayoutInterface, labels in DisplaySlot, quads in GridDrawables,
-    // thumbnail resolution in Texture - so scaling it here scales the whole
-    // wall coherently, and nothing else has to know.
-    float displayScale = SDL_GetWindowDisplayScale(window);
-    if (displayScale <= 0.0f) {
-        displayScale = 1.0f;
-    }
-    App::PIXEL_DENSITY = displayScale * App::CONTENT_SCALE;
-    // The chrome follows the display and not the wall, so a button is the size
-    // the screen asks for rather than that times the wall's enlargement.
-    App::UI_DENSITY = displayScale;
-
-    // What the platform says is safe to put controls in. SDL reports the whole
-    // client area on a desktop, so these come out zero and nothing moves; on a
-    // phone it is the rect left over once the cutouts are taken off.
-    {
-        SDL_Rect safeRect;
-        int windowWidth = 0;
-        int windowHeight = 0;
-        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-        if (SDL_GetWindowSafeArea(window, &safeRect)) {
-            App::SAFE_AREA.left = (float)safeRect.x;
-            App::SAFE_AREA.top = (float)safeRect.y;
-            App::SAFE_AREA.right = (float)(windowWidth - (safeRect.x + safeRect.w));
-            App::SAFE_AREA.bottom = (float)(windowHeight - (safeRect.y + safeRect.h));
-        }
-        if (safeAreaOverridden) {
-            App::SAFE_AREA = safeAreaOverride;
-        }
-        if (App::SAFE_AREA.left != 0.0f || App::SAFE_AREA.top != 0.0f || App::SAFE_AREA.right != 0.0f ||
-            App::SAFE_AREA.bottom != 0.0f) {
-            SDL_Log("Safe area insets: left %.0f top %.0f right %.0f bottom %.0f", App::SAFE_AREA.left,
-                    App::SAFE_AREA.top, App::SAFE_AREA.right, App::SAFE_AREA.bottom);
-        }
-    }
+    applyDisplayScale(window);
+    applySafeArea(window, safeAreaOverridden, safeAreaOverride);
 
     if (!bordered) {
         // After the density is known, since the hit test regions follow it.
         SDL_SetWindowHitTest(window, windowHitTest, nullptr);
     }
-    SDL_Log("PIXEL_DENSITY %.3f (display %.3f x content %.3f), UI_DENSITY %.3f, drawables from the %.1fx bucket",
-            App::PIXEL_DENSITY, displayScale, App::CONTENT_SCALE, App::UI_DENSITY, App::drawableBucketDensity());
     Canvas::initFonts();
 
     RenderView renderView;
@@ -494,7 +537,7 @@ int main(int argc, char **argv) {
     }
 
     GridLayoutInterface layoutInterface(4);
-    GridLayer gridLayer((int)(96.0f * App::PIXEL_DENSITY), (int)(72.0f * App::PIXEL_DENSITY), &layoutInterface,
+    GridLayer gridLayer(GridLayer::itemWidthForDensity(), GridLayer::itemHeightForDensity(), &layoutInterface,
                         &renderView);
     renderView.setRootLayer(&gridLayer);
     renderView.onSurfaceCreated();
@@ -504,17 +547,7 @@ int main(int argc, char **argv) {
     SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
     renderView.onSurfaceChanged(pixelWidth, pixelHeight);
 
-    // A fullscreen photo is drawn about as wide as the window, so decode it to
-    // at least that. Below the old 1024 there is nothing to gain, and the cap
-    // keeps a very large window from turning every photo into a 4096 texture.
-    {
-        int longEdge = (pixelWidth > pixelHeight) ? pixelWidth : pixelHeight;
-        App::SCREEN_NAIL_MAX_EDGE = std::min(2048, std::max(1024, longEdge));
-        // Twice that when zoomed, which covers the fill-screen zoom without
-        // trying to hold a whole 24 megapixel photo on the card.
-        App::HI_RES_MAX_EDGE = std::min(4096, App::SCREEN_NAIL_MAX_EDGE * 2);
-        SDL_Log("Screennail max edge %d, hi-res max edge %d", App::SCREEN_NAIL_MAX_EDGE, App::HI_RES_MAX_EDGE);
-    }
+    applyPhotoResolution(pixelWidth, pixelHeight);
 
     gridLayer.setDataSource(feedSource);
     if (!artic) {
@@ -581,6 +614,23 @@ int main(int argc, char **argv) {
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+                applySafeArea(window, safeAreaOverridden, safeAreaOverride);
+                applyPhotoResolution(pixelWidth, pixelHeight);
+                renderView.onSurfaceChanged(pixelWidth, pixelHeight);
+                renderView.requestRender();
+                break;
+            case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+            case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
+                // Dragged to a monitor with a different scale, or the scale on
+                // this one changed underneath us. Sizes fixed at the old
+                // density are wrong everywhere now, so the wall is rebuilt
+                // before the layout runs again.
+                if (applyDisplayScale(window)) {
+                    gridLayer.onDensityChanged();
+                }
+                SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+                applySafeArea(window, safeAreaOverridden, safeAreaOverride);
+                applyPhotoResolution(pixelWidth, pixelHeight);
                 renderView.onSurfaceChanged(pixelWidth, pixelHeight);
                 renderView.requestRender();
                 break;
@@ -687,6 +737,23 @@ int main(int argc, char **argv) {
         ++frameNumber;
         if (openSlot >= 0 && frameNumber == screenshotFrames / 2) {
             gridLayer.tapGesture(openSlot, false);
+        }
+        // Deliberately not on the same frame as the actions below: the reflow
+        // empties the display list, and entering fullscreen in the same frame
+        // would be reading it before anything refilled it. A real change lands
+        // between frames, not inside one.
+        if (dpiChangeTo > 0.0f && frameNumber == (screenshotFrames * 7) / 8) {
+            // The same path the window event takes, so what is captured here is
+            // what a real move between monitors does.
+            SDL_Log("Pretending the display scale became %.3f", dpiChangeTo);
+            sForcedDisplayScale = dpiChangeTo;
+            if (applyDisplayScale(window)) {
+                gridLayer.onDensityChanged();
+            }
+            SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+            applySafeArea(window, safeAreaOverridden, safeAreaOverride);
+            applyPhotoResolution(pixelWidth, pixelHeight);
+            renderView.onSurfaceChanged(pixelWidth, pixelHeight);
         }
         if (timeline && frameNumber == (screenshotFrames * 3) / 4) {
             gridLayer.setState(GridLayer::STATE_TIMELINE);

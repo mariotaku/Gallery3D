@@ -42,7 +42,20 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     static const int MAX_DISPLAY_SLOTS = 96;
     static const int MAX_ITEMS_DRAWABLE = MAX_ITEMS_PER_SLOT * MAX_DISPLAY_SLOTS;
 
+    // The wall's cell, in the units the original was laid out in, scaled by
+    // the wall's density. One place, because onDensityChanged has to work them
+    // out again and the two answers have to agree.
+    static int itemWidthForDensity();
+    static int itemHeightForDensity();
+
     GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view);
+
+    // Rebuilds everything whose size was fixed at the old density: the cell,
+    // the slot spacing, the shared quads and every drawable, which is reloaded
+    // from whichever bucket the new density asks for. The caller follows this
+    // with RenderView::onSurfaceChanged to put the new sizes through the
+    // layout.
+    void onDensityChanged();
     ~GridLayer() override;
 
     HudLayer *getHud() {
@@ -182,6 +195,11 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
 
   protected:
     void onSizeChanged() override;
+
+    // Empties the display list and forgets the per slot pointers into it, which
+    // the list owns and has just destroyed.
+    void clearDisplayList();
+
 
   private:
     int hitTest(const Vector3f &worldPos, int itemWidth, int itemHeight);

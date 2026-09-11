@@ -38,6 +38,13 @@ class Layer {
         }
     }
 
+    // Runs the layout again even though the box has not changed. A density
+    // change moves everything inside a window that stayed exactly the same
+    // size, and setSize above would take that for nothing to do.
+    void relayout() {
+        onSizeChanged();
+    }
+
     bool isHidden() const {
         return mHidden;
     }

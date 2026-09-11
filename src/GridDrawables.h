@@ -33,6 +33,12 @@ class GridDrawables {
     // there to hear it.
     static void releaseStringTextures();
 
+    // Builds the shared quads, once. They are sized from the item dimensions
+    // and PIXEL_DENSITY, so releaseQuads has to come first to rebuild them at
+    // a new density - see GridLayer::onDensityChanged.
+    static void buildQuads(int itemWidth, int itemHeight);
+    static void releaseQuads();
+
     TexturePtr mTextureFrame;
     TexturePtr mTextureGridFrame;
     TexturePtr mTextureFrameFocus;
