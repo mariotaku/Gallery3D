@@ -191,3 +191,52 @@ TEST(month_names_are_bounded) {
     CHECK(Dates::monthAbbreviation(13) == std::string(""));
     CHECK(Dates::monthAbbreviation(-1) == std::string(""));
 }
+
+// ---------------------------------------------------------------------------
+// How much of a date is known
+// ---------------------------------------------------------------------------
+
+TEST(a_set_takes_the_coarsest_precision_it_holds) {
+    // A caption can only be as precise as its vaguest member. One artwork known
+    // to the year is enough to stop the whole cluster claiming a month.
+    MediaSet set;
+    {
+        auto exact = std::make_unique<MediaItem>();
+        exact->mDateTakenInMs = Dates::startOfYearMs(1990);
+        exact->mDatePrecision = MediaItem::PRECISION_DAY;
+        set.addItem(std::move(exact));
+    }
+    CHECK_EQ(set.datePrecision(), (int)MediaItem::PRECISION_DAY);
+
+    {
+        auto vague = std::make_unique<MediaItem>();
+        vague->mDateTakenInMs = Dates::startOfYearMs(1889);
+        vague->mDatePrecision = MediaItem::PRECISION_YEAR;
+        set.addItem(std::move(vague));
+    }
+    CHECK_EQ(set.datePrecision(), (int)MediaItem::PRECISION_YEAR);
+}
+
+TEST(an_undated_item_does_not_coarsen_the_set) {
+    // Precision is only meaningful for an item that has a date at all.
+    MediaSet set;
+    {
+        auto exact = std::make_unique<MediaItem>();
+        exact->mDateTakenInMs = Dates::startOfYearMs(1990);
+        set.addItem(std::move(exact));
+    }
+    {
+        auto undated = std::make_unique<MediaItem>();
+        undated->mDateTakenInMs = 0;
+        undated->mDatePrecision = MediaItem::PRECISION_YEAR;
+        set.addItem(std::move(undated));
+    }
+    CHECK_EQ(set.datePrecision(), (int)MediaItem::PRECISION_DAY);
+}
+
+TEST(a_photo_keeps_the_precision_it_always_had) {
+    // Nothing that writes a real timestamp had to be changed, so the default
+    // has to be the precise one.
+    MediaItem item;
+    CHECK_EQ(item.mDatePrecision, (int)MediaItem::PRECISION_DAY);
+}

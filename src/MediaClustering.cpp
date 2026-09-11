@@ -296,7 +296,19 @@ void MediaClustering::generateCaptions() {
             const int64_t maxDay = dayKey(maxTimestamp);
             const int minYear = yearOf(minTimestamp);
             const int maxYear = yearOf(maxTimestamp);
-            if (minDay == maxDay) {
+            // Never finer than what is known. A catalogue that gave only a
+            // year is stored as the first of January, and saying "Jan" out
+            // loud invents a month nobody recorded.
+            const int precision = cluster->datePrecision();
+            if (precision >= MediaItem::PRECISION_YEAR) {
+                cluster->mName = minYear == maxYear
+                                     ? Dates::yearLabel(minYear)
+                                     : Dates::yearLabel(minYear) + " - " + Dates::yearLabel(maxYear);
+            } else if (precision >= MediaItem::PRECISION_MONTH) {
+                cluster->mName = monthYear(minTimestamp) == monthYear(maxTimestamp)
+                                     ? monthYear(minTimestamp)
+                                     : monthYear(minTimestamp) + " - " + monthYear(maxTimestamp);
+            } else if (minDay == maxDay) {
                 cluster->mName = dayMonthYear(minTimestamp);
             } else if (minYear == maxYear) {
                 // Same year, so the year only needs saying once.

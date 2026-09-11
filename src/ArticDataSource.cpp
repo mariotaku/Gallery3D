@@ -85,6 +85,9 @@ std::unique_ptr<MediaItem> ArticDataSource::makeItem(const nlohmann::json &artwo
     const int year = (int)intOr(artwork, "date_end", 0);
     if (year != 0 && year > -5000 && year < 2100) {
         item->mDateTakenInMs = Dates::startOfYearMs(year);
+        // The first of January, because the timestamp has to name some day.
+        // Nobody knows the month, and the label says so.
+        item->mDatePrecision = MediaItem::PRECISION_YEAR;
     }
     return item;
 }

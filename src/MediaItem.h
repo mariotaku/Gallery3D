@@ -12,6 +12,21 @@ class MediaItem {
     static const int MEDIA_TYPE_IMAGE = 0;
     static const int MEDIA_TYPE_VIDEO = 1;
 
+    // How much of the taken date is actually known.
+    //
+    // A camera writes an instant, down to the second. A catalogue often knows
+    // only a year: the museum's records say 772 BC and nothing finer. The
+    // timestamp has to name some day regardless - the clusterer and the time
+    // bar do arithmetic on it - so it names the first of January, and this says
+    // whether anyone should be shown that.
+    //
+    // Without it the wall reads "Jan 772 BC", which is a month nobody knows.
+    enum DatePrecision {
+        PRECISION_DAY = 0,  // the default: an instant, as a camera records it
+        PRECISION_MONTH = 1,
+        PRECISION_YEAR = 2,
+    };
+
     // The original bounded a valid capture date to between the end of 1974 and
     // 2034, on the reasoning that nothing it would ever show predates a digital
     // camera. That is true of a phone's camera roll and false of anything else:
@@ -44,6 +59,9 @@ class MediaItem {
     double mLongitude = 0.0;
 
     int64_t mDateTakenInMs = 0;
+    // Coarser only where a source says so, so anything that writes a real
+    // timestamp keeps the behaviour it had.
+    int mDatePrecision = PRECISION_DAY;
     int64_t mDateModifiedInSec = 0;
     int64_t mDateAddedInSec = 0;
 

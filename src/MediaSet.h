@@ -29,6 +29,7 @@ class MediaSet {
     // against zero called every one of them undated.
     int64_t mMinTimestamp = std::numeric_limits<int64_t>::max();
     int64_t mMaxTimestamp = std::numeric_limits<int64_t>::lowest();
+    int mDatePrecision = MediaItem::PRECISION_DAY;
     int64_t mMinAddedTimestamp = std::numeric_limits<int64_t>::max();
     int64_t mMaxAddedTimestamp = std::numeric_limits<int64_t>::lowest();
 
@@ -90,6 +91,12 @@ class MediaSet {
 
     bool areTimestampsAvailable() const {
         return mMinTimestamp <= mMaxTimestamp;
+    }
+
+    // The coarsest precision of anything in here, since a caption can only be
+    // as precise as its vaguest member.
+    int datePrecision() const {
+        return mDatePrecision;
     }
 
     bool areAddedTimestampsAvailable() const {

@@ -9,6 +9,11 @@ void MediaSet::addItemRef(MediaItem *item) {
     mItems.push_back(item);
 
     if (item->isDateTakenValid()) {
+        // The coarsest wins: a caption can only be as precise as its vaguest
+        // member.
+        if (item->mDatePrecision > mDatePrecision) {
+            mDatePrecision = item->mDatePrecision;
+        }
         int64_t dateTaken = item->mDateTakenInMs;
         if (dateTaken < mMinTimestamp) {
             mMinTimestamp = dateTaken;
