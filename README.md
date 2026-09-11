@@ -89,8 +89,8 @@ themselves into a bitmap before anything reaches GL, so `compose()` gives a test
 the same pixels the screen gets. Nothing is compared against a stored image;
 the checks are on the properties that have actually gone wrong, like a bar
 leaving a column of backdrop showing through between two of its pieces. They
-run at the density the port ships at, because the span arithmetic is exact at
-1.0 and only disagrees with itself at a fractional one.
+run at a fractional density, because the span arithmetic is exact at 1.0 and
+only disagrees with itself away from it.
 
 What is left for the screenshot flags on the binary is the 3D wall, where a
 mistake needs a camera and a texture to show up at all.
@@ -98,36 +98,36 @@ mistake needs a camera and a texture to show up at all.
 ## Run
 
 ```sh
-build/Release/gallery3d.exe [photo directory] [--also directory]
+build/Release/gallery3d.exe [photo directory]
+gallery3d --help
 ```
 
 Defaults to your Pictures folder. It walks the tree and makes one album per
-folder that holds images.
+folder that holds images. `--help` lists every flag; it is generated from the
+same place they are parsed, so unlike a list here it cannot quietly go stale.
+
+Three of them are worth explaining rather than listing.
+
+`--scale` says how much bigger the wall is than the phone it was laid out for.
+The original's constants come from a 320x480 handset, so without it the wall is
+a small cluster in the middle of the backdrop. It stretches stacks, spacing,
+captions and thumbnail resolution together. The display scale applies on top and
+separately, so the wall keeps its apparent size on a HiDPI screen while the
+controls stay the size that screen asks for.
 
 `--safe-area L,T,R,B` pretends the window has cutouts. The HUD lays itself out
-inside the safe rect that SDL reports, so a control never lands under a notch or
-a home indicator, while the wall and the backdrop keep the whole window. A
-desktop reports no insets, so this flag is the only way to see that layout here.
-It exists because the original had no such concept: in 2009 a phone screen was
-a rectangle and all of it was yours.
+inside the safe rect SDL reports, so a control never lands under a notch or a
+home indicator, while the wall and the backdrop keep the whole window. A desktop
+reports no insets, so this flag is the only way to exercise that layout here. It
+exists because the original had no such concept: in 2009 a phone screen was a
+rectangle and all of it was yours.
 
-`--also` shows a second directory on the same wall. It runs two data sources
-through `ConcatenatedDataSource`, which is the seam another kind of storage
-would plug into: each album remembers which source produced it, and the feed
-asks that one for its items and for deletes and rotations.
+`--also` shows a second directory on the same wall, through
+`ConcatenatedDataSource`. That is the seam another kind of storage would plug
+into: each album remembers which source produced it, and the feed asks that one
+for its items and for its deletes and rotations.
 
-The layout constants come from a 320x480 handset, so on a monitor the wall
-would be a small cluster in the middle of the backdrop. `--scale` stretches the
-whole wall - stacks, spacing, captions and thumbnail resolution together. It
-defaults to 1.5, which fills a 1280x800 window. Raise it for a bigger wall with
-fewer albums on screen, lower it for more.
-
-```sh
-gallery3d --scale 2.0        # bigger stacks, fewer per screen
-```
-
-The display DPI is a separate factor and still applies on top, so the wall
-keeps the same apparent size on a HiDPI screen.
+![grid view](docs/grid.png)
 
 | Input | Action |
 | --- | --- |
@@ -141,11 +141,17 @@ keeps the same apparent size on a HiDPI screen.
 | enter / space | open |
 | esc / backspace | back, and quit from the top level |
 
-For checking a build without a hand on the mouse:
+The window has no frame, so the backdrop reaches the top edge. Drag the strip
+along the top to move it, the edges to resize. Windows will not draw caption
+buttons for a frameless window, so Alt+F4 closes and `--bordered` puts the
+system frame back.
+
+The rest of the flags drive the app to a state and render a fixed number of
+frames, so a screenshot is repeatable without a hand on the mouse:
 
 ```sh
-gallery3d --screenshot out.png --frames 400        # render N frames, save the buffer
-gallery3d --open 3 --screenshot out.png --frames 700  # open album 3 first
+gallery3d --screenshot out.png --frames 400
+gallery3d --open 3 --select --popup 1 --screenshot out.png --frames 400
 ```
 
 ## Graphics context

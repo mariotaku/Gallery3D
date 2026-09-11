@@ -12,8 +12,9 @@ MediaSet *MediaFeed::addMediaSet(int64_t setId, DataSource *source) {
     std::lock_guard<std::mutex> lock(mSetsMutex);
     for (size_t i = 0; i < mMediaSets.size(); ++i) {
         if (mMediaSets[i]->mId == setId) {
-            // The set already exists but may be out of date. Drop it so the
-            // fresh one below replaces it rather than doubling up.
+            // Gingerbread fix: the set already exists but may be out of date.
+            // Drop it so the fresh one below replaces it rather than doubling
+            // up, which is what a rescan used to do.
             mMediaSets.erase(mMediaSets.begin() + (long)i);
             break;
         }

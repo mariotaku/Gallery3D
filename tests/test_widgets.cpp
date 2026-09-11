@@ -18,11 +18,12 @@
 
 namespace {
 
-// The chrome density the port actually runs at here: display 1.75 times the
-// content scale's 1.5. It matters because the span arithmetic is exact at 1.0
-// and only disagrees with itself at a fractional one, which is where the gap
-// between a crumb and its chevron came from.
-const float kShippingDensity = 2.625f;
+// A density with a fraction in it. The value itself does not matter, only that
+// it is not 1.0: the span arithmetic is exact there and only disagrees with
+// itself away from it, which is where the gap between a crumb and its chevron
+// came from. Naming a real display's scale here would be a fact that rots the
+// next time someone changes their settings.
+const float kFractionalDensity = 2.625f;
 
 struct ScopedDensity {
     explicit ScopedDensity(float density) : previous(App::UI_DENSITY) {
@@ -100,7 +101,7 @@ int opaquePixels(const Bitmap &bitmap) {
 }  // namespace
 
 TEST(path_bar_composes_a_bar_with_no_holes) {
-    ScopedDensity density(kShippingDensity);
+    ScopedDensity density(kFractionalDensity);
     PathBarLayer bar;
     bar.setSize(600.0f, PathBarLayer::preferredHeight());
     bar.pushLabel("icon_home_small", "Gallery", nullptr);
@@ -140,7 +141,7 @@ TEST(path_bar_grows_with_its_label) {
 }
 
 TEST(path_bar_with_one_crumb_still_caps_itself) {
-    ScopedDensity density(kShippingDensity);
+    ScopedDensity density(kFractionalDensity);
     PathBarLayer bar;
     bar.setSize(600.0f, PathBarLayer::preferredHeight());
     bar.pushLabel("icon_home_small", "Gallery", nullptr);
@@ -153,7 +154,7 @@ TEST(path_bar_with_one_crumb_still_caps_itself) {
 }
 
 TEST(menu_bar_lays_buttons_across_its_width) {
-    ScopedDensity density(kShippingDensity);
+    ScopedDensity density(kFractionalDensity);
     MenuBar bar;
     bar.setSize(600.0f, MenuBar::preferredHeight());
     std::vector<MenuBar::ButtonSpec> buttons;

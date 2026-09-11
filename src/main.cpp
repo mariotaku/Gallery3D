@@ -173,6 +173,41 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
     return SDL_HITTEST_NORMAL;
 }
 
+// The flag list lives here and only here. A copy of it in the readme would be
+// wrong within a release or two; this one cannot drift from the parser below
+// without somebody noticing on the next run.
+void printUsage() {
+    SDL_Log("Usage: gallery3d [photo directory] [options]");
+    SDL_Log("");
+    SDL_Log("  Browses a directory of photos as a 3D wall, one stack per folder.");
+    SDL_Log("  Defaults to your Pictures folder.");
+    SDL_Log("");
+    SDL_Log("Options");
+    SDL_Log("  --also DIR           show a second directory on the same wall");
+    SDL_Log("  --scale N            how much bigger the wall is than the phone it was");
+    SDL_Log("                       laid out for; raise for bigger stacks, fewer on screen");
+    SDL_Log("  --bordered           keep the system title bar instead of running the");
+    SDL_Log("                       backdrop to the top of the window");
+    SDL_Log("  --safe-area L,T,R,B  pretend the window has cutouts, so the layout that");
+    SDL_Log("                       keeps controls clear of a notch can be seen here");
+    SDL_Log("  --help               this");
+    SDL_Log("");
+    SDL_Log("Checking a build without a hand on the mouse. These drive the app to a");
+    SDL_Log("state and render a fixed number of frames, so a screenshot is repeatable.");
+    SDL_Log("  --screenshot PATH    save the framebuffer and exit");
+    SDL_Log("  --frames N           how many frames to render first");
+    SDL_Log("  --open N             open album N on the way");
+    SDL_Log("  --timeline           switch to the timeline");
+    SDL_Log("  --fullscreen         open a photo fullscreen");
+    SDL_Log("  --zoom               zoom that photo, which is what reaches for the");
+    SDL_Log("                       full resolution texture (needs --fullscreen)");
+    SDL_Log("  --select             enter selection mode and pick one item");
+    SDL_Log("  --rotate             rotate the selection (needs --select)");
+    SDL_Log("  --delete             delete the selection (needs --select)");
+    SDL_Log("  --popup N            tap button N on the selection bar (needs --select)");
+    SDL_Log("  --scrub [0..1]       hold a drag on the time bar (needs --open)");
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -241,6 +276,10 @@ int main(int argc, char **argv) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 scrubAt = (float)std::atof(argv[++i]);
             }
+        } else if (arg == "--help" || arg == "-h" || arg == "/?") {
+            // Before SDL_Init, so there is nothing to tear down.
+            printUsage();
+            return 0;
         } else if (arg == "--bordered") {
             bordered = true;
         } else if (arg == "--safe-area" && i + 1 < argc) {
