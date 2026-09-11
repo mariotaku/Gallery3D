@@ -40,6 +40,11 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     static const int MAX_DISPLAYED_ITEMS_PER_SLOT = 4;
     static const int MAX_DISPLAYED_ITEMS_PER_FOCUSED_SLOT = 32;
     static const int MAX_DISPLAY_SLOTS = 96;
+    // How much of that array the padding around the visible range can take.
+    // GridCameraManager rounds the range out to whole buffers of 24 either
+    // side; measured, the padding has run to 13 slots past what is on screen,
+    // and this leaves room for three times that.
+    static const int kSlotRangePadding = 40;
     static const int MAX_ITEMS_DRAWABLE = MAX_ITEMS_PER_SLOT * MAX_DISPLAY_SLOTS;
 
     // The wall's cell, in the units the original was laid out in, scaled by
@@ -47,6 +52,11 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     // out again and the two answers have to agree.
     static int itemWidthForDensity();
     static int itemHeightForDensity();
+
+    // How many rows of slots fit in the height the wall is visible in, given
+    // the gaps this state puts between them. At least one, however small the
+    // window, and never more than the display slot array can hold.
+    int rowsForViewport(int spacingX, int spacingY) const;
 
     GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view);
 

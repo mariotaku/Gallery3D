@@ -8,7 +8,9 @@
 #include "App.h"
 #include "FloatUtils.h"
 #include "LocalDataSource.h"
+#include "MenuBar.h"
 #include "MediaItem.h"
+#include "PathBarLayer.h"
 #include "RenderView.h"
 #include "Shared.h"
 
@@ -47,6 +49,39 @@ int GridLayer::itemWidthForDensity() {
 
 int GridLayer::itemHeightForDensity() {
     return (int)(72.0f * App::PIXEL_DENSITY);
+}
+
+int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
+    const int pitch = mCamera->mItemHeight + spacingY;
+    if (pitch <= 0) {
+        return 1;
+    }
+
+    // The height a row can be seen in. The wall itself runs edge to edge - a
+    // photo behind a notch is the right trade - but a row is only worth laying
+    // out where it will not sit under the bar at the top or the one at the
+    // bottom.
+    const App::SafeAreaInsets &safe = App::SAFE_AREA;
+    const float obscured = safe.top + safe.bottom + PathBarLayer::preferredHeight() + MenuBar::preferredHeight();
+    const int available = (int)((float)mCamera->mHeight - obscured);
+
+    // n rows span n items and the n-1 gaps between them.
+    int rows = (available + spacingY) / pitch;
+
+    // Bounded by the display slot array, which is a fixed size. Every slot on
+    // screen needs an entry, and the visible range is padded either side so
+    // scrolling does not have to rebuild it, so the columns across decide how
+    // many rows there is room for. A slot past the end of the array is drawn as
+    // nothing at all rather than reported.
+    const int columnPitch = mCamera->mItemWidth + spacingX;
+    if (columnPitch > 0) {
+        const int columns = mCamera->mWidth / columnPitch + 2;
+        const int maxRows = (MAX_DISPLAY_SLOTS - kSlotRangePadding) / (columns > 0 ? columns : 1);
+        if (rows > maxRows) {
+            rows = maxRows;
+        }
+    }
+    return (rows < 1) ? 1 : rows;
 }
 
 GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInterface, RenderView *view)
@@ -132,7 +167,7 @@ void GridLayer::setState(int state) {
     oldLayout->mSpacingY = layoutInterface->mSpacingY;
 
     GridCamera *camera = mCamera.get();
-    int numMaxRows = (camera->mHeight >= camera->mWidth) ? 4 : 3;
+    (void)camera;
     MediaFeed *feed = mMediaFeed.get();
     bool performLayout = true;
     mZoomValue = 1.0f;
@@ -149,9 +184,9 @@ void GridLayer::setState(int state) {
                 performLayout = false;
             }
         }
-        layoutInterface->mNumRows = numMaxRows;
         layoutInterface->mSpacingX = (int)(10 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(10 * App::PIXEL_DENSITY);
+        layoutInterface->mNumRows = rowsForViewport(layoutInterface->mSpacingX, layoutInterface->mSpacingY);
         if (mState == STATE_MEDIA_SETS) {
             // Entering an album.
             mInAlbum = true;
@@ -183,9 +218,9 @@ void GridLayer::setState(int state) {
             performLayout = false;
         }
         disableLocationFiltering();
-        layoutInterface->mNumRows = numMaxRows - 1;
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
+        layoutInterface->mNumRows = rowsForViewport(layoutInterface->mSpacingX, layoutInterface->mSpacingY);
         break;
     case STATE_FULL_SCREEN:
         layoutInterface->mNumRows = 1;
@@ -214,9 +249,9 @@ void GridLayer::setState(int state) {
         }
         disableLocationFiltering();
         mInputProcessor->clearSelection();
-        layoutInterface->mNumRows = numMaxRows - 1;
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
+        layoutInterface->mNumRows = rowsForViewport(layoutInterface->mSpacingX, layoutInterface->mSpacingY);
         if (mInAlbum) {
             if (mState == STATE_FULL_SCREEN) {
                 mHud.getPathBar()->popLabel();
