@@ -6,14 +6,22 @@
 // half, since nothing in the UI knows what an artwork is; it only asks the
 // source what is allowed.
 //
-// An album is an exhibition. The API has several things that could stand in for
-// one - departments, galleries, category terms - and exhibitions are the only
-// grouping a person actually curated, with a title worth reading. Category
-// terms were the obvious candidate and turned out to be eleven thousand mostly
-// obscure tags.
+// An album is a category term - one of the museum's own departments, or one of
+// the themes its curators group work under. "Arts of Africa", "Photography and
+// Media", "Silk Road". There are eleven thousand category terms in all, but
+// their subtype sorts them: the hundred or so departments and themes are real
+// groupings, and the rest are the tags that describe a single object, like
+// "oil paint" or "ibis".
 //
-// The first page fetches covers only, a handful per exhibition in one request.
-// Opening an album fetches the rest, which is what the feed's lazy path is for.
+// The whole first page costs two requests. The search endpoint passes
+// Elasticsearch straight through, so one call carries a terms aggregation over
+// category_ids, which ranks every category by how many artworks in it have a
+// picture, with a top_hits aggregation nested inside that brings back each
+// one's covers in the same response. A second call turns the winning ids into
+// titles. Nothing else is fetched before the wall is drawn.
+//
+// Opening an album fetches the rest of it, which is what the feed's lazy path
+// is for.
 //
 // https://api.artic.edu/docs/
 #pragma once
@@ -26,14 +34,16 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json_fwd.hpp>
+
 #include "LocalDataSource.h"
 
 class ArticDataSource : public DataSource {
   public:
-    // How many exhibitions to put on the wall, and how many covers to show on
+    // How many categories to put on the wall, and how many covers to show on
     // each stack before the album is opened.
     ArticDataSource(int albums = 12, int coversPerAlbum = 4)
-        : mAlbums(albums), mCoversPerAlbum(coversPerAlbum) {}
+        : mAlbumCount(albums), mCoversPerAlbum(coversPerAlbum) {}
 
     void loadMediaSets(MediaFeed *feed) override;
     void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
@@ -42,20 +52,39 @@ class ArticDataSource : public DataSource {
     // delete from, and the default already says no to everything.
 
   private:
-    // Turns a list of artwork ids into items, without touching the feed. The
-    // caller decides whether there is enough here to be worth a set, because an
-    // album with nothing in it is worse than no album.
-    std::vector<std::unique_ptr<MediaItem>> fetchArtworks(MediaFeed *feed, const std::vector<int64_t> &ids,
-                                                          size_t limit);
+    // A category worth putting on the wall. Small and copyable, because it is
+    // kept until the album is opened.
+    struct Album {
+        std::string categoryId;  // "PC-13"
+        std::string title;
+        int total = 0;  // artworks in it that have a picture
+    };
 
-    int mAlbums;
+    // An album and the covers that came back with it, in the one response.
+    struct AlbumPage {
+        Album album;
+        std::vector<std::unique_ptr<MediaItem>> covers;
+    };
+
+    // The two requests that make the whole first page.
+    std::vector<AlbumPage> fetchAlbums(MediaFeed *feed);
+
+    // Artworks from one category, skipping the first `from`. For opening an
+    // album; the first page already has its covers.
+    std::vector<std::unique_ptr<MediaItem>> fetchArtworks(MediaFeed *feed, const std::string &categoryId, int from,
+                                                          int limit);
+
+    // One artwork record to one item, or null when it has no picture.
+    std::unique_ptr<MediaItem> makeItem(const nlohmann::json &artwork) const;
+
+    int mAlbumCount;
     int mCoversPerAlbum;
 
     std::string mIiifBase = "https://www.artic.edu/iiif/2";
 
-    // What each album still has to fetch, and which ones are finished. Keyed by
+    // Which category each set came from, and which sets are finished. Keyed by
     // the set id, because a MediaSet has nowhere to keep this.
-    std::map<int64_t, std::vector<int64_t>> mArtworkIds;
+    std::map<int64_t, Album> mAlbumsBySet;
     std::set<int64_t> mFullyLoaded;
     std::mutex mAlbumMutex;
 

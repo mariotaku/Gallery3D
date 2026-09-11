@@ -21,6 +21,11 @@ const char *const kApi = "https://api.artic.edu/api/v1";
 
 // The fields an artwork needs to become a MediaItem. Asking for only these
 // keeps the responses small enough to parse without noticing.
+// A department can hold fifty thousand records. The wall is not a catalogue
+// browser, and asking for all of them is a long wait for a page nobody
+// scrolls to the end of.
+const int kMaxItemsPerAlbum = 100;
+
 const char *const kArtworkFields = "id,title,image_id,artist_title,date_end";
 
 size_t appendToVector(void *data, size_t size, size_t count, void *userData) {
@@ -31,10 +36,33 @@ size_t appendToVector(void *data, size_t size, size_t count, void *userData) {
     return total;
 }
 
+// One curl handle per thread, kept open for the life of it.
+//
+// This matters more than it looks. A fresh handle means a fresh DNS lookup and
+// a fresh TLS handshake for every single image, and the texture threads fetch
+// hundreds. Reusing the handle keeps the connection, the TLS session and the
+// resolved address, so the second image onward costs one round trip instead of
+// four. curl_easy_reset clears the options and keeps all of that.
+CURL *threadHandle() {
+    struct Holder {
+        CURL *handle = curl_easy_init();
+        ~Holder() {
+            if (handle != nullptr) {
+                curl_easy_cleanup(handle);
+            }
+        }
+    };
+    static thread_local Holder holder;
+    if (holder.handle != nullptr) {
+        curl_easy_reset(holder.handle);
+    }
+    return holder.handle;
+}
+
 // One blocking GET. Every caller is already on a worker thread, so blocking
 // here is the point rather than a problem.
 bool fetch(const std::string &url, std::vector<uint8_t> *out) {
-    CURL *handle = curl_easy_init();
+    CURL *handle = threadHandle();
     if (handle == nullptr) {
         return false;
     }
@@ -43,8 +71,15 @@ bool fetch(const std::string &url, std::vector<uint8_t> *out) {
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, appendToVector);
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, out);
     curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(handle, CURLOPT_TIMEOUT, 30L);
-    curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 10L);
+    // There are only four texture threads, so a thread parked on a dead
+    // connection is a quarter of the pool doing nothing and a wall that stops
+    // filling in. Give up on one that has stalled rather than waiting out the
+    // whole timeout: under a kilobyte a second for five seconds is a transfer
+    // that is not coming back.
+    curl_easy_setopt(handle, CURLOPT_TIMEOUT, 20L);
+    curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 5L);
+    curl_easy_setopt(handle, CURLOPT_LOW_SPEED_LIMIT, 1024L);
+    curl_easy_setopt(handle, CURLOPT_LOW_SPEED_TIME, 5L);
     // The docs ask callers to identify themselves with AIC-User-Agent, and the
     // image server means it: without that header every IIIF request is a 403,
     // while the json endpoints serve anyone. A plain User-Agent does not do.
@@ -55,7 +90,7 @@ bool fetch(const std::string &url, std::vector<uint8_t> *out) {
     CURLcode result = curl_easy_perform(handle);
     long status = 0;
     curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
-    curl_easy_cleanup(handle);
+    // The handle stays; only the header list is ours to free.
     curl_slist_free_all(headers);
     if (result != CURLE_OK) {
         SDL_Log("artic: %s: %s", url.c_str(), curl_easy_strerror(result));
@@ -81,30 +116,56 @@ bool fetchJson(const std::string &url, nlohmann::json *out) {
     return true;
 }
 
-std::string join(const std::vector<int64_t> &values, size_t from, size_t count) {
-    std::string out;
-    for (size_t i = from; i < values.size() && i < from + count; ++i) {
-        if (!out.empty()) {
-            out += ",";
-        }
-        out += std::to_string(values[i]);
-    }
-    return out;
-}
-
 }  // namespace
 
+std::unique_ptr<MediaItem> ArticDataSource::makeItem(const nlohmann::json &artwork) const {
+    std::string imageId = stringOr(artwork, "image_id", "");
+    if (imageId.empty()) {
+        // Every query here asks for records that have one, but a field can
+        // still come back null, and a wall of blanks helps nobody.
+        return nullptr;
+    }
+    auto item = std::make_unique<MediaItem>();
+    item->mId = intOr(artwork, "id", 0);
+    item->mCaption = stringOr(artwork, "title", "Untitled");
+    std::string artist = stringOr(artwork, "artist_title", "");
+    if (!artist.empty()) {
+        item->mCaption += " - " + artist;
+    }
+    // No path, which is the whole point. mContentUri is how the item is
+    // addressed and readItemBytes is what turns it into pixels.
+    //
+    // The size has to be "!843,843", fit inside that box, rather than "843,"
+    // meaning exactly that wide. The server refuses to scale past 100%, so
+    // asking for a fixed width is a 403 for every artwork whose original is
+    // narrower, and plenty are. "max" and "full" are refused for the same
+    // reason.
+    item->mContentUri = mIiifBase + "/" + imageId + "/full/!843,843/0/default.jpg";
+    item->mThumbnailUri = item->mContentUri;
+    item->mScreennailUri = item->mContentUri;
+    item->mMimeType = "image/jpeg";
+    // The catalogue's year, so the timeline has something to cluster on.
+    int year = (int)intOr(artwork, "date_end", 0);
+    if (year > 1000 && year < 2100) {
+        item->mDateTakenInMs = ((int64_t)(year - 1970)) * 365LL * 24LL * 3600LL * 1000LL;
+    }
+    return item;
+}
+
 std::vector<std::unique_ptr<MediaItem>> ArticDataSource::fetchArtworks(MediaFeed *feed,
-                                                                      const std::vector<int64_t> &ids,
-                                                                      size_t limit) {
+                                                                      const std::string &categoryId, int from,
+                                                                      int limit) {
     std::vector<std::unique_ptr<MediaItem>> items;
-    if (ids.empty() || limit == 0) {
+    if (categoryId.empty() || limit <= 0) {
         return items;
     }
-    // The API takes a comma separated id list, which is one request instead of
-    // one per artwork.
-    std::string url = std::string(kApi) + "/artworks?limit=100&fields=" + kArtworkFields +
-                      "&ids=" + join(ids, 0, limit);
+    // In this category, and having a picture: both halves of a bool query.
+    // Without the second half this pages through records that can never be
+    // drawn, and an album comes up short for no visible reason.
+    std::string url = std::string(kApi) + "/artworks/search?fields=" + kArtworkFields +
+                      "&limit=" + std::to_string(limit) + "&from=" + std::to_string(from) +
+                      "&query[bool][must][0][term][category_ids]=" + categoryId +
+                      "&query[bool][must][1][exists][field]=image_id";
     nlohmann::json parsed;
     if (!fetchJson(url, &parsed) || !parsed.contains("data")) {
         return items;
@@ -112,40 +173,128 @@ std::vector<std::unique_ptr<MediaItem>> ArticDataSource::fetchArtworks(MediaFeed
     if (feed->isCancelled()) {
         return items;
     }
-
     for (const nlohmann::json &artwork : parsed["data"]) {
-        std::string imageId = stringOr(artwork, "image_id", "");
-        if (imageId.empty()) {
-            // Not every record has a picture, and a wall of blanks helps nobody.
-            continue;
+        if (std::unique_ptr<MediaItem> item = makeItem(artwork)) {
+            items.push_back(std::move(item));
         }
-        auto item = std::make_unique<MediaItem>();
-        item->mId = intOr(artwork, "id", 0);
-        item->mCaption = stringOr(artwork, "title", "Untitled");
-        std::string artist = stringOr(artwork, "artist_title", "");
-        if (!artist.empty()) {
-            item->mCaption += " - " + artist;
-        }
-        // No path, which is the whole point. mContentUri is how the item is
-        // addressed and readItemBytes is what turns it into pixels.
-        //
-        // The size has to be "!843,843", fit inside that box, rather than
-        // "843," meaning exactly that wide. The server refuses to scale past
-        // 100%, so asking for a fixed width is a 403 for every artwork whose
-        // original is narrower, and plenty are. "max" and "full" are refused
-        // for the same reason.
-        item->mContentUri = mIiifBase + "/" + imageId + "/full/!843,843/0/default.jpg";
-        item->mThumbnailUri = item->mContentUri;
-        item->mScreennailUri = item->mContentUri;
-        item->mMimeType = "image/jpeg";
-        // The catalogue's year, so the timeline has something to cluster on.
-        int year = (int)intOr(artwork, "date_end", 0);
-        if (year > 1000 && year < 2100) {
-            item->mDateTakenInMs = ((int64_t)(year - 1970)) * 365LL * 24LL * 3600LL * 1000LL;
-        }
-        items.push_back(std::move(item));
     }
     return items;
+}
+
+std::vector<ArticDataSource::AlbumPage> ArticDataSource::fetchAlbums(MediaFeed *feed) {
+    std::vector<AlbumPage> pages;
+
+    // Request one, and the whole wall comes out of it.
+    //
+    // The terms aggregation ranks the categories by how many artworks in them
+    // have a picture. The top_hits nested inside it returns that many artworks
+    // per category, with the fields an item needs, so the covers arrive in the
+    // same response rather than in a request each. Twelve albums used to be
+    // thirteen round trips before anything could be drawn; now it is this one.
+    std::string covers = std::to_string(mCoversPerAlbum);
+    std::string url = std::string(kApi) +
+                      "/artworks/search?limit=0&query[exists][field]=image_id"
+                      "&aggs[categories][terms][field]=category_ids"
+                      "&aggs[categories][terms][size]=60"
+                      "&aggs[categories][aggs][covers][top_hits][size]=" +
+                      covers +
+                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=id"
+                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=title"
+                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=image_id"
+                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=artist_title"
+                      "&aggs[categories][aggs][covers][top_hits][_source][includes][]=date_end";
+    nlohmann::json parsed;
+    if (!fetchJson(url, &parsed)) {
+        return pages;
+    }
+    if (parsed.contains("config")) {
+        // The IIIF endpoint is advertised rather than assumed. Read before any
+        // item is made, since every item's url is built from it.
+        mIiifBase = stringOr(parsed["config"], "iiif_url", mIiifBase.c_str());
+    }
+    auto aggregations = parsed.find("aggregations");
+    if (aggregations == parsed.end() || !aggregations->contains("categories")) {
+        SDL_Log("artic: no aggregations came back");
+        return pages;
+    }
+    const nlohmann::json &buckets = (*aggregations)["categories"]["buckets"];
+    if (!buckets.is_array() || buckets.empty()) {
+        return pages;
+    }
+    if (feed->isCancelled()) {
+        return pages;
+    }
+
+    std::string ids;
+    for (const nlohmann::json &bucket : buckets) {
+        std::string key = stringOr(bucket, "key", "");
+        if (key.empty()) {
+            continue;
+        }
+        if (!ids.empty()) {
+            ids += ",";
+        }
+        ids += key;
+    }
+    if (ids.empty()) {
+        return pages;
+    }
+
+    // Request two: what those ids are called, and which of them are a grouping
+    // rather than a label on one object. Most of the eleven thousand terms
+    // describe a material or a subject. The departments and themes are the ones
+    // somebody curated, and the only ones worth a stack.
+    url = std::string(kApi) + "/category-terms?limit=100&fields=id,title,subtype&ids=" + ids;
+    nlohmann::json terms;
+    if (!fetchJson(url, &terms) || !terms.contains("data")) {
+        return pages;
+    }
+    std::map<std::string, std::string> titles;
+    for (const nlohmann::json &term : terms["data"]) {
+        std::string subtype = stringOr(term, "subtype", "");
+        if (subtype != "department" && subtype != "theme") {
+            continue;
+        }
+        std::string id = stringOr(term, "id", "");
+        if (!id.empty()) {
+            titles[id] = stringOr(term, "title", "Untitled");
+        }
+    }
+
+    // Back in the aggregation's order, so the fullest categories come first.
+    for (const nlohmann::json &bucket : buckets) {
+        if ((int)pages.size() >= mAlbumCount) {
+            break;
+        }
+        std::string key = stringOr(bucket, "key", "");
+        auto title = titles.find(key);
+        if (title == titles.end()) {
+            continue;
+        }
+        auto hits = bucket.find("covers");
+        if (hits == bucket.end()) {
+            continue;
+        }
+        AlbumPage page;
+        for (const nlohmann::json &hit : (*hits)["hits"]["hits"]) {
+            auto source = hit.find("_source");
+            if (source == hit.end()) {
+                continue;
+            }
+            if (std::unique_ptr<MediaItem> item = makeItem(*source)) {
+                page.covers.push_back(std::move(item));
+            }
+        }
+        if (page.covers.empty()) {
+            // A category with no cover cannot be drawn as a stack.
+            continue;
+        }
+        page.album.categoryId = key;
+        page.album.title = title->second;
+        page.album.total = (int)intOr(bucket, "doc_count", 0);
+        pages.push_back(std::move(page));
+    }
+    return pages;
 }
 
 void ArticDataSource::loadMediaSets(MediaFeed *feed) {
@@ -154,103 +303,78 @@ void ArticDataSource::loadMediaSets(MediaFeed *feed) {
     static std::once_flag curlOnce;
     std::call_once(curlOnce, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
 
-    // Ask for more than are wanted, because plenty of exhibitions have no
-    // artworks attached and are no use as an album.
-    std::string url = std::string(kApi) + "/exhibitions?limit=100&fields=id,title,artwork_ids";
-    nlohmann::json parsed;
-    if (!fetchJson(url, &parsed) || !parsed.contains("data")) {
+    std::vector<AlbumPage> pages = fetchAlbums(feed);
+    if (pages.empty()) {
+        SDL_Log("artic: no categories came back");
         return;
     }
-    if (parsed.contains("config")) {
-        // The IIIF endpoint is advertised rather than assumed.
-        mIiifBase = stringOr(parsed["config"], "iiif_url", mIiifBase.c_str());
-    }
 
-    int albums = 0;
-    for (const nlohmann::json &exhibition : parsed["data"]) {
-        if (feed->isCancelled() || albums >= mAlbums) {
+    int64_t setId = 0;
+    for (AlbumPage &page : pages) {
+        if (feed->isCancelled()) {
             return;
         }
-        auto ids = exhibition.find("artwork_ids");
-        if (ids == exhibition.end() || !ids->is_array() || ids->size() < 4) {
-            continue;
-        }
-        std::vector<int64_t> artworkIds;
-        for (const nlohmann::json &id : *ids) {
-            if (id.is_number_integer()) {
-                artworkIds.push_back(id.get<int64_t>());
-            }
-        }
-        if (artworkIds.empty()) {
-            continue;
-        }
-
-        // Covers first, and the set only once they are in hand. An exhibition
-        // whose artworks have no pictures must not become a set at all: an
-        // empty album reaches the draw code as a stack with no cover, and that
-        // is a crash rather than a blank.
-        std::vector<std::unique_ptr<MediaItem>> covers =
-            fetchArtworks(feed, artworkIds, (size_t)mCoversPerAlbum);
-        if (covers.empty()) {
-            continue;
-        }
-
-        int64_t setId = intOr(exhibition, "id", 0);
+        // A category id is a string and a set wants a number, so the sets are
+        // numbered as they are made. Nothing outside here reads the number, and
+        // mAlbumsBySet maps it back when the album is opened.
+        ++setId;
         MediaSet *set = feed->addMediaSet(setId, this);
-        set->mName = stringOr(exhibition, "title", "Untitled exhibition");
+        set->mName = page.album.title;
         set->mIsLocal = false;
-        for (std::unique_ptr<MediaItem> &cover : covers) {
+        for (std::unique_ptr<MediaItem> &cover : page.covers) {
             set->addItem(std::move(cover));
         }
         {
             std::lock_guard<std::mutex> lock(mAlbumMutex);
-            mArtworkIds[setId] = artworkIds;
+            mAlbumsBySet[setId] = page.album;
         }
-        // The stack says how many the exhibition holds, not how many have been
-        // fetched, so the count does not jump when the album is opened.
-        set->setNumExpectedItems((int)artworkIds.size());
+        // How many the category actually holds. Only the first hundred are
+        // ever fetched, but a stack labelled 100 tells you nothing and makes
+        // every department on the wall look the same size, when one of them has
+        // fifty thousand works in it and another has a few hundred.
+        set->setNumExpectedItems(page.album.total);
         set->generateTitle(true);
-        ++albums;
-        // Published as they arrive, so the wall fills in rather than staying
-        // empty until every exhibition is in.
+        // Published as they are made. They all came out of one response, so
+        // this is the wall appearing rather than filling in.
         feed->updateListener(true);
     }
-    SDL_Log("artic: %d exhibitions on the wall", albums);
+    SDL_Log("artic: %d categories on the wall", (int)pages.size());
 }
 
 void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
     if (parentSet == nullptr) {
         return;
     }
-    std::vector<int64_t> ids;
+    Album album;
     {
         std::lock_guard<std::mutex> lock(mAlbumMutex);
         if (mFullyLoaded.count(parentSet->mId) != 0) {
             return;
         }
-        auto found = mArtworkIds.find(parentSet->mId);
-        if (found == mArtworkIds.end()) {
+        auto found = mAlbumsBySet.find(parentSet->mId);
+        if (found == mAlbumsBySet.end()) {
             return;
         }
-        ids = found->second;
+        album = found->second;
         mFullyLoaded.insert(parentSet->mId);
     }
 
-    // The covers are already here, so start past them. 100 is the API's page
-    // size and plenty for one wall.
-    size_t have = (size_t)parentSet->getNumItems();
-    if (have >= ids.size()) {
+    // The covers are already here, so start past them.
+    const int have = parentSet->getNumItems();
+    const int wanted = std::min(kMaxItemsPerAlbum, album.total) - have;
+    if (wanted <= 0) {
         return;
     }
-    std::vector<int64_t> remaining(ids.begin() + (long)have, ids.end());
-    std::vector<std::unique_ptr<MediaItem>> items = fetchArtworks(feed, remaining, 100);
+    std::vector<std::unique_ptr<MediaItem>> items = fetchArtworks(feed, album.categoryId, have, wanted);
     int added = (int)items.size();
     for (std::unique_ptr<MediaItem> &item : items) {
         parentSet->addItem(std::move(item));
     }
-    parentSet->updateNumExpectedItems();
+    // Not updateNumExpectedItems: that would set the count to what is loaded
+    // and the label would fall from the category's real size to a hundred the
+    // moment the album opened. The count stays what the catalogue says.
     parentSet->generateTitle(true);
-    SDL_Log("artic: %s filled in with %d more", parentSet->mName.c_str(), added);
+    SDL_Log("artic: %s filled in with %d more of %d", parentSet->mName.c_str(), added, album.total);
 }
 
 bool ArticDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
