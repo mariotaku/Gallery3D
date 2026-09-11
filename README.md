@@ -98,31 +98,33 @@ mistake needs a camera and a texture to show up at all.
 ## Run
 
 ```sh
-build/Release/gallery3d.exe [photo directory]
+build/Release/gallery3d.exe
 gallery3d --help
 ```
 
-Defaults to your Pictures folder. It walks the tree and makes one album per
-folder that holds images. `--help` lists every flag; it is generated from the
-same place they are parsed, so unlike a list here it cannot quietly go stale.
+It walks a directory tree and makes one album per folder that holds images,
+your Pictures folder unless `library.photos` says otherwise. What to browse and
+how it should look are [settings](#settings), not flags. `--help` lists them
+from the same table the parser uses, so unlike a list here it cannot quietly go
+stale.
 
-Three of them are worth explaining rather than listing.
+Three are worth explaining rather than listing.
 
-`--scale` says how much bigger the wall is than the phone it was laid out for.
-The original's constants come from a 320x480 handset, so without it the wall is
+`wall.scale` says how much bigger the wall is than the phone it was laid out
+for. The original's constants come from a 320x480 handset, so at 1.0 the wall is
 a small cluster in the middle of the backdrop. It stretches stacks, spacing,
 captions and thumbnail resolution together. The display scale applies on top and
 separately, so the wall keeps its apparent size on a HiDPI screen while the
 controls stay the size that screen asks for.
 
-`--safe-area L,T,R,B` pretends the window has cutouts. The HUD lays itself out
-inside the safe rect SDL reports, so a control never lands under a notch or a
-home indicator, while the wall and the backdrop keep the whole window. A desktop
-reports no insets, so this flag is the only way to exercise that layout here. It
-exists because the original had no such concept: in 2009 a phone screen was a
-rectangle and all of it was yours.
+`window.safe-area` pretends the window has cutouts, as `left,top,right,bottom`.
+The HUD lays itself out inside the safe rect SDL reports, so a control never
+lands under a notch or a home indicator, while the wall and the backdrop keep
+the whole window. A desktop reports no insets, so this is the only way to
+exercise that layout here. It exists because the original had no such concept:
+in 2009 a phone screen was a rectangle and all of it was yours.
 
-`--also` shows a second directory on the same wall, through
+`library.also` shows a second directory on the same wall, through
 `ConcatenatedDataSource`. That is the seam another kind of storage would plug
 into: each album remembers which source produced it, and the feed asks that one
 for its items and for its deletes and rotations.
@@ -141,18 +143,24 @@ for its items and for its deletes and rotations.
 | enter / space | open |
 | esc / backspace | back, and quit from the top level |
 
-The window has no frame, so the backdrop reaches the top edge. Drag the strip
-along the top to move it, the edges to resize. Windows will not draw caption
-buttons for a frameless window, so Alt+F4 closes and `--bordered` puts the
-system frame back.
+The window keeps its system frame, and the content is extended up under the
+caption so the backdrop reaches the top edge. Snapping, the resize borders and
+the shadow stay the system's to handle. The caption buttons are drawn by the
+app, since a client area that covers them has to. It will not resize below 320
+by 320 of the display's own units, which is the smallest the HUD and the wall
+both fit in.
 
-The rest of the flags drive the app to a state and render a fixed number of
+The flags that remain drive the app to a state and render a fixed number of
 frames, so a screenshot is repeatable without a hand on the mouse:
 
 ```sh
 gallery3d --screenshot out.png --frames 400
 gallery3d --open 3 --select --popup 1 --screenshot out.png --frames 400
+gallery3d --window-size 320x320 --screenshot out.png
 ```
+
+Those describe one run, which is why they are arguments and the settings are
+not.
 
 ## The fullscreen picture
 
@@ -182,13 +190,11 @@ The blur runs on the cropped photo, about 89 by 44 pixels, before it is scaled
 up - so a whole backdrop costs well under a millisecond and at most sixteen are
 kept. Two kernels:
 
-```sh
-gallery3d --backdrop-blur gaussian          # the default
-gallery3d --backdrop-blur gaussian --backdrop-sigma 6
-gallery3d --backdrop-blur box               # what the original did
+```ini
+[backdrop]
+blur  = gaussian   # the default; box is what the original did
+sigma = 6.0
 ```
-
-None of that has to be typed twice: see [Settings](#settings).
 
 A box is one nine tap pass per axis. It is cheap, and on a step between two
 colours it gives a straight ramp with a corner at each end. The gaussian
@@ -201,10 +207,12 @@ where a heavier blur would be felt and the hardest place to rebuild.
 
 ## Settings
 
-Four places, each beating the one before it: the defaults compiled in, an ini
-file, the environment, the command line. So the file holds what you always
-want, the environment overrides it for one shell, and a flag overrides it for
-one run.
+Three places, each beating the one before it: the defaults compiled in, an ini
+file, the environment. The file holds what you always want, the environment
+overrides it for one shell.
+
+Settings have no flag form. A value that could be written in three places, one
+of them quietly beating the other two, is a value you have to go looking for.
 
 ```ini
 # gallery3d.ini
@@ -243,6 +251,9 @@ Settings from gallery3d.ini
 
 A key that is not recognised is named with its file and line, rather than
 ignored.
+
+A page has neither the file nor a shell, so the web build takes settings from
+the address: `?blur=box`, `?sigma=6`, `?scale=1.2`.
 
 ## Graphics context
 

@@ -378,39 +378,48 @@ bool applySettings(const Settings::Store &settings, App::SafeAreaInsets *safeAre
     return true;
 }
 
+// The smallest the window may be: 320 by 320 of the display's own units, so the
+// floor is the same size to the eye on every screen.
+//
+// Below that the HUD runs out of room - the path bar, the time bar and the
+// bottom menu each want a row of their own, and the wall needs what is left.
+//
+// SDL takes a minimum in window coordinates, which on this platform are pixels,
+// so the display's scale is applied here. Without it the floor is 320 pixels
+// everywhere, which on a dense display is a third of the size the layout needs.
+// SDL clamps an existing window up to the minimum as well as refusing to be
+// dragged below it.
+const int kMinimumWindowPoints = 320;
+
+void applyMinimumSize(SDL_Window *window) {
+    float scale = SDL_GetWindowDisplayScale(window);
+    if (scale <= 0.0f) {
+        scale = 1.0f;
+    }
+    const int minimum = (int)((float)kMinimumWindowPoints * scale + 0.5f);
+    SDL_SetWindowMinimumSize(window, minimum, minimum);
+}
+
 void printUsage() {
-    SDL_Log("Usage: gallery3d [photo directory] [options]");
+    SDL_Log("Usage: gallery3d [options]");
     SDL_Log("");
     SDL_Log("  Browses a directory of photos as a 3D wall, one stack per folder.");
-    SDL_Log("  Defaults to your Pictures folder.");
+    SDL_Log("  Set library.photos to choose it; the default is your Pictures folder.");
     SDL_Log("");
     SDL_Log("Options");
-    SDL_Log("  --artic              browse the Art Institute of Chicago instead of a");
-    SDL_Log("                       directory, over its public api. Read only, so the");
-    SDL_Log("                       delete and rotate buttons do not appear");
-    SDL_Log("  --also DIR           show a second directory on the same wall");
-    SDL_Log("  --scale N            how much bigger the wall is than the phone it was");
-    SDL_Log("                       laid out for; raise for bigger stacks, fewer on screen");
-    SDL_Log("  --backdrop-blur KIND how the wash behind the wall is blurred: gaussian");
-    SDL_Log("                       (the default) or box, which is what the original did");
-    SDL_Log("  --backdrop-sigma N   how strong the gaussian is, in pixels of the cropped");
-    SDL_Log("                       photo. 2.58 matches the box it replaces; higher is");
-    SDL_Log("                       a softer wash");
-    SDL_Log("  --safe-area L,T,R,B  pretend the window has cutouts, so the layout that");
-    SDL_Log("                       keeps controls clear of a notch can be seen here");
     SDL_Log("  --config PATH        read settings from this file instead of looking");
     SDL_Log("  --help               this");
     SDL_Log("");
-    SDL_Log("Everything above is a setting, and none of it has to be typed twice. The");
-    SDL_Log("same values can go in an ini file or the environment, and a flag still");
-    SDL_Log("wins over both:");
+    SDL_Log("Settings live in an ini file or the environment, not on the command line.");
+    SDL_Log("Each is written section.key, and the environment variable follows from the");
+    SDL_Log("name:");
     SDL_Log("");
     for (const Settings::Known &setting : Settings::known()) {
         SDL_Log("  %-18s %s", setting.name, setting.summary);
         SDL_Log("  %-18s %s", "", Settings::environmentNameFor(setting.name).c_str());
     }
     SDL_Log("");
-    SDL_Log("Looked for in order, first one found wins:");
+    SDL_Log("The file is looked for in order, first one found wins:");
     for (const std::string &path : Settings::searchPaths()) {
         SDL_Log("  %s", path.c_str());
     }
@@ -493,7 +502,14 @@ int main(int argc, char **argv) {
     // A second library, shown after the first. Two sources behind one feed.
     std::string alsoDirectory = settings.get("library.also", std::string());
     // A museum catalogue over http, rather than a directory.
-    bool artic = settings.getBool("library.artic", false);
+    // The web build has no local filesystem to browse, so the museum is not a
+    // choice there but the only source, and its setting starts on.
+#if defined(__EMSCRIPTEN__)
+    const bool articByDefault = true;
+#else
+    const bool articByDefault = false;
+#endif
+    bool artic = settings.getBool("library.artic", articByDefault);
     // Stands in for a notch and a home indicator. Desktops report no insets, so
     // without this the safe area layout is never exercised here.
     bool safeAreaOverridden = false;
@@ -568,14 +584,6 @@ int main(int argc, char **argv) {
             deleteSelection = true;
         } else if (arg == "--popup" && i + 1 < argc) {
             popupButton = std::atoi(argv[++i]);
-        } else if (arg == "--backdrop-blur" && i + 1 < argc) {
-            if (!applyBackdropBlur(argv[++i])) {
-                return 1;
-            }
-        } else if (arg == "--backdrop-sigma" && i + 1 < argc) {
-            if (!applyBackdropSigma((float)std::atof(argv[++i]))) {
-                return 1;
-            }
         } else if (arg == "--window-size" && i + 1 < argc) {
             int width = 0;
             int height = 0;
@@ -652,29 +660,14 @@ int main(int argc, char **argv) {
             }
             SDL_Log("crash: no such kind: %s", kind.c_str());
             return 2;
-        } else if (arg == "--artic") {
-            artic = true;
-        } else if (arg == "--safe-area" && i + 1 < argc) {
-            if (!applySafeArea(argv[++i], &safeAreaOverride)) {
-                return 1;
-            }
-            safeAreaOverridden = true;
-        } else if (arg == "--also" && i + 1 < argc) {
-            alsoDirectory = argv[++i];
-        } else if (arg == "--scale" && i + 1 < argc) {
-            float scale = (float)std::atof(argv[++i]);
-            if (scale > 0.0f) {
-                App::CONTENT_SCALE = scale;
-            }
-        } else if (arg.rfind("--", 0) == 0) {
-            // Unknown flags used to be taken for a photo directory, which meant
-            // a misspelled one browsed a folder called "--backrdop-sigma" and
-            // said nothing.
+        } else {
+            // Settings have no flag form. They are in the file or the
+            // environment, where they can be written once instead of on every
+            // run, and a flag that quietly beat the file would put the value in
+            // two places at once.
             SDL_Log("No such option: %s", arg.c_str());
             printUsage();
             return 1;
-        } else if (photoDirectory.empty()) {
-            photoDirectory = arg;
         }
     }
     if (photoDirectory.empty()) {
@@ -713,11 +706,7 @@ int main(int argc, char **argv) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
     }
-    // Below this the HUD runs out of room: the path bar, the time bar and the
-    // bottom menu each want a row of their own, and the wall needs what is
-    // left. SDL clamps an existing window up to this as well as refusing to
-    // resize below it.
-    SDL_SetWindowMinimumSize(window, 320, 320);
+    applyMinimumSize(window);
 
     bool realES = true;
     SDL_GLContext context = SDL_GL_CreateContext(window);
@@ -937,6 +926,9 @@ int main(int argc, char **argv) {
                 if (applyDisplayScale(window)) {
                     gridLayer.onDensityChanged();
                 }
+                // The floor is in the display's units, so moving to a display
+                // of another scale moves the floor with it.
+                applyMinimumSize(window);
                 SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
                 applySafeArea(window, safeAreaOverridden, safeAreaOverride);
                 applyPhotoResolution(pixelWidth, pixelHeight);

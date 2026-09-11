@@ -82,31 +82,36 @@
     errorsEl.textContent += text + String.fromCharCode(10);
   }
 
-  // Settings worth trying on the device rather than in a build. The backdrop
-  // blur is the one that matters here: on the web the blur runs on the page's
-  // own thread, so a phone is where a heavier one would be felt, and a phone is
-  // also where rebuilding to try it is the most trouble.
+  // Settings, from the address bar. A page has neither the ini file nor a
+  // shell to export a variable in, so the query string is where a setting can
+  // come from, and it is put into the environment the app reads.
   //
-  // ?blur=box|gaussian and ?sigma=N.
-  function argumentsFromQuery() {
-    var args = ['--artic'];
-    var blur = /[?&]blur=(box|gaussian)\b/.exec(window.location.search);
-    if (blur) {
-      args.push('--backdrop-blur', blur[1]);
+  // ?blur=box|gaussian and ?sigma=N. The backdrop blur is the one worth having
+  // here: on the web it runs on the page's own thread, so a phone is where a
+  // heavier one would be felt, and also the hardest place to rebuild to try
+  // one.
+  function applySettingsFromQuery() {
+    var settings = {
+      GALLERY3D_BACKDROP_BLUR: /[?&]blur=(box|gaussian)\b/.exec(window.location.search),
+      GALLERY3D_BACKDROP_SIGMA: /[?&]sigma=([0-9.]+)/.exec(window.location.search),
+      GALLERY3D_WALL_SCALE: /[?&]scale=([0-9.]+)/.exec(window.location.search),
+    };
+    for (var name in settings) {
+      if (settings[name]) {
+        ENV[name] = settings[name][1];
+      }
     }
-    var sigma = /[?&]sigma=([0-9.]+)/.exec(window.location.search);
-    if (sigma) {
-      args.push('--backdrop-sigma', sigma[1]);
-    }
-    return args;
   }
 
   var Module = {
     canvas: canvas,
     showError: showError,
-    // The app reads its own arguments, and the web build browses the museum:
-    // there is no local directory to point it at.
-    arguments: argumentsFromQuery(),
+    // Runs once the runtime is up and ENV exists, before main is called.
+    preRun: [applySettingsFromQuery],
+    // No arguments. Settings are not passed that way, and the web build has no
+    // local directory to point at - the museum is all there is, which is what
+    // library.artic defaults to here.
+    arguments: [],
     print: function (text) { console.log(text); },
     printErr: function (text) { console.error(text); },
     setStatus: function (text) {
