@@ -600,6 +600,12 @@ void GridLayer::onPointerMoved(float x, float y) {
     mHud.onPointerMoved(x, y);
 }
 
+void GridLayer::onAccelerometer(float x, float y, float z) {
+    if (mInputProcessor) {
+        mInputProcessor->onSensorChanged(mView, x, y, z, mState);
+    }
+}
+
 void GridLayer::onDensityChanged() {
     if (mView == nullptr) {
         return;

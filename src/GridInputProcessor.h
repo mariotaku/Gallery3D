@@ -1,7 +1,9 @@
 // Port of com.cooliris.media.GridInputProcessor.
 //
-// The accelerometer path is gone - a desktop has no tilt - and video playback
-// and the crop intent are dropped with the rest of the Android plumbing.
+// Video playback and the crop intent are dropped with the rest of the Android
+// plumbing. The accelerometer path is back: SDL reports accelerometers, so on a
+// phone this is the device's own, and on a desktop with none the sensor is
+// never opened and nothing here runs.
 #pragma once
 
 #include "DisplayItem.h"
@@ -17,6 +19,12 @@ class RenderView;
 class GridInputProcessor : public GestureDetector::Listener, public ScaleGestureDetector::Listener {
   public:
     GridInputProcessor(GridCamera *camera, GridLayer *layer, RenderView *view, DisplayItem **displayItems);
+
+    // Leans the wall from the accelerometer. x, y and z are metres per second
+    // squared in the display's orientation, already rotated by the caller.
+    // `state` is the GridLayer state, since fullscreen does not lean.
+    void onSensorChanged(RenderView *view, float x, float y, float z, int state);
+
 
     int getCurrentFocusSlot() const {
         return mCurrentFocusSlot;
@@ -118,6 +126,10 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
     GestureDetector mGestureDetector;
     ScaleGestureDetector mScaleGestureDetector;
     bool mZoomGesture = false;
+
+    // Carried from the original, where it is declared, read, and never once
+    // assigned - see the note on onSensorChanged.
+    float mPrevTiltValueLowPass = 0.0f;
     int mCurrentScaleSlot = -1;
     float mScale = 1.0f;
 };

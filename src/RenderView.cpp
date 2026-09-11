@@ -404,7 +404,20 @@ void RenderView::queuePointerMove(float x, float y) {
     requestRender();
 }
 
+void RenderView::queueAccelerometer(float x, float y, float z) {
+    mAccelX = x;
+    mAccelY = y;
+    mAccelZ = z;
+    mAccelChanged = true;
+}
+
 void RenderView::processTouchEvents() {
+    if (mAccelChanged) {
+        mAccelChanged = false;
+        if (mRootLayer != nullptr) {
+            mRootLayer->onAccelerometer(mAccelX, mAccelY, mAccelZ);
+        }
+    }
     if (mPointerMoved) {
         mPointerMoved = false;
         if (mRootLayer != nullptr) {

@@ -670,3 +670,39 @@ void GridInputProcessor::onScaleEnd(ScaleGestureDetector *detector, bool cancel)
     resetScale();
     mZoomGesture = false;
 }
+
+void GridInputProcessor::onSensorChanged(RenderView *view, float x, float y, float z, int state) {
+    if (mZoomGesture) {
+        return;
+    }
+    // The original switched on the display rotation here to pick which axis is
+    // "along the screen". The caller has already done that, because SDL reports
+    // the device's axes and the display orientation separately.
+    (void)z;
+    (void)y;
+    const float valueToUse = x;
+
+    // Verbatim from the original, including the part that does not work.
+    //
+    // mPrevTiltValueLowPass is declared and read and never assigned, so the
+    // 0.8 term is always zero and this is not a low pass filter at all: it is
+    // just a fifth of the reading. Worth keeping rather than repairing. Fixed,
+    // the filter would converge on the whole reading, and at three units of eye
+    // offset per unit of acceleration a thirty degree lean would throw the wall
+    // five times further than it ever did on a device. The bug is what shipped
+    // and what the constants either side of it were chosen against.
+    float tiltValue = 0.8f * mPrevTiltValueLowPass + 0.2f * valueToUse;
+    if (std::fabs(tiltValue) < 0.5f) {
+        tiltValue = 0.0f;
+    }
+    if (state == GridLayer::STATE_FULL_SCREEN) {
+        tiltValue = 0.0f;
+    }
+    if (tiltValue != 0.0f && view != nullptr) {
+        view->requestRender();
+    }
+    mCamera->mEyeOffsetX = -3.0f * tiltValue;
+
+    // The original also derived a shake value here, high pass filtered and
+    // clamped to 200. Nothing ever read it, so there is nothing to port.
+}

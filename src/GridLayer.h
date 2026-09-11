@@ -58,6 +58,7 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     void onDensityChanged();
 
     void onPointerMoved(float x, float y) override;
+    void onAccelerometer(float x, float y, float z) override;
     ~GridLayer() override;
 
     HudLayer *getHud() {

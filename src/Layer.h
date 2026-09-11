@@ -124,5 +124,13 @@ class RootLayer : public Layer {
         (void)y;
     }
 
+    // The accelerometer, in metres per second squared, already rotated into the
+    // display's orientation. Only a device with one ever calls this.
+    virtual void onAccelerometer(float x, float y, float z) {
+        (void)x;
+        (void)y;
+        (void)z;
+    }
+
     virtual void handleLowMemory() {}
 };

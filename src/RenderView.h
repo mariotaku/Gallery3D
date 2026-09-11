@@ -113,6 +113,9 @@ class RenderView {
     // Coalesced to the last position, since only where the pointer ended up
     // matters and a mouse produces these faster than frames.
     void queuePointerMove(float x, float y);
+    // Coalesced to the latest reading, and applied on the render thread. The
+    // tilt ends up in the camera, which the render thread owns.
+    void queueAccelerometer(float x, float y, float z);
     bool dispatchKeyDown(int keyCode, const KeyEvent &event);
 
     // ---- textures --------------------------------------------------------
@@ -286,6 +289,10 @@ class RenderView {
     float mPointerX = 0.0f;
     float mPointerY = 0.0f;
     bool mPointerMoved = false;
+    float mAccelX = 0.0f;
+    float mAccelY = 0.0f;
+    float mAccelZ = 0.0f;
+    bool mAccelChanged = false;
     std::vector<GLuint> mPendingTextureDeletes;
     std::mutex mDeleteMutex;
 };

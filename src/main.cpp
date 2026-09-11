@@ -266,6 +266,41 @@ void applyPhotoResolution(int pixelWidth, int pixelHeight) {
     SDL_Log("Screennail max edge %d, hi-res max edge %d", App::SCREEN_NAIL_MAX_EDGE, App::HI_RES_MAX_EDGE);
 }
 
+// The accelerometer reading, turned from the device's own axes into the
+// display's.
+//
+// SDL reports the axes of the hardware, which are fixed to the case, and the
+// display orientation separately. The original did this switch on
+// Display.getRotation() inside onSensorChanged; it belongs here instead,
+// because it is the platform's business rather than the wall's.
+//
+// Only the first axis is used downstream - the wall leans along the screen and
+// never up it - but all three are passed through so the seam does not have to
+// change if that stops being true.
+void queueAccelerometer(RenderView &renderView, SDL_Window *window, const float values[3]) {
+    SDL_DisplayID display = SDL_GetDisplayForWindow(window);
+    float alongScreen;
+    switch (SDL_GetCurrentDisplayOrientation(display)) {
+    case SDL_ORIENTATION_LANDSCAPE:
+        alongScreen = -values[1];
+        break;
+    case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+        alongScreen = -values[0];
+        break;
+    case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+        alongScreen = values[1];
+        break;
+    case SDL_ORIENTATION_PORTRAIT:
+    default:
+        // Also the answer where the orientation is unknown, which is what a
+        // desktop reports. A desktop with an accelerometer is a laptop lid
+        // sensor, and portrait is the right reading of it.
+        alongScreen = values[0];
+        break;
+    }
+    renderView.queueAccelerometer(alongScreen, values[1], values[2]);
+}
+
 void printUsage() {
     SDL_Log("Usage: gallery3d [photo directory] [options]");
     SDL_Log("");
@@ -297,6 +332,8 @@ void printUsage() {
     SDL_Log("  --delete             delete the selection (needs --select)");
     SDL_Log("  --popup N            tap button N on the selection bar (needs --select)");
     SDL_Log("  --scrub [0..1]       hold a drag on the time bar (needs --open)");
+    SDL_Log("  --tilt N             lean the wall as though the accelerometer read N along");
+    SDL_Log("                       the screen, for a machine that has no sensor");
     SDL_Log("  --dpi-change N       part way through, act as though the window moved to a");
     SDL_Log("                       display of scale N, and reflow for it");
     SDL_Log("  --crash KIND         die on purpose, to check the stack trace comes out.");
@@ -344,6 +381,9 @@ int main(int argc, char **argv) {
     float scrubAt = 0.5f;
     // The scale to move to part way through, so the reflow can be captured.
     float dpiChangeTo = 0.0f;
+    // A pretend accelerometer reading, for a machine that has none.
+    bool tilted = false;
+    float tiltTo = 0.0f;
     // Zooms the fullscreen photo, which is the only thing that reaches for the
     // hi-res texture. Needs --fullscreen, and fires after it.
     bool zoom = false;
@@ -372,6 +412,9 @@ int main(int argc, char **argv) {
             popupButton = std::atoi(argv[++i]);
         } else if (arg == "--zoom") {
             zoom = true;
+        } else if (arg == "--tilt" && i + 1 < argc) {
+            tilted = true;
+            tiltTo = (float)std::atof(argv[++i]);
         } else if (arg == "--dpi-change" && i + 1 < argc) {
             dpiChangeTo = (float)std::atof(argv[++i]);
         } else if (arg == "--scrub") {
@@ -452,6 +495,11 @@ int main(int argc, char **argv) {
     // and ours has to be the one on top.
     Backtrace::install();
 
+    // Sensors are asked for but not required: a machine with none still runs,
+    // it just never leans.
+    if (!SDL_InitSubSystem(SDL_INIT_SENSOR)) {
+        SDL_Log("No sensor subsystem (%s), the wall will not lean", SDL_GetError());
+    }
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return 1;
@@ -540,6 +588,23 @@ int main(int argc, char **argv) {
     GridLayoutInterface layoutInterface(4);
     GridLayer gridLayer(GridLayer::itemWidthForDensity(), GridLayer::itemHeightForDensity(), &layoutInterface,
                         &renderView);
+    // The wall leans with the device, as the original did. A desktop reports no
+    // accelerometer and this opens nothing, which is the common case.
+    SDL_Sensor *accelerometer = nullptr;
+    {
+        int count = 0;
+        SDL_SensorID *sensors = SDL_GetSensors(&count);
+        for (int i = 0; i < count && accelerometer == nullptr; ++i) {
+            if (SDL_GetSensorTypeForID(sensors[i]) == SDL_SENSOR_ACCEL) {
+                accelerometer = SDL_OpenSensor(sensors[i]);
+            }
+        }
+        SDL_free(sensors);
+        if (accelerometer != nullptr) {
+            SDL_Log("Accelerometer open, the wall will lean with the device");
+        }
+    }
+
     renderView.setRootLayer(&gridLayer);
     renderView.onSurfaceCreated();
 
@@ -637,6 +702,11 @@ int main(int argc, char **argv) {
             switch (sdlEvent.type) {
             case SDL_EVENT_QUIT:
                 running = false;
+                break;
+            case SDL_EVENT_SENSOR_UPDATE:
+                if (accelerometer != nullptr && sdlEvent.sensor.which == SDL_GetSensorID(accelerometer)) {
+                    queueAccelerometer(renderView, window, sdlEvent.sensor.data);
+                }
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
@@ -783,6 +853,13 @@ int main(int argc, char **argv) {
         // empties the display list, and entering fullscreen in the same frame
         // would be reading it before anything refilled it. A real change lands
         // between frames, not inside one.
+        if (tilted) {
+            // Every frame, because the camera animates towards the offset and
+            // one reading would be overtaken by the next frame's easing. A real
+            // device sends these continuously too.
+            const float values[3] = {tiltTo, 0.0f, 0.0f};
+            queueAccelerometer(renderView, window, values);
+        }
         if (dpiChangeTo > 0.0f && frameNumber == (screenshotFrames * 7) / 8) {
             // The same path the window event takes, so what is captured here is
             // what a real move between monitors does.
@@ -856,6 +933,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (accelerometer != nullptr) {
+        SDL_CloseSensor(accelerometer);
+    }
     gridLayer.shutdown();
     renderView.shutdown();
     Canvas::shutdownFonts();
