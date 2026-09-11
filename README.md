@@ -170,8 +170,7 @@ backend is no different. So the cropping belongs to whoever holds the original.
 A `DataSource` says whether it can crop, and `ArticDataSource` can, because IIIF
 puts the wanted rectangle in the url and the museum's server answers with a
 tile. A source whose pictures are files on this disk says no, and the view
-loads the whole picture once at a higher resolution instead, which is what it
-did before tiles existed.
+loads the whole picture once at a higher resolution instead.
 
 ## The backdrop
 
@@ -189,6 +188,8 @@ gallery3d --backdrop-blur gaussian --backdrop-sigma 6
 gallery3d --backdrop-blur box               # what the original did
 ```
 
+None of that has to be typed twice: see [Settings](#settings).
+
 A box is one nine tap pass per axis. It is cheap, and on a step between two
 colours it gives a straight ramp with a corner at each end. The gaussian
 defaults to the same spread - 2.58, which is the root of a nine tap box's
@@ -197,6 +198,51 @@ of wash. Raising the sigma is the way to a softer one.
 
 On the web the same two arrive as `?blur=box` and `?sigma=6`, since a phone is
 where a heavier blur would be felt and the hardest place to rebuild.
+
+## Settings
+
+Four places, each beating the one before it: the defaults compiled in, an ini
+file, the environment, the command line. So the file holds what you always
+want, the environment overrides it for one shell, and a flag overrides it for
+one run.
+
+```ini
+# gallery3d.ini
+[library]
+photos = D:/Pictures
+artic  = no
+
+[wall]
+scale = 1.5
+
+[backdrop]
+blur  = gaussian
+sigma = 4.0
+```
+
+Looked for as `gallery3d.ini` in the working directory, then in the platform's
+own config directory for the app. `--config PATH` or `GALLERY3D_CONFIG` names
+one instead, and a named file that cannot be read is an error rather than a
+shrug.
+
+One name per setting, written `section.key`. The environment variable follows
+from it - `backdrop.sigma` is `GALLERY3D_BACKDROP_SIGMA` - so there is no
+second list to keep in step. `--help` prints the lot.
+
+What belongs in a settings file is a setting. The flags that drive a
+screenshot - `--open`, `--frames`, `--zoom` - are verbs describing one run, and
+they stay on the command line alone.
+
+Startup logs every setting that came from somewhere, with where:
+
+```
+Settings from gallery3d.ini
+  backdrop.blur = gaussian (environment)
+  backdrop.sigma = 4.5 (gallery3d.ini)
+```
+
+A key that is not recognised is named with its file and line, rather than
+ignored.
 
 ## Graphics context
 

@@ -300,11 +300,10 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
         }
         // Zoomed in, the picture wants more pixels than the screennail has.
-        // Where the source can crop, that is the tiled path below and nothing
-        // whole is fetched at all. Where it cannot - a photo on this disk,
-        // since SDL_image decodes a whole file or none of it - the picture is
-        // loaded once more at a higher resolution, which is what this was
-        // before tiles existed and still is for local albums.
+        // Where the source can crop, the tiled path below fetches only the
+        // parts on screen. Where it cannot - a photo on this disk, since
+        // SDL_image decodes a whole file or none of it - the whole picture is
+        // loaded once more at a higher resolution.
         const bool tiled = TiledImage::canTile(item);
         TexturePtr hiRes =
             (!tiled && zoomValue != 1.0f && i == 0 && item->getMediaType() != MediaItem::MEDIA_TYPE_VIDEO)
@@ -328,17 +327,13 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         }
         const TexturePtr fsTexture = texture;
         if (!texture || !texture->isLoaded()) {
-            // Near enough to the middle that this is the photo being looked at
-            // rather than one being swiped past.
+            // Near enough to the middle that this is the photo being looked
+            // at rather than one being swiped past.
             //
-            // The original compared against a tenth of a unit. That is a tenth
-            // of a pixel here, because both sides are in the layout's pixels,
-            // and the camera settles about a third of one away from the item it
-            // is centred on. So the test never passed, the screennail was never
-            // asked for, and the fullscreen view had been showing the grid
-            // thumbnail until the separate full resolution texture arrived.
-            // Measured against the item instead, which is what "centred" was
-            // always about.
+            // Measured against the item's width. Both sides of the comparison
+            // are in the layout's pixels and the camera settles about a third
+            // of one away from the item it is centred on, so a fixed tolerance
+            // small enough to be meaningful is never met.
             const float centred = (float)camera->mItemWidth * 0.02f;
             if (std::fabs(centerTranslateX - camX) < centred) {
                 if (focusItemTextureLoaded && i != 0) {

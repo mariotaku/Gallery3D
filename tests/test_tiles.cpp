@@ -1,10 +1,9 @@
 // The arithmetic the tiled fullscreen view lays a picture out with.
 //
-// Worth pinning down because the two ends of it fail silently. A grid that
-// picks too coarse a level draws a blurry picture, which looks like a slow
-// network rather than a bug. And a rectangle that runs one pixel off the edge
-// of the original is a 502 from the museum's image server, not a trimmed tile,
-// so the corner of every picture would simply never arrive.
+// Both ends of it fail silently. A grid one level too coarse draws a blurry
+// picture, which is indistinguishable from a slow network. And a rectangle one
+// pixel past the edge of the original is a 502 from the museum's image server
+// rather than a trimmed tile, so that corner never arrives at all.
 #include "tests.h"
 
 #include "TiledImage.h"
@@ -105,9 +104,9 @@ TEST(an_unknown_size_makes_no_grid) {
 }
 
 TEST(a_huge_picture_is_still_one_screen_of_tiles) {
-    // The point of the whole thing. The largest artwork in the museum drawn at
-    // one to one is a grid far past any texture size limit, but only the part
-    // on screen is ever asked for.
+    // The largest artwork in the museum, drawn one to one, is a grid far past
+    // any texture size limit. What bounds the work is the screen, not the
+    // picture.
     const TiledImage::Grid grid = TiledImage::gridFor(9310, 6237, 9310.0f);
     CHECK_EQ(grid.sampleSize, 1);
     CHECK_EQ(grid.columns, 19);

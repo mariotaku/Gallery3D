@@ -37,11 +37,11 @@ class AdaptiveBackgroundTexture : public Texture {
     // back from GL: the render view drops the bitmap after upload, and a
     // texture's own pixels are not reachable once they are on the card.
     //
-    // The item, not the thumbnail texture. Asking the texture to load itself a
-    // second time used to work and does not any more - a decode can answer
-    // later than the call that started it, so a texture's load() returns
-    // nothing and startLoad does the work. That left this reading an empty
-    // bitmap and the wall sitting on its fallback gradient for good.
+    // The item rather than the thumbnail texture, because a Texture cannot be
+    // asked for its pixels at all: load() runs on a loader thread and has to
+    // return a bitmap there and then, which a browser decode cannot do, so the
+    // work lives in startLoad and load() returns nothing. decodeItemPixels is
+    // the way in.
     MediaItem *mItem;
     int mDestWidth;
     int mDestHeight;

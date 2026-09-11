@@ -1,17 +1,16 @@
 // One picture drawn as a grid of pieces, after
 // davemorrissey/subsampling-scale-image-view.
 //
-// The fullscreen view used to hold the whole picture in one texture. That put
-// two ceilings on it. The texture had to fit what the driver allows, which is
-// commonly 4096 or 8192 on a phone, and the museum's originals are larger than
-// both - a Seurat here is 9310 pixels across. And every pixel of it was paid
-// for, including the nine tenths off screen once the view is zoomed in.
+// A picture in one texture has two ceilings. The texture has to fit what the
+// driver allows, commonly 4096 or 8192 on a phone, and the museum's originals
+// pass both - a Seurat here is 9310 pixels across. And every pixel is paid for,
+// including the nine tenths off screen once the view is zoomed in.
 //
-// So the picture is laid out as a grid instead, and only the pieces on screen
-// are fetched. The grid is rebuilt whenever the zoom crosses a power of two,
-// which is what keeps a tile close to one texel per pixel at any zoom: tiles
-// are the same size on screen throughout, and it is the piece of the original
-// behind each one that grows and shrinks.
+// A grid has neither. Only the pieces on screen are fetched, and the grid is
+// rebuilt whenever the zoom crosses a power of two, which keeps a tile close to
+// one texel per pixel at any zoom: tiles are the same size on screen
+// throughout, and it is the piece of the original behind each one that grows
+// and shrinks.
 //
 // The screennail stays underneath as the bottom layer, so there is never a
 // hole. A tile that has not arrived shows the blurry version of itself rather

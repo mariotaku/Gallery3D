@@ -27,6 +27,7 @@
 #include "App.h"
 #include "ArticDataSource.h"
 #include "Backtrace.h"
+#include "Settings.h"
 #include "Canvas.h"
 #include "ConcatenatedDataSource.h"
 #include "GridLayer.h"
@@ -314,6 +315,69 @@ void queueAccelerometer(RenderView &renderView, SDL_Window *window, const float 
     renderView.queueAccelerometer(alongScreen, values[1], values[2]);
 }
 
+// The settings that land on a global, in one place so the file, the
+// environment and the flags cannot drift apart. Returns false on a value that
+// cannot be used, having said which.
+bool applyBackdropBlur(const std::string &kind) {
+    if (kind == "box") {
+        App::BACKDROP_BLUR = App::BACKDROP_BLUR_BOX;
+        return true;
+    }
+    if (kind == "gaussian") {
+        App::BACKDROP_BLUR = App::BACKDROP_BLUR_GAUSSIAN;
+        return true;
+    }
+    SDL_Log("Unknown backdrop blur \"%s\", wanted box or gaussian", kind.c_str());
+    return false;
+}
+
+bool applyBackdropSigma(float sigma) {
+    if (sigma < 0.0f || sigma > 32.0f) {
+        SDL_Log("A backdrop sigma of %g is outside 0 to 32", sigma);
+        return false;
+    }
+    App::BACKDROP_BLUR_SIGMA = sigma;
+    return true;
+}
+
+bool applySafeArea(const std::string &text, App::SafeAreaInsets *insets) {
+    float values[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    if (SDL_sscanf(text.c_str(), "%f,%f,%f,%f", &values[0], &values[1], &values[2], &values[3]) != 4) {
+        SDL_Log("A safe area of \"%s\" is not left,top,right,bottom", text.c_str());
+        return false;
+    }
+    insets->left = values[0];
+    insets->top = values[1];
+    insets->right = values[2];
+    insets->bottom = values[3];
+    return true;
+}
+
+bool applySettings(const Settings::Store &settings, App::SafeAreaInsets *safeArea, bool *safeAreaOverridden) {
+    if (settings.has("wall.scale")) {
+        const float scale = settings.getFloat("wall.scale", App::CONTENT_SCALE);
+        if (scale <= 0.0f) {
+            SDL_Log("A wall scale of %g is not a size", scale);
+            return false;
+        }
+        App::CONTENT_SCALE = scale;
+    }
+    if (settings.has("backdrop.blur") && !applyBackdropBlur(settings.get("backdrop.blur", ""))) {
+        return false;
+    }
+    if (settings.has("backdrop.sigma") &&
+        !applyBackdropSigma(settings.getFloat("backdrop.sigma", App::BACKDROP_BLUR_SIGMA))) {
+        return false;
+    }
+    if (settings.has("window.safe-area")) {
+        if (!applySafeArea(settings.get("window.safe-area", ""), safeArea)) {
+            return false;
+        }
+        *safeAreaOverridden = true;
+    }
+    return true;
+}
+
 void printUsage() {
     SDL_Log("Usage: gallery3d [photo directory] [options]");
     SDL_Log("");
@@ -334,7 +398,26 @@ void printUsage() {
     SDL_Log("                       a softer wash");
     SDL_Log("  --safe-area L,T,R,B  pretend the window has cutouts, so the layout that");
     SDL_Log("                       keeps controls clear of a notch can be seen here");
+    SDL_Log("  --config PATH        read settings from this file instead of looking");
     SDL_Log("  --help               this");
+    SDL_Log("");
+    SDL_Log("Everything above is a setting, and none of it has to be typed twice. The");
+    SDL_Log("same values can go in an ini file or the environment, and a flag still");
+    SDL_Log("wins over both:");
+    SDL_Log("");
+    for (const Settings::Known &setting : Settings::known()) {
+        SDL_Log("  %-18s %s", setting.name, setting.summary);
+        SDL_Log("  %-18s %s", "", Settings::environmentNameFor(setting.name).c_str());
+    }
+    SDL_Log("");
+    SDL_Log("Looked for in order, first one found wins:");
+    for (const std::string &path : Settings::searchPaths()) {
+        SDL_Log("  %s", path.c_str());
+    }
+    SDL_Log("");
+    SDL_Log("  [backdrop]");
+    SDL_Log("  blur = gaussian");
+    SDL_Log("  sigma = 4.0");
     SDL_Log("");
     SDL_Log("Checking a build without a hand on the mouse. These drive the app to a");
     SDL_Log("state and render a fixed number of frames, so a screenshot is repeatable.");
@@ -366,15 +449,56 @@ int main(int argc, char **argv) {
     // First thing, so a crash while parsing arguments still names itself.
     Backtrace::install();
 
-    std::string photoDirectory;
+    // The settings, before the arguments, so an argument can override one.
+    //
+    // --config is read here rather than in the loop below: by the time the loop
+    // reaches it the file would already have been needed.
+    std::string configPath;
+    for (int i = 1; i < argc - 1; ++i) {
+        if (std::string(argv[i]) == "--config") {
+            configPath = argv[i + 1];
+            break;
+        }
+    }
+    if (configPath.empty()) {
+        if (const char *fromEnvironment = std::getenv("GALLERY3D_CONFIG")) {
+            configPath = fromEnvironment;
+        }
+    }
+    Settings::Store settings;
+    if (!settings.load(configPath)) {
+        SDL_Log("No settings file at %s", configPath.c_str());
+        return 1;
+    }
+    if (!settings.path().empty()) {
+        SDL_Log("Settings from %s", settings.path().c_str());
+    }
+    for (const Settings::Known &setting : Settings::known()) {
+        if (settings.has(setting.name)) {
+            // Named with where it came from. Without this, a value that lost to
+            // one set somewhere else looks like a setting that does nothing.
+            SDL_Log("  %s = %s (%s)", setting.name, settings.get(setting.name, "").c_str(),
+                    settings.sourceOf(setting.name).c_str());
+        }
+    }
+    for (const std::string &complaint : settings.complaints()) {
+        // Not fatal, but never silent. A misspelled key behaves exactly like a
+        // setting that does nothing.
+        SDL_Log("Settings: %s", complaint.c_str());
+    }
+
+    std::string photoDirectory = settings.get("library.photos", std::string());
     // A second library, shown after the first. Two sources behind one feed.
-    std::string alsoDirectory;
+    std::string alsoDirectory = settings.get("library.also", std::string());
     // A museum catalogue over http, rather than a directory.
-    bool artic = false;
+    bool artic = settings.getBool("library.artic", false);
     // Stands in for a notch and a home indicator. Desktops report no insets, so
     // without this the safe area layout is never exercised here.
     bool safeAreaOverridden = false;
     App::SafeAreaInsets safeAreaOverride;
+    if (!applySettings(settings, &safeAreaOverride, &safeAreaOverridden)) {
+        return 1;
+    }
     std::string screenshotPath;
     int screenshotFrames = 240;
     // Opens the given album part way through, so the grid view can be captured
@@ -439,22 +563,16 @@ int main(int argc, char **argv) {
         } else if (arg == "--popup" && i + 1 < argc) {
             popupButton = std::atoi(argv[++i]);
         } else if (arg == "--backdrop-blur" && i + 1 < argc) {
-            const std::string kind = argv[++i];
-            if (kind == "box") {
-                App::BACKDROP_BLUR = App::BACKDROP_BLUR_BOX;
-            } else if (kind == "gaussian") {
-                App::BACKDROP_BLUR = App::BACKDROP_BLUR_GAUSSIAN;
-            } else {
-                SDL_Log("Unknown --backdrop-blur %s, wanted box or gaussian", kind.c_str());
+            if (!applyBackdropBlur(argv[++i])) {
                 return 1;
             }
         } else if (arg == "--backdrop-sigma" && i + 1 < argc) {
-            const float sigma = (float)std::atof(argv[++i]);
-            if (sigma < 0.0f || sigma > 32.0f) {
-                SDL_Log("--backdrop-sigma %s is outside 0 to 32", argv[i]);
+            if (!applyBackdropSigma((float)std::atof(argv[++i]))) {
                 return 1;
             }
-            App::BACKDROP_BLUR_SIGMA = sigma;
+        } else if (arg == "--config" && i + 1 < argc) {
+            // Already read, before any of this.
+            ++i;
         } else if (arg == "--zoom") {
             zoom = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -522,14 +640,10 @@ int main(int argc, char **argv) {
         } else if (arg == "--artic") {
             artic = true;
         } else if (arg == "--safe-area" && i + 1 < argc) {
-            float values[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-            if (SDL_sscanf(argv[++i], "%f,%f,%f,%f", &values[0], &values[1], &values[2], &values[3]) == 4) {
-                safeAreaOverride.left = values[0];
-                safeAreaOverride.top = values[1];
-                safeAreaOverride.right = values[2];
-                safeAreaOverride.bottom = values[3];
-                safeAreaOverridden = true;
+            if (!applySafeArea(argv[++i], &safeAreaOverride)) {
+                return 1;
             }
+            safeAreaOverridden = true;
         } else if (arg == "--also" && i + 1 < argc) {
             alsoDirectory = argv[++i];
         } else if (arg == "--scale" && i + 1 < argc) {
@@ -537,6 +651,13 @@ int main(int argc, char **argv) {
             if (scale > 0.0f) {
                 App::CONTENT_SCALE = scale;
             }
+        } else if (arg.rfind("--", 0) == 0) {
+            // Unknown flags used to be taken for a photo directory, which meant
+            // a misspelled one browsed a folder called "--backrdop-sigma" and
+            // said nothing.
+            SDL_Log("No such option: %s", arg.c_str());
+            printUsage();
+            return 1;
         } else if (photoDirectory.empty()) {
             photoDirectory = arg;
         }

@@ -1,10 +1,8 @@
 // The wash the wall sits on, built from the photo under the cursor.
 //
-// Only the pure half is here. What actually broke it was wiring: the backdrop
-// asked a thumbnail texture to load itself a second time, and once decoding
-// went asynchronous a texture's load() returned nothing at all. That is caught
-// by the screenshot check - three albums, three different backdrops - because
-// no arithmetic here was wrong.
+// Covers backdropFrom alone, which is the whole of the arithmetic. Whether the
+// photo reaches it is a question about the texture pipeline and belongs to the
+// screenshot checks: three albums should give three different backdrops.
 #include "tests.h"
 
 #include <cmath>
@@ -142,14 +140,11 @@ TEST(the_backdrop_fades_out_on_its_right) {
 }
 
 TEST(the_backdrop_fades_out_whatever_shape_the_photo_is) {
-    // The one that was wrong. BackgroundLayer stitches the backdrop with a
-    // quarter of its width overlapping, and the fade has to be that quarter
-    // whatever the photo looked like.
-    //
-    // The crop is as wide as the photo allows, so a portrait photo makes a
-    // narrower one - 89 pixels against a landscape photo's 128. With the fade
-    // written as a pixel index of 96 it fell outside the narrow crop and was
-    // skipped, and the backdrop ended with a hard vertical edge down the wall.
+    // BackgroundLayer stitches the backdrop with a quarter of its width
+    // overlapping, and the fade has to be that quarter whatever shape the photo
+    // was. The crop is as wide as the photo allows - 89 pixels for a portrait
+    // one against 128 for a landscape - so a fade expressed as a pixel index
+    // covers a different fraction of each, or misses a narrow crop entirely.
     struct Shape {
         const char *name;
         int width;
@@ -185,9 +180,8 @@ TEST(the_backdrop_fades_out_whatever_shape_the_photo_is) {
 }
 
 TEST(a_photo_that_never_arrived_makes_no_backdrop) {
-    // The failure this has to survive: the decode answered with nothing. The
-    // fallback gradient shows instead, which is what an invalid bitmap asks the
-    // render view for.
+    // An invalid bitmap is how the render view is told to keep the fallback
+    // gradient, so a decode that answered with nothing has to reach it.
     CHECK(!AdaptiveBackgroundTexture::backdropFrom(Bitmap(), 256, 128).valid());
     CHECK(!AdaptiveBackgroundTexture::backdropFrom(solid(128, 96, 10, 10, 10), 0, 128).valid());
 }
