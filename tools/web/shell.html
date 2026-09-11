@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<!-- The museum's image server requires a Referer and answers 403 without one.
+     Origin alone is not enough: the same request with Origin and no Referer is
+     refused, and with a Referer it is served.
+
+     Browsers disagree about when they send one by default, and a page cannot
+     set the header itself, so this sets the policy that decides it. "origin"
+     sends the site this page is on and nothing more - no path, no query - on
+     every request, which is all the server is looking for. -->
+<meta name="referrer" content="origin">
 <title>Gallery3D</title>
 <style>
   html, body {
