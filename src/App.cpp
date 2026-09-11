@@ -26,6 +26,7 @@ float UI_DENSITY = 1.0f;
 float CONTENT_SCALE = 1.5f;
 int SCREEN_NAIL_MAX_EDGE = 1024;
 int HI_RES_MAX_EDGE = 2048;
+SafeAreaInsets SAFE_AREA;
 std::string ASSET_ROOT = "assets";
 
 namespace {

@@ -111,8 +111,7 @@ void PopupMenu::layout() {
     mTexture->setNeedsDraw();
 }
 
-void PopupMenu::showAtPoint(float pointX, float pointY, float outerWidth, float outerHeight) {
-    (void)outerHeight;
+void PopupMenu::showAtPoint(float pointX, float pointY, float boundsLeft, float boundsWidth) {
     ensureArt();
     if (mNeedsLayout) {
         layout();
@@ -121,10 +120,10 @@ void PopupMenu::showAtPoint(float pointX, float pointY, float outerWidth, float 
         return;
     }
 
-    // Centred over the point, then pushed back inside the window.
+    // Centred over the point, then pushed back inside the band.
     float halfWidth = mPopupWidth * 0.5f;
     float x = pointX - halfWidth;
-    float clampedX = std::min(std::max(x, 0.0f), std::max(0.0f, outerWidth - mPopupWidth));
+    float clampedX = std::min(std::max(x, boundsLeft), std::max(boundsLeft, boundsLeft + boundsWidth - mPopupWidth));
     mPopupX = clampedX;
     mPopupY = pointY + scaled(POPUP_Y_OFFSET) - mPopupHeight;
 

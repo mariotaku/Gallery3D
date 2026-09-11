@@ -62,40 +62,54 @@ void HudLayer::generate(RenderView *view, RenderLists &lists) {
 }
 
 void HudLayer::onSizeChanged() {
+    // Everything here lays out against the safe rect, not the window. On a
+    // desktop the two are the same. On a phone the difference is a cutout at
+    // the top or a home indicator at the bottom, and a control underneath
+    // either is one you cannot reliably touch.
+    //
+    // The wall and the backdrop are deliberately left alone: a photo wants the
+    // whole screen, and losing a strip of it to a notch is the right trade.
+    const App::SafeAreaInsets &safe = App::SAFE_AREA;
+    const float safeLeft = safe.left;
+    const float safeTop = safe.top;
+    const float safeWidth = mWidth - safe.left - safe.right;
+    const float safeBottom = mHeight - safe.bottom;
+
     // The bar runs along the top edge. It sizes itself to its crumbs, so what
     // it needs here is the room it may use and where it starts.
     float inset = 3.0f * App::UI_DENSITY;
-    mPathBar.setPosition(inset, inset);
-    mPathBar.setSize(mWidth - inset * 2.0f, PathBarLayer::preferredHeight());
+    mPathBar.setPosition(safeLeft + inset, safeTop + inset);
+    mPathBar.setSize(safeWidth - inset * 2.0f, PathBarLayer::preferredHeight());
 
     // The menu bar runs along the bottom edge.
-    mMenuBar.setPosition(0.0f, mHeight - MenuBar::preferredHeight());
-    mMenuBar.setSize(mWidth, MenuBar::preferredHeight());
+    mMenuBar.setPosition(safeLeft, safeBottom - MenuBar::preferredHeight());
+    mMenuBar.setSize(safeWidth, MenuBar::preferredHeight());
 
     // So does the time bar, and only one of the two is ever up.
     float timeBarHeight = TimeBar::HEIGHT * App::UI_DENSITY;
-    mTimeBar.setPosition(0.0f, mHeight - timeBarHeight);
-    mTimeBar.setSize(mWidth, timeBarHeight);
+    mTimeBar.setPosition(safeLeft, safeBottom - timeBarHeight);
+    mTimeBar.setSize(safeWidth, timeBarHeight);
 
     // And so does the fullscreen bar.
-    mFullscreenMenu.setPosition(0.0f, mHeight - MenuBar::preferredHeight());
-    mFullscreenMenu.setSize(mWidth, MenuBar::preferredHeight());
+    mFullscreenMenu.setPosition(safeLeft, safeBottom - MenuBar::preferredHeight());
+    mFullscreenMenu.setSize(safeWidth, MenuBar::preferredHeight());
 
     // The zoom buttons stack up from the right end of that bar.
     float zoomWidth = ZOOM_BUTTON_WIDTH * App::UI_DENSITY;
     float zoomHeight = ZOOM_BUTTON_HEIGHT * App::UI_DENSITY;
-    float zoomY = mHeight - MenuBar::preferredHeight() - zoomHeight;
+    float zoomY = safeBottom - MenuBar::preferredHeight() - zoomHeight;
+    float safeRightEdge = safeLeft + safeWidth;
     mZoomInButton.setSize(zoomWidth, zoomHeight);
     mZoomOutButton.setSize(zoomWidth, zoomHeight);
-    mZoomInButton.setPosition(mWidth - zoomWidth, zoomY);
-    mZoomOutButton.setPosition(mWidth - zoomWidth * 2.0f, zoomY);
+    mZoomInButton.setPosition(safeRightEdge - zoomWidth, zoomY);
+    mZoomOutButton.setPosition(safeRightEdge - zoomWidth * 2.0f, zoomY);
 
     // The top selection bar takes the whole top edge, where the path bar sits
     // the rest of the time. They are never both up.
-    mSelectionMenuTop.setPosition(0.0f, 0.0f);
-    mSelectionMenuTop.setSize(mWidth, MenuBar::preferredHeight());
+    mSelectionMenuTop.setPosition(safeLeft, safeTop);
+    mSelectionMenuTop.setSize(safeWidth, MenuBar::preferredHeight());
 
-    mTopRightButton.setPosition(mWidth - TOP_RIGHT_WIDTH * App::UI_DENSITY, 0.0f);
+    mTopRightButton.setPosition(safeRightEdge - TOP_RIGHT_WIDTH * App::UI_DENSITY, safeTop);
     computeBottomMenu();
 }
 
@@ -214,7 +228,8 @@ void HudLayer::showPopupFor(const MenuBar &bar, size_t index, const std::vector<
     mPopupMenu.setOptions(options);
     // Anchored to the top of the bar the button is in, so the popup sits above
     // it and its triangle points down at the button.
-    mPopupMenu.showAtPoint(bar.buttonCenterX(index), bar.getY(), mWidth, mHeight);
+    mPopupMenu.showAtPoint(bar.buttonCenterX(index), bar.getY(), App::SAFE_AREA.left,
+                           mWidth - App::SAFE_AREA.left - App::SAFE_AREA.right);
 }
 
 void HudLayer::closeSelectionMenu() {

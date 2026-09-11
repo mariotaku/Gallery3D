@@ -104,6 +104,13 @@ build/Release/gallery3d.exe [photo directory] [--also directory]
 Defaults to your Pictures folder. It walks the tree and makes one album per
 folder that holds images.
 
+`--safe-area L,T,R,B` pretends the window has cutouts. The HUD lays itself out
+inside the safe rect that SDL reports, so a control never lands under a notch or
+a home indicator, while the wall and the backdrop keep the whole window. A
+desktop reports no insets, so this flag is the only way to see that layout here.
+It exists because the original had no such concept: in 2009 a phone screen was
+a rectangle and all of it was yours.
+
 `--also` shows a second directory on the same wall. It runs two data sources
 through `ConcatenatedDataSource`, which is the seam another kind of storage
 would plug into: each album remembers which source produced it, and the feed

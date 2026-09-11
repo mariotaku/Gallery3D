@@ -40,8 +40,10 @@ class PopupMenu : public Layer {
 
     void setOptions(const std::vector<Option> &options);
 
-    // Opens the popup pointing at (pointX, pointY), kept inside the window.
-    void showAtPoint(float pointX, float pointY, float outerWidth, float outerHeight);
+    // Opens the popup pointing at (pointX, pointY), kept inside the band from
+    // boundsLeft to boundsLeft + boundsWidth. That band is the safe rect, not
+    // the window: a popup pushed against a notch is one you cannot read.
+    void showAtPoint(float pointX, float pointY, float boundsLeft, float boundsWidth);
     void close(bool fadeOut);
 
     bool isShowing() const {

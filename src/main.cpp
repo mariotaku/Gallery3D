@@ -1,6 +1,7 @@
 // Entry point, replacing com.cooliris.media.Gallery.
 //
 // Usage: gallery3d [photo directory] [--also directory] [--scale N] [--bordered]
+//        [--safe-area L,T,R,B]
 // Defaults to the user's Pictures folder. --also shows a second directory
 // alongside the first, through ConcatenatedDataSource. --bordered puts the
 // system title bar back.
@@ -159,10 +160,14 @@ SDL_HitTestResult windowHitTest(SDL_Window *window, const SDL_Point *area, void 
     // live up there. A draggable region swallows the click, so it has to stop
     // short of the path bar on the left and the mode button on the right or
     // neither would be usable.
-    const int captionHeight = (int)(44.0f * App::UI_DENSITY + 0.5f);
-    const int pathBarWidth = (int)(560.0f * App::UI_DENSITY + 0.5f);
+    const int safeLeft = (int)App::SAFE_AREA.left;
+    const int safeTop = (int)App::SAFE_AREA.top;
+    const int safeRight = width - (int)App::SAFE_AREA.right;
+    const int captionHeight = safeTop + (int)(44.0f * App::UI_DENSITY + 0.5f);
+    const int pathBarWidth = safeLeft + (int)(560.0f * App::UI_DENSITY + 0.5f);
     const int topRightWidth = (int)(100.0f * App::UI_DENSITY + 0.5f);
-    if (area->y < captionHeight && area->x > pathBarWidth && area->x < width - topRightWidth) {
+    if (area->y >= safeTop && area->y < captionHeight && area->x > pathBarWidth &&
+        area->x < safeRight - topRightWidth) {
         return SDL_HITTEST_DRAGGABLE;
     }
     return SDL_HITTEST_NORMAL;
@@ -176,6 +181,10 @@ int main(int argc, char **argv) {
     std::string alsoDirectory;
     // The system title bar, off by default so the backdrop reaches the top.
     bool bordered = false;
+    // Stands in for a notch and a home indicator. Desktops report no insets, so
+    // without this the safe area layout is never exercised here.
+    bool safeAreaOverridden = false;
+    App::SafeAreaInsets safeAreaOverride;
     std::string screenshotPath;
     int screenshotFrames = 240;
     // Opens the given album part way through, so the grid view can be captured
@@ -234,6 +243,15 @@ int main(int argc, char **argv) {
             }
         } else if (arg == "--bordered") {
             bordered = true;
+        } else if (arg == "--safe-area" && i + 1 < argc) {
+            float values[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            if (SDL_sscanf(argv[++i], "%f,%f,%f,%f", &values[0], &values[1], &values[2], &values[3]) == 4) {
+                safeAreaOverride.left = values[0];
+                safeAreaOverride.top = values[1];
+                safeAreaOverride.right = values[2];
+                safeAreaOverride.bottom = values[3];
+                safeAreaOverridden = true;
+            }
         } else if (arg == "--also" && i + 1 < argc) {
             alsoDirectory = argv[++i];
         } else if (arg == "--scale" && i + 1 < argc) {
@@ -313,6 +331,31 @@ int main(int argc, char **argv) {
     // The chrome follows the display and not the wall, so a button is the size
     // the screen asks for rather than that times the wall's enlargement.
     App::UI_DENSITY = displayScale;
+
+    // What the platform says is safe to put controls in. SDL reports the whole
+    // client area on a desktop, so these come out zero and nothing moves; on a
+    // phone it is the rect left over once the cutouts are taken off.
+    {
+        SDL_Rect safeRect;
+        int windowWidth = 0;
+        int windowHeight = 0;
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        if (SDL_GetWindowSafeArea(window, &safeRect)) {
+            App::SAFE_AREA.left = (float)safeRect.x;
+            App::SAFE_AREA.top = (float)safeRect.y;
+            App::SAFE_AREA.right = (float)(windowWidth - (safeRect.x + safeRect.w));
+            App::SAFE_AREA.bottom = (float)(windowHeight - (safeRect.y + safeRect.h));
+        }
+        if (safeAreaOverridden) {
+            App::SAFE_AREA = safeAreaOverride;
+        }
+        if (App::SAFE_AREA.left != 0.0f || App::SAFE_AREA.top != 0.0f || App::SAFE_AREA.right != 0.0f ||
+            App::SAFE_AREA.bottom != 0.0f) {
+            SDL_Log("Safe area insets: left %.0f top %.0f right %.0f bottom %.0f", App::SAFE_AREA.left,
+                    App::SAFE_AREA.top, App::SAFE_AREA.right, App::SAFE_AREA.bottom);
+        }
+    }
+
     if (!bordered) {
         // After the density is known, since the hit test regions follow it.
         SDL_SetWindowHitTest(window, windowHitTest, nullptr);

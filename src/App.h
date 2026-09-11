@@ -41,6 +41,27 @@ extern int SCREEN_NAIL_MAX_EDGE;
 // be larger than the screennail.
 extern int HI_RES_MAX_EDGE;
 
+// The part of the window it is safe to put controls in, as insets in pixels
+// from each edge.
+//
+// The original had no notion of this: in 2009 a phone screen was a rectangle
+// and all of it was yours. Now the top of a display can be a cutout and the
+// bottom a home indicator, so anything you must be able to touch has to stay
+// inside this while the picture behind it still runs edge to edge. That split
+// is the whole idea, and it is why only the HUD reads this and the wall does
+// not.
+//
+// SDL reports it per window. On a desktop that is the whole client area, so
+// these are all zero and nothing moves.
+struct SafeAreaInsets {
+    float left = 0.0f;
+    float top = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+};
+
+extern SafeAreaInsets SAFE_AREA;
+
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;
 
