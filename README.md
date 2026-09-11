@@ -79,11 +79,21 @@ manifest. Assets are copied next to the binary at build time.
 ctest --test-dir build -C Release
 ```
 
-Covers the arithmetic that has no picture attached: EXIF decoding, power of two
-padding, cover cropping, density bucket selection and nine patch guides. Every
-one of those has been wrong at some point here and none of them announced it.
-Anything needing a GL context is checked by screenshot instead, through the
-debug flags on the binary.
+Two kinds of test, neither needing a window.
+
+The first covers arithmetic with no picture attached: EXIF decoding, power of
+two padding, cover cropping, density bucket selection and nine patch guides.
+
+The second composes each HUD widget off-screen. The bars and popups draw
+themselves into a bitmap before anything reaches GL, so `compose()` gives a test
+the same pixels the screen gets. Nothing is compared against a stored image;
+the checks are on the properties that have actually gone wrong, like a bar
+leaving a column of backdrop showing through between two of its pieces. They
+run at the density the port ships at, because the span arithmetic is exact at
+1.0 and only disagrees with itself at a fractional one.
+
+What is left for the screenshot flags on the binary is the 3D wall, where a
+mistake needs a camera and a texture to show up at all.
 
 ## Run
 

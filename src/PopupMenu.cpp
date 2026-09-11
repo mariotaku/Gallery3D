@@ -173,6 +173,14 @@ bool PopupMenu::update(RenderView *view, float frameInterval) {
     return mShowAnim.getTimeRemaining(SDL_GetTicks()) > 0.0f;
 }
 
+Bitmap PopupMenu::compose() {
+    if (mNeedsLayout) {
+        layout();
+    }
+    // load() ignores the render view, so there is nothing to pass it.
+    return mTexture->load(nullptr);
+}
+
 void PopupMenu::renderBlended(RenderView *view) {
     float showRatio = mShowAnim.getValue(SDL_GetTicks());
     if (showRatio < 0.003f && !mShow) {

@@ -12,6 +12,9 @@
 
 #include <SDL3/SDL.h>
 
+#include "App.h"
+#include "Canvas.h"
+
 namespace {
 
 std::vector<TestCase> &registry() {
@@ -44,6 +47,15 @@ int main() {
         return 1;
     }
 
+    // The widgets compose text, so the fonts have to be open and the art has to
+    // be findable. Density 1 keeps the expected sizes easy to reason about.
+    App::ASSET_ROOT = GALLERY3D_ASSET_ROOT;
+    App::PIXEL_DENSITY = 1.0f;
+    App::UI_DENSITY = 1.0f;
+    if (!Canvas::initFonts()) {
+        std::printf("Canvas::initFonts failed, text will not compose\n");
+    }
+
     int failedCases = 0;
     for (const TestCase &test : registry()) {
         sCurrentTest = test.name;
@@ -57,6 +69,7 @@ int main() {
 
     std::printf("\n%d test%s, %d failure%s\n", (int)registry().size(), registry().size() == 1 ? "" : "s",
                 sFailures, sFailures == 1 ? "" : "s");
+    Canvas::shutdownFonts();
     SDL_Quit();
     return (sFailures == 0) ? 0 : 1;
 }

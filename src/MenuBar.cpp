@@ -165,6 +165,14 @@ void MenuBar::generate(RenderView *view, RenderLists &lists) {
     lists.hitTestList.push_back(this);
 }
 
+Bitmap MenuBar::compose() {
+    if (mNeedsLayout) {
+        layout();
+    }
+    // load() ignores the render view, so there is nothing to pass it.
+    return mTexture->load(nullptr);
+}
+
 void MenuBar::renderBlended(RenderView *view) {
     if (mNeedsLayout) {
         layout();

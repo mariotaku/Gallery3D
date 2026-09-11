@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "Bitmap.h"
 #include "CanvasTexture.h"
 #include "Layer.h"
 #include "RenderView.h"
@@ -42,6 +43,10 @@ class PathBarLayer : public Layer {
 
     void generate(RenderView *view, RenderLists &lists) override;
     void renderBlended(RenderView *view) override;
+    // Lays the widget out and composes it into a bitmap, without touching GL.
+    // renderBlended does exactly this before handing the result to the
+    // renderer, so a test can look at the same pixels the screen gets.
+    Bitmap compose();
     bool onTouchEvent(const MotionEvent &event) override;
     bool containsPoint(float x, float y) override;
 

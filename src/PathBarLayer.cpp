@@ -198,6 +198,14 @@ void PathBarLayer::generate(RenderView *view, RenderLists &lists) {
     lists.hitTestList.push_back(this);
 }
 
+Bitmap PathBarLayer::compose() {
+    if (mNeedsLayout) {
+        layout();
+    }
+    // load() ignores the render view, so there is nothing to pass it.
+    return mTexture->load(nullptr);
+}
+
 void PathBarLayer::renderBlended(RenderView *view) {
     if (mNeedsLayout) {
         layout();
