@@ -46,6 +46,10 @@ bool contains(const std::vector<MediaItem *> &items, MediaItem *item) {
 // room the eye is given and not about how big the wall is drawn.
 const float kGridMinMarginDp = 50.0f;
 
+// Below this the grid reads as a column rather than a wall, so a screen too
+// short to hold both the rows and the margin keeps the rows.
+const int kGridMinRows = 2;
+
 }  // namespace
 
 int GridLayer::itemWidthForDensity() {
@@ -64,17 +68,25 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
 
     // Lay out rows between the top and bottom bars; the wall still draws edge to edge.
     const App::SafeAreaInsets &safe = App::SAFE_AREA;
+    const float betweenBars = (float)mCamera->mHeight - safe.top - safe.bottom -
+                              PathBarLayer::preferredHeight() - MenuBar::preferredHeight();
+
     // Rows are chosen by what is left over rather than by what fits. The block
     // is centred, so half the leftover shows at each end, and a row only earns
     // its place if both ends keep this much. Holding the margin rather than a
     // row count is what makes the answer travel between screens.
     const float minMargin = kGridMinMarginDp * App::UI_DENSITY;
-    const float obscured = safe.top + safe.bottom + 2.0f * minMargin + PathBarLayer::preferredHeight() +
-                           MenuBar::preferredHeight();
-    const int available = (int)((float)mCamera->mHeight - obscured);
+    int available = (int)(betweenBars - 2.0f * minMargin);
 
     // n rows span n items and the n-1 gaps between them.
     int rows = (available + spacingY) / pitch;
+
+    // A short screen cannot always spare the margin. One row is a column, not
+    // a grid, so the air is what gives way there rather than the wall.
+    if (rows < kGridMinRows) {
+        available = (int)betweenBars;
+        rows = (available + spacingY) / pitch;
+    }
 
     const int columnPitch = mCamera->mItemWidth + spacingX;
     if (columnPitch <= 0) {
