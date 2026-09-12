@@ -41,6 +41,11 @@ bool contains(const std::vector<MediaItem *> &items, MediaItem *item) {
     return std::find(items.begin(), items.end(), item) != items.end();
 }
 
+// The least the grid leaves above and below itself, in display units. Follows
+// the display scale rather than the wall's own, because this is about how much
+// room the eye is given and not about how big the wall is drawn.
+const float kGridMinMarginDp = 50.0f;
+
 }  // namespace
 
 int GridLayer::itemWidthForDensity() {
@@ -59,13 +64,13 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
 
     // Lay out rows between the top and bottom bars; the wall still draws edge to edge.
     const App::SafeAreaInsets &safe = App::SAFE_AREA;
-    // A row's worth of air on top of the bars, so the grid does not run from
-    // one bar to the other. It buys back a whole row, and because the block is
-    // centred on the camera the height that frees up becomes margin at both
-    // ends rather than a gap at one.
-    const float margin = (float)pitch;
-    const float obscured =
-        safe.top + safe.bottom + margin + PathBarLayer::preferredHeight() + MenuBar::preferredHeight();
+    // Rows are chosen by what is left over rather than by what fits. The block
+    // is centred, so half the leftover shows at each end, and a row only earns
+    // its place if both ends keep this much. Holding the margin rather than a
+    // row count is what makes the answer travel between screens.
+    const float minMargin = kGridMinMarginDp * App::UI_DENSITY;
+    const float obscured = safe.top + safe.bottom + 2.0f * minMargin + PathBarLayer::preferredHeight() +
+                           MenuBar::preferredHeight();
     const int available = (int)((float)mCamera->mHeight - obscured);
 
     // n rows span n items and the n-1 gaps between them.
