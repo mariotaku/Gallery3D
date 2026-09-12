@@ -133,9 +133,15 @@ void HudLayer::onSizeChanged() {
 
     // The bar runs along the top edge. It sizes itself to its crumbs, so what
     // it needs here is the room it may use and where it starts.
+    //
+    // Flush to the left. Only the far end of the bar is a rounded cap; the
+    // first crumb's fill runs to its own left edge with no cap at all, so the
+    // art is drawn to sit against the screen. Insetting it leaves a sliver of
+    // wall between that flat edge and the screen, which reads as a mistake
+    // rather than a margin. The inset still applies above and at the far end.
     float inset = 3.0f * App::UI_DENSITY;
-    mPathBar.setPosition(safeLeft + inset, safeTop + inset);
-    mPathBar.setSize(safeWidth - inset * 2.0f, PathBarLayer::preferredHeight());
+    mPathBar.setPosition(safeLeft, safeTop + inset);
+    mPathBar.setSize(safeWidth - inset, PathBarLayer::preferredHeight());
 
     // The menu bar runs along the bottom edge.
     mMenuBar.setPosition(safeLeft, safeBottom - MenuBar::preferredHeight());
