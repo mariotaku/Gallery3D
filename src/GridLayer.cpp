@@ -46,7 +46,7 @@ bool contains(const std::vector<MediaItem *> &items, MediaItem *item) {
 // screen is divided up, which is the same question on a small screen as on a
 // large one. A fixed size is not: it is a fifth of a short window and a
 // twentieth of a tall one, so it costs a short screen rows it cannot spare.
-const float kGridMarginFraction = 0.06f;
+const float kGridMarginFraction = 0.05f;
 
 // Below this the grid reads as a column rather than a wall. A screen short
 // enough that the margin costs it this much keeps the rows instead: the
