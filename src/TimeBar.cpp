@@ -318,8 +318,11 @@ void TimeBar::renderBlended(RenderView *view) {
     float knobWidth = (float)knob->getWidth();
     float knobHeight = (float)knob->getHeight();
     float knobX = mX - mScrollAnim + getKnobXForPosition(mPositionAnim) - knobWidth * 0.5f;
-    // Without a date the knob rides the bar; with a date it sits at the window's bottom edge.
-    float knobY = mShowTime ? ((float)view->getHeight() - knobHeight) : mY;
+    // Without a date the knob rides the bar; with a date it drops to the bottom
+    // edge. That edge is the safe area's, not the window's: on a phone the
+    // window runs under the navigation bar, and a knob at the window's own
+    // bottom sits behind it where it cannot be dragged.
+    float knobY = mShowTime ? ((float)view->getHeight() - App::SAFE_AREA.bottom - knobHeight) : mY;
     view->draw2D(knobX, knobY, 0.0f, knobWidth, knobHeight);
 
     if (!mShowTime || (!mInDrag && mAnimTextAlpha == 0.0f)) {
