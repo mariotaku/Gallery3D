@@ -73,6 +73,43 @@ void GridInputProcessor::onWheel(float focusX, float focusY, float ticks) {
     mScaleGestureDetector.onWheel(focusX, focusY, ticks);
 }
 
+namespace {
+
+// How far one wheel tick carries the wall, as a share of the window. The camera
+// eases to the target it is given, so ticks in a row run together rather than
+// stepping.
+const float kWheelScrollFraction = 0.2f;
+
+}  // namespace
+
+void GridInputProcessor::onWheelScroll(float ticks) {
+    if (ticks == 0.0f) {
+        return;
+    }
+    GridLayer *layer = mLayer;
+    GridCamera *camera = mCamera;
+
+    if (layer->getState() == GridLayer::STATE_FULL_SCREEN) {
+        // One photo a tick, the same move the arrow keys make.
+        if (ticks < 0.0f) {
+            layer->changeFocusToNextSlot(1.0f);
+        } else {
+            layer->changeFocusToPreviousSlot(1.0f);
+        }
+        return;
+    }
+
+    // The wall runs across the window, so the wheel drives x. Wheel down goes
+    // forward, which is the direction a wheel scrolls a page.
+    Vector3f worldPosDelta;
+    const float deltaX = -ticks * (float)camera->mWidth * kWheelScrollFraction;
+    camera->convertToRelativeCameraSpace(deltaX, 0.0f, 0.0f, worldPosDelta);
+    camera->mConvergenceSpeed = 2.0f;
+    camera->mFriction = 0.0f;
+    camera->moveBy(worldPosDelta.x, 0.0f, 0.0f);
+    constrainCamera(true);
+}
+
 bool GridInputProcessor::onKeyDown(int keyCode, const KeyEvent &event, int state) {
     (void)event;
     GridLayer *layer = mLayer;
@@ -350,6 +387,7 @@ void GridInputProcessor::constrainCamera(bool b) {
 void GridInputProcessor::update(float timeElapsed) {
     mDpadIgnoreTime += timeElapsed;
     mGestureDetector.update(SDL_GetTicks());
+    mScaleGestureDetector.update(timeElapsed);
     if (mCamera->mFriction != 0.0f) {
         constrainCamera(true);
     }

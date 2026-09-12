@@ -89,6 +89,8 @@ void GestureDetector::update(uint64_t nowMs) {
 
 void ScaleGestureDetector::reset() {
     mInProgress = false;
+    mWheelGesture = false;
+    mWheelIdleSeconds = 0.0f;
     mScaleFactor = 1.0f;
     mCurrentSpan = 0.0f;
     mPreviousSpan = 0.0f;
@@ -161,6 +163,11 @@ bool ScaleGestureDetector::onTouchEvent(const MotionEvent &event) {
     return true;
 }
 
+// A wheel gesture ends this long after its last tick. Long enough to bridge the
+// gap between ticks of one flick of the wheel, short enough that the wall is
+// not still waiting when the hand has moved on.
+const float kWheelIdleSeconds = 0.25f;
+
 void ScaleGestureDetector::onWheel(float focusX, float focusY, float ticks) {
     if (ticks == 0.0f) {
         return;
@@ -171,6 +178,7 @@ void ScaleGestureDetector::onWheel(float focusX, float focusY, float ticks) {
     mFocusY = focusY;
     if (!mInProgress) {
         mInProgress = true;
+        mWheelGesture = true;
         mCurrentSpan = 200.0f;
         mPreviousSpan = mCurrentSpan;
         mScaleFactor = 1.0f;
@@ -180,11 +188,26 @@ void ScaleGestureDetector::onWheel(float focusX, float focusY, float ticks) {
         mBottomFingerDeltaY = 0.0f;
         mListener->onScaleBegin(this);
     }
+    if (!mWheelGesture) {
+        // Fingers are already pinching. They own the gesture.
+        return;
+    }
+    mWheelIdleSeconds = 0.0f;
     // One wheel tick is worth a 12 percent pinch.
     mScaleFactor = std::pow(1.12f, ticks);
     mPreviousSpan = mCurrentSpan;
     mCurrentSpan *= mScaleFactor;
     mListener->onScale(this);
+}
+
+void ScaleGestureDetector::update(float timeElapsed) {
+    if (!mInProgress || !mWheelGesture) {
+        return;
+    }
+    mWheelIdleSeconds += timeElapsed;
+    if (mWheelIdleSeconds < kWheelIdleSeconds) {
+        return;
+    }
     mListener->onScaleEnd(this, false);
     reset();
 }

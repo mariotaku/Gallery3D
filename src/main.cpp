@@ -53,6 +53,10 @@
 
 namespace {
 
+// Frames to keep drawing after a wheel pinch, long enough to cover the quarter
+// second the gesture waits for another tick plus the wall settling afterwards.
+const int kWheelPinchFrames = 40;
+
 std::string defaultPhotoDirectory() {
     // Reads the Known Folder on Windows and the XDG user directory on Linux,
     // so a relocated or translated Pictures folder still resolves.
@@ -985,13 +989,22 @@ int main(int argc, char **argv) {
                 break;
             }
             case SDL_EVENT_MOUSE_WHEEL: {
-                // The wheel drives the pinch: it spreads a stack in the album
-                // view and zooms a photo in fullscreen.
+                // The wheel runs along the wall. Held with control it pinches
+                // instead, spreading a stack or zooming a photo in fullscreen.
                 float mouseX = 0.0f;
                 float mouseY = 0.0f;
                 SDL_GetMouseState(&mouseX, &mouseY);
                 float scale = pointerScale();
-                gridLayer.getInputProcessor()->onWheel(mouseX * scale, mouseY * scale, sdlEvent.wheel.y);
+                GridInputProcessor *input = gridLayer.getInputProcessor();
+                if ((SDL_GetModState() & SDL_KMOD_CTRL) != 0) {
+                    input->onWheel(mouseX * scale, mouseY * scale, sdlEvent.wheel.y);
+                    // A wheel pinch ends on a timer rather than on a finger
+                    // lifting, so the frames it needs to run out have to be
+                    // asked for here.
+                    gridLayer.markDirty(kWheelPinchFrames);
+                } else {
+                    input->onWheelScroll(sdlEvent.wheel.y);
+                }
                 renderView.requestRender();
                 break;
             }

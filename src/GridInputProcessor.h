@@ -41,7 +41,12 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
 
     bool onTouchEvent(const MotionEvent &event);
     bool onKeyDown(int keyCode, const KeyEvent &event, int state);
+    // Ctrl and the wheel: spreads a stack, or zooms the photo in fullscreen.
     void onWheel(float focusX, float focusY, float ticks);
+
+    // The wheel on its own: runs along the wall, or steps photo by photo in
+    // fullscreen.
+    void onWheelScroll(float ticks);
 
     void clearSelection() {
         mCurrentSelectedSlot = -1;

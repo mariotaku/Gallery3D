@@ -69,8 +69,14 @@ class ScaleGestureDetector {
     bool onTouchEvent(const MotionEvent &event);
 
     // Drives a scale gesture from a mouse wheel, so the grid can be spread and
-    // photos zoomed without a touchscreen.
+    // photos zoomed without a touchscreen. Consecutive ticks build on one
+    // another; the gesture ends once they stop, which update() decides.
     void onWheel(float focusX, float focusY, float ticks);
+
+    // Ends a wheel gesture that has gone quiet. Ticks arrive one at a time with
+    // no gesture end of their own, so a gesture that ended per tick would snap
+    // back before the next one continued it.
+    void update(float timeElapsed);
 
     float getScaleFactor() const {
         return mScaleFactor;
@@ -138,4 +144,9 @@ class ScaleGestureDetector {
     float mTopFingerDeltaY = 0.0f;
     float mBottomFingerDeltaX = 0.0f;
     float mBottomFingerDeltaY = 0.0f;
+
+    // Set while the gesture in progress came from the wheel. A pinch ends when
+    // the fingers lift, so only this one is on a timer.
+    bool mWheelGesture = false;
+    float mWheelIdleSeconds = 0.0f;
 };
