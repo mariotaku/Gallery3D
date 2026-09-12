@@ -54,6 +54,12 @@ const float kGridMarginFraction = 0.05f;
 // barely two rows fit before any margin is taken.
 const int kGridMinRows = 2;
 
+// The air between rows of stacks, before the aspect stretch. Wider than it
+// looks: the stack art fans out past its cell at both ends, and the album's
+// label hangs below that again. Closing it far enough for a fourth row on a
+// handset leaves each label sitting on the stack beneath it.
+const float kStackSpacingY = 70.0f;
+
 }  // namespace
 
 int GridLayer::itemWidthForDensity() {
@@ -297,7 +303,7 @@ void GridLayer::setState(int state) {
         }
         disableLocationFiltering();
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
-        layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
+        layoutInterface->mSpacingY = (int)(kStackSpacingY * App::PIXEL_DENSITY * yStretch);
         updateRowsForLayout(state);
         break;
     case STATE_FULL_SCREEN:
@@ -326,7 +332,7 @@ void GridLayer::setState(int state) {
         disableLocationFiltering();
         mInputProcessor->clearSelection();
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
-        layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
+        layoutInterface->mSpacingY = (int)(kStackSpacingY * App::PIXEL_DENSITY * yStretch);
         updateRowsForLayout(state);
         if (mInAlbum) {
             if (mState == STATE_FULL_SCREEN) {

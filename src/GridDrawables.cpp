@@ -20,7 +20,7 @@ const float kLabelHeightInFonts = 1.6f;
 }  // namespace
 
 float GridDrawables::labelFontSize() {
-    return 18.0f * App::PIXEL_DENSITY;
+    return 16.0f * App::PIXEL_DENSITY;
 }
 
 // Both sides are powers of two. sTextGrid samples the whole texture, and
