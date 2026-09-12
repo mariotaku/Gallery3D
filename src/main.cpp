@@ -44,6 +44,7 @@
 #include "PopupMenu.h"
 #include "RenderView.h"
 #include "Shared.h"
+#include "SubsampledDecode.h"
 #include "CaptionButtons.h"
 #include "HudLayer.h"
 #include "Texture.h"
@@ -456,6 +457,7 @@ int main(int argc, char **argv) {
     AndroidBridge::init();
     RegionDecoder::initAndroid();
 #endif
+    SubsampledDecode::init();
 
     // Read --config before loading settings, then process run arguments.
     std::string configPath;

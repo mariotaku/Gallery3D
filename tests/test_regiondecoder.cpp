@@ -348,3 +348,51 @@ TEST(a_local_tile_comes_back_through_the_data_source) {
                          [&missing](Bitmap bitmap) { missing = std::move(bitmap); });
     CHECK(!missing.valid());
 }
+
+TEST(a_photo_decodes_reduced_without_being_built_at_full_size_first) {
+    // The thumbnail path. What matters is that reducing inside the decoder
+    // lands on the same picture as decoding whole and scaling after, at the
+    // same size, since that is what the wall used to do.
+    const std::string path = writeGradientJpeg("gallery3d_subsampled.jpg", 2048, 1536);
+    std::vector<uint8_t> encoded;
+    CHECK(Bitmap::readFile(path, &encoded));
+
+    const Bitmap reduced = Bitmap::loadFromMemory(encoded.data(), encoded.size(), 256);
+    CHECK(reduced.valid());
+    // Long edge trimmed to what was asked for, aspect kept.
+    CHECK_EQ(reduced.width(), 256);
+    CHECK_EQ(reduced.height(), 192);
+
+    // Red follows x and green follows y in the gradient, so the corners say
+    // the picture is the right way up and not cropped.
+    if (reduced.valid()) {
+        const uint8_t *topLeft = reduced.pixels();
+        CHECK_NEAR(topLeft[0], 0, 12);
+        CHECK_NEAR(topLeft[1], 0, 12);
+        const uint8_t *topRight = reduced.pixels() + (size_t)(reduced.width() - 1) * 4;
+        // x runs 0..2047 and the gradient wraps every 256, so the last column
+        // is near the top of a ramp.
+        CHECK(topRight[0] > 200);
+    }
+
+    // Asking for more than the photo holds must not enlarge it.
+    const Bitmap whole = Bitmap::loadFromMemory(encoded.data(), encoded.size(), 4096);
+    CHECK(whole.valid());
+    CHECK_EQ(whole.width(), 2048);
+    CHECK_EQ(whole.height(), 1536);
+
+    fs::remove(path);
+}
+
+TEST(a_format_with_no_reducing_decoder_still_loads) {
+    // PNG has no subsampled path on the desktop, so it falls back to decoding
+    // whole. The caller cannot tell the difference.
+    std::vector<uint8_t> encoded;
+    CHECK(Bitmap::readFile(std::string(GALLERY3D_ASSET_ROOT) + "/drawable/icon_home_small.png", &encoded));
+    const Bitmap decoded = Bitmap::loadFromMemory(encoded.data(), encoded.size(), 32);
+    CHECK(decoded.valid());
+    if (decoded.valid()) {
+        CHECK(decoded.width() <= 32);
+        CHECK(decoded.height() <= 32);
+    }
+}

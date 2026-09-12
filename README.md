@@ -75,6 +75,11 @@ On Android the wall runs under the status and navigation bars, which stay visibl
 but transparent; controls keep clear of them the same way they keep clear of a
 display cutout.
 
+A photo is decoded straight to the size it is wanted at, by libjpeg-turbo on the
+desktop and BitmapFactory on Android, rather than being built at full size and
+scaled after. Formats with no reducing decoder behind them take the whole-image
+path.
+
 Zoomed images load only the tiles on screen. The museum crops on its server. A
 local JPEG is cropped by libjpeg-turbo on the desktop and by BitmapRegionDecoder
 on Android, either way reading the photo once rather than once per tile. Formats

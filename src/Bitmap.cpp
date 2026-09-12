@@ -7,6 +7,9 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <utility>
+
+#include "SubsampledDecode.h"
 
 namespace {
 
@@ -111,6 +114,9 @@ namespace {
 // maxEdge if it is over.
 Bitmap finishDecode(SDL_Surface *surface, int maxEdge);
 
+// Brings a decoded image down to maxEdge on its long edge, keeping its shape.
+Bitmap trimToMaxEdge(Bitmap decoded, int maxEdge);
+
 }  // namespace
 
 Bitmap Bitmap::load(const std::string &path, int maxEdge) {
@@ -120,6 +126,16 @@ Bitmap Bitmap::load(const std::string &path, int maxEdge) {
 Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     if (bytes == nullptr || size == 0) {
         return Bitmap();
+    }
+    if (maxEdge > 0) {
+        // Reduce inside the decoder where it is close to free, rather than
+        // building the full size image only to throw most of it away. What
+        // comes back is at least maxEdge, so the tail below still trims it to
+        // exactly that.
+        Bitmap reduced = SubsampledDecode::decode(bytes, size, maxEdge);
+        if (reduced.valid()) {
+            return trimToMaxEdge(std::move(reduced), maxEdge);
+        }
     }
     SDL_IOStream *stream = SDL_IOFromConstMem(bytes, size);
     if (stream == nullptr) {
@@ -160,12 +176,7 @@ Bitmap Bitmap::fromStraightRGBA(const uint8_t *pixels, int width, int height) {
 
 namespace {
 
-Bitmap finishDecode(SDL_Surface *surface, int maxEdge) {
-    if (surface == nullptr) {
-        return Bitmap();
-    }
-    Bitmap decoded = fromSurface(surface);
-    SDL_DestroySurface(surface);
+Bitmap trimToMaxEdge(Bitmap decoded, int maxEdge) {
     if (!decoded.valid() || maxEdge <= 0) {
         return decoded;
     }
@@ -177,6 +188,15 @@ Bitmap finishDecode(SDL_Surface *surface, int maxEdge) {
     int newWidth = std::max(1, (int)(decoded.width() * ratio));
     int newHeight = std::max(1, (int)(decoded.height() * ratio));
     return decoded.scaled(newWidth, newHeight);
+}
+
+Bitmap finishDecode(SDL_Surface *surface, int maxEdge) {
+    if (surface == nullptr) {
+        return Bitmap();
+    }
+    Bitmap decoded = fromSurface(surface);
+    SDL_DestroySurface(surface);
+    return trimToMaxEdge(std::move(decoded), maxEdge);
 }
 
 }  // namespace
