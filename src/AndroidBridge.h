@@ -24,6 +24,11 @@ bool hasMediaPermission();
 // thread: the dialog needs the main thread to run.
 bool requestMediaPermission();
 
+// The space behind the status bar, the navigation bar and any cutout, in
+// pixels. The window draws under all three, so the wall fills the screen while
+// its controls stay clear of them. False when the insets cannot be read.
+bool systemBarInsets(int *left, int *top, int *right, int *bottom);
+
 // JSON: one object per folder of photos, with id, name, count and dateTaken.
 std::string queryBuckets();
 

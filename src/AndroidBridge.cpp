@@ -13,12 +13,14 @@
 namespace {
 
 const char *const kBridgeClass = "me/mariotaku/gallery3d/MediaStoreBridge";
+const char *const kActivityClass = "me/mariotaku/gallery3d/MainActivity";
 
 // A global reference to the helper class, taken once on the thread that runs
 // main(). FindClass resolves against the class loader of the calling thread,
 // and a thread attached later carries only the bootstrap loader, which knows
 // nothing about the app's own classes.
 jclass gBridge = nullptr;
+jclass gActivity = nullptr;
 
 // Attaches the calling thread to the vm for as long as it is in scope. The
 // loader threads are made by SDL and are not attached, and detaching one that
@@ -128,6 +130,42 @@ void AndroidBridge::init() {
     }
     gBridge = (jclass)env->NewGlobalRef(local);
     env->DeleteLocalRef(local);
+
+    jclass activity = env->FindClass(kActivityClass);
+    if (activity == nullptr || failed(env.get(), "init")) {
+        return;
+    }
+    gActivity = (jclass)env->NewGlobalRef(activity);
+    env->DeleteLocalRef(activity);
+}
+
+bool AndroidBridge::systemBarInsets(int *left, int *top, int *right, int *bottom) {
+    ScopedEnv env;
+    if (!env || gActivity == nullptr) {
+        return false;
+    }
+    jmethodID method = env->GetStaticMethodID(gActivity, "systemBarInsets", "()[I");
+    if (method == nullptr || failed(env.get(), "systemBarInsets")) {
+        return false;
+    }
+    jintArray array = (jintArray)env->CallStaticObjectMethod(gActivity, method);
+    if (failed(env.get(), "systemBarInsets") || array == nullptr) {
+        return false;
+    }
+    bool ok = false;
+    if (env->GetArrayLength(array) == 4) {
+        jint values[4] = {0, 0, 0, 0};
+        env->GetIntArrayRegion(array, 0, 4, values);
+        if (!failed(env.get(), "systemBarInsets")) {
+            *left = (int)values[0];
+            *top = (int)values[1];
+            *right = (int)values[2];
+            *bottom = (int)values[3];
+            ok = true;
+        }
+    }
+    env->DeleteLocalRef(array);
+    return ok;
 }
 
 bool AndroidBridge::hasMediaPermission() {

@@ -1,8 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- No title bar and no window background: the wall fills the screen and
-         paints every pixel itself. -->
-    <style name="AppTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
+    <!-- The wall paints every pixel, so the window lays out under the status
+         and navigation bars rather than between them.
+
+         The translucent flags are what move the layout under the bars: they
+         imply FLAG_LAYOUT_IN_SCREEN, which a system ui visibility flag alone
+         does not give reliably. The bars themselves are painted by the window
+         at a transparent colour, so nothing shows through but the wall.
+
+         A Fullscreen parent theme would hide the bars instead of drawing
+         under them. -->
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- The content frame must not inset itself by the bars it now sits
+             under; MainActivity reports those insets to the wall instead. -->
+        <item name="android:fitsSystemWindows">false</item>
     </style>
 </resources>

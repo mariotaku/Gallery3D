@@ -67,9 +67,14 @@ Environment names follow the setting: `backdrop.sigma` becomes
 
 The minimum window size is 320x320 display units. On Windows, content extends
 under app-drawn caption buttons while the system retains snapping and resize borders.
-Zoomed images load only the tiles on screen. The museum crops on its server;
-a local JPEG is cropped by libjpeg-turbo, which reads the file once per photo
-rather than once per tile. Other formats stay on one downscaled decode.
+On Android the wall runs under the status and navigation bars, which stay visible
+but transparent; controls keep clear of them the same way they keep clear of a
+display cutout.
+
+Zoomed images load only the tiles on screen. The museum crops on its server. A
+local JPEG is cropped by libjpeg-turbo on the desktop and by BitmapRegionDecoder
+on Android, either way reading the photo once rather than once per tile. Formats
+with no region decoder behind them stay on one downscaled decode.
 
 For scripted screenshots:
 

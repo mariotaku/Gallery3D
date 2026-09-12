@@ -232,6 +232,22 @@ void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInset
         App::SAFE_AREA.right = (float)(windowWidth - (safeRect.x + safeRect.w));
         App::SAFE_AREA.bottom = (float)(windowHeight - (safeRect.y + safeRect.h));
     }
+#if defined(__ANDROID__)
+    // The window draws under the status and navigation bars, which SDL's safe
+    // area does not account for: it reports the cutout alone. Take whichever
+    // inset is larger on each edge, since the cutout sits inside the status bar
+    // rather than beside it.
+    int barLeft = 0;
+    int barTop = 0;
+    int barRight = 0;
+    int barBottom = 0;
+    if (AndroidBridge::systemBarInsets(&barLeft, &barTop, &barRight, &barBottom)) {
+        App::SAFE_AREA.left = std::max(App::SAFE_AREA.left, (float)barLeft);
+        App::SAFE_AREA.top = std::max(App::SAFE_AREA.top, (float)barTop);
+        App::SAFE_AREA.right = std::max(App::SAFE_AREA.right, (float)barRight);
+        App::SAFE_AREA.bottom = std::max(App::SAFE_AREA.bottom, (float)barBottom);
+    }
+#endif
     if (overridden) {
         App::SAFE_AREA = overrideInsets;
     }
