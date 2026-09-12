@@ -1026,17 +1026,24 @@ void GridLayer::onFeedChanged(MediaFeed *feed, bool needsLayout) {
     }
 }
 
-DisplayItem *GridLayer::getRepresentativeDisplayItem() {
-    int slotIndex = mInputProcessor ? mInputProcessor->getCurrentFocusSlot() : Shared::INVALID;
-    if (slotIndex == Shared::INVALID && mState == STATE_FULL_SCREEN && mInputProcessor != nullptr) {
+int GridLayer::representativeSlotIndex(int state, int focusSlot, int selectedSlot, int anchorCenterSlot) {
+    if (focusSlot != Shared::INVALID) {
+        return focusSlot;
+    }
+    if (state == STATE_FULL_SCREEN && selectedSlot != Shared::INVALID) {
         // Fullscreen shows one photo, so the background belongs to that one.
         // The middle of the visible range is a neighbour as often as not, and
         // stepping photo by photo leaves it on the wrong one.
-        slotIndex = mInputProcessor->getCurrentSelectedSlot();
+        return selectedSlot;
     }
-    if (slotIndex == Shared::INVALID) {
-        slotIndex = getAnchorSlotIndex(ANCHOR_CENTER);
-    }
+    return anchorCenterSlot;
+}
+
+DisplayItem *GridLayer::getRepresentativeDisplayItem() {
+    const int focusSlot = mInputProcessor ? mInputProcessor->getCurrentFocusSlot() : Shared::INVALID;
+    const int selectedSlot = mInputProcessor ? mInputProcessor->getCurrentSelectedSlot() : Shared::INVALID;
+    const int slotIndex =
+        representativeSlotIndex(mState, focusSlot, selectedSlot, getAnchorSlotIndex(ANCHOR_CENTER));
     int index = (slotIndex - mBufferedVisibleRange.begin) * MAX_ITEMS_PER_SLOT;
     if (index >= 0 && index < MAX_ITEMS_DRAWABLE) {
         return mDisplayItems[index];

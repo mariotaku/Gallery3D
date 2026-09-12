@@ -129,6 +129,10 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     void endSlideshow();
     void startSlideshow();
 
+    // Which slot the blurred background belongs to. Static and given every
+    // input, so the rule can be checked without a layer around it.
+    static int representativeSlotIndex(int state, int focusSlot, int selectedSlot, int anchorCenterSlot);
+
     DisplayItem *getRepresentativeDisplayItem();
     DisplayItem *getAnchorDisplayItem(int type);
     float getScrollPosition() const;
