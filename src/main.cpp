@@ -76,9 +76,11 @@ std::string assetRoot() {
     // --preload-file in CMakeLists. There is no binary to sit next to.
     return "/assets";
 #elif defined(__ANDROID__)
-    // Packed into the apk. SDL's file functions read a relative path through
-    // the asset manager, so this is the path inside assets/ and not on disk.
-    return "assets";
+    // The apk's assets folder is itself the root: SDL's file functions read a
+    // relative path through the asset manager, and that manager starts there.
+    // Anything prefixed onto it would be a folder inside assets/ that does not
+    // exist.
+    return "";
 #else
     // Assets are copied next to the binary at build time.
     const char *base = SDL_GetBasePath();
@@ -238,19 +240,22 @@ void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInset
         App::SAFE_AREA.bottom = (float)(windowHeight - (safeRect.y + safeRect.h));
     }
 #if defined(__ANDROID__)
-    // The window draws under the status and navigation bars, which SDL's safe
-    // area does not account for: it reports the cutout alone. Take whichever
-    // inset is larger on each edge, since the cutout sits inside the status bar
-    // rather than beside it.
+    // The platform's own answer replaces SDL's rather than joining it. The
+    // window draws under the status and navigation bars, which SDL does not
+    // account for, and SDL in turn insets both side edges by the radius of the
+    // screen's rounded corners. Keeping the larger of the two would hold the
+    // breadcrumb a corner's width off the edge it is drawn to sit against, for
+    // a corner it does not reach. What comes back here already covers the bars
+    // and the cutout, which is everything the controls have to clear.
     int barLeft = 0;
     int barTop = 0;
     int barRight = 0;
     int barBottom = 0;
     if (AndroidBridge::systemBarInsets(&barLeft, &barTop, &barRight, &barBottom)) {
-        App::SAFE_AREA.left = std::max(App::SAFE_AREA.left, (float)barLeft);
-        App::SAFE_AREA.top = std::max(App::SAFE_AREA.top, (float)barTop);
-        App::SAFE_AREA.right = std::max(App::SAFE_AREA.right, (float)barRight);
-        App::SAFE_AREA.bottom = std::max(App::SAFE_AREA.bottom, (float)barBottom);
+        App::SAFE_AREA.left = (float)barLeft;
+        App::SAFE_AREA.top = (float)barTop;
+        App::SAFE_AREA.right = (float)barRight;
+        App::SAFE_AREA.bottom = (float)barBottom;
     }
 #endif
     if (overridden) {

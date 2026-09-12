@@ -48,10 +48,17 @@ const Bucket kBuckets[] = {
 const char *const kFallbackDirectory = "drawable";
 
 std::string pathIn(const char *directory, const std::string &name) {
-    return ASSET_ROOT + "/" + directory + "/" + name + ".png";
+    return assetPath(std::string(directory) + "/" + name + ".png");
 }
 
 }  // namespace
+
+std::string assetPath(const std::string &relative) {
+    if (ASSET_ROOT.empty()) {
+        return relative;
+    }
+    return ASSET_ROOT + "/" + relative;
+}
 
 Drawable findDrawable(const std::string &name, bool allowHigherDensity) {
     if (allowHigherDensity) {

@@ -2,20 +2,6 @@ plugins {
     id("com.android.application")
 }
 
-// The apk flattens an asset source directory into its own root, which would put
-// the art one level above where App::ASSET_ROOT looks for it. Staging it under
-// an assets/ folder first keeps one asset path across every platform.
-val assetStage = layout.buildDirectory.dir("generated/gallery3d-assets")
-
-val stageAssets = tasks.register<Copy>("stageAssets") {
-    from(rootProject.file("../assets"))
-    into(assetStage.map { it.dir("assets") })
-}
-
-// Nothing wires this by hand. Handing the source set the task rather than the
-// directory is what tells Gradle who produces it, so every task that reads the
-// assets waits for the copy, not just the one that merges them.
-
 android {
     namespace = "me.mariotaku.gallery3d"
     compileSdk = 35
@@ -36,8 +22,11 @@ android {
             }
         }
         ndk {
-            // The phone this is tested on, and what current devices run.
-            abiFilters += listOf("arm64-v8a")
+            // arm64 is what phones run. x86_64 is what the emulators run, and
+            // without it an emulator installs the apk and then finds no library
+            // to load, which looks like the app starting to a black screen
+            // rather than like a missing build.
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
 
@@ -56,7 +45,10 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDir(stageAssets)
+            // The wall's art and fonts, packed straight into the apk. Its
+            // assets folder is what the asset manager reads from, which is
+            // where App::ASSET_ROOT points on Android.
+            assets.srcDir(rootProject.file("../assets"))
         }
     }
 

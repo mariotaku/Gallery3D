@@ -53,6 +53,11 @@ extern SafeAreaInsets SAFE_AREA;
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 extern std::string ASSET_ROOT;
 
+// Joins a path under the asset root. The root is empty on Android, where the
+// apk's own assets folder is the root, and joining that by hand would leave a
+// leading slash that reads as an absolute path instead.
+std::string assetPath(const std::string &relative);
+
 // Drawable path and source density: baseline = 1x, hdpi = 1.5x.
 struct Drawable {
     std::string path;

@@ -48,7 +48,7 @@ const char *const kBoldFontCandidates[] = {
 };
 
 TTF_Font *openFirst(const char *shippedName, const char *const *candidates, size_t count, float size) {
-    std::string shipped = App::ASSET_ROOT + "/fonts/" + shippedName;
+    std::string shipped = App::assetPath(std::string("fonts/") + shippedName);
     if (TTF_Font *font = TTF_OpenFont(shipped.c_str(), size)) {
         return font;
     }
