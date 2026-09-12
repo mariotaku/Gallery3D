@@ -223,7 +223,12 @@ bool GridCamera::computeConstraints(bool applyConstraints, bool applyOverflowFee
         if (amountExceedingToUse < -maxThreshold) {
             amountExceedingToUse = -maxThreshold;
         }
-        mEyeEdgeOffsetX = applyOverflowFeedback ? (-10.0f * amountExceedingToUse) : 0.0f;
+        // Half the original's 10. One wheel tick asks for a fifth of the
+        // window, which is far enough past the end to peg the clamp above on
+        // the first tick, so the wall took its full lean at once rather than
+        // easing into one the way a drag does.
+        const float leanScale = 5.0f;
+        mEyeEdgeOffsetX = applyOverflowFeedback ? (-leanScale * amountExceedingToUse) : 0.0f;
     }
     return retVal;
 }
