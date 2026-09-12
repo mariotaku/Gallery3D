@@ -1,10 +1,39 @@
 #include "GridDrawables.h"
 
 #include "App.h"
+#include "GridLayer.h"
 #include "LocalDataSource.h"
 #include "MediaSet.h"
 #include "RenderView.h"
 #include "Shared.h"
+
+namespace {
+
+// A label box about this many wall cells wide. The stacks in the album view sit
+// a cell apart, so a label may run wider than the tile under it without
+// reaching its neighbour.
+const float kLabelWidthInCells = 1.5f;
+
+// Tall enough for one line plus the shadow around it.
+const float kLabelHeightInFonts = 1.6f;
+
+}  // namespace
+
+float GridDrawables::labelFontSize() {
+    return 18.0f * App::PIXEL_DENSITY;
+}
+
+// Both sides are powers of two. sTextGrid samples the whole texture, and
+// RenderView pads a non-power-of-two bitmap out to one, which would leave the
+// quad drawing the padding alongside the label.
+int GridDrawables::labelTextureWidth() {
+    return Shared::nearestPowerOf2((int)(kLabelWidthInCells * (float)GridLayer::itemWidthForDensity() + 0.5f));
+}
+
+int GridDrawables::labelTextureHeight() {
+    // Rounded up, never down: a box shorter than the line clips the glyphs.
+    return Shared::nextPowerOf2((int)(kLabelHeightInFonts * labelFontSize() + 0.5f));
+}
 
 GridQuad *GridDrawables::sGrid = nullptr;
 GridQuadFrame *GridDrawables::sFrame = nullptr;
@@ -54,12 +83,14 @@ void GridDrawables::buildQuads(int itemWidth, int itemHeight) {
     sLocationGrid = GridQuad::createGridQuad(sizeOfLocationIcon, sizeOfLocationIcon, 0, 0, 1.0f, 1.0f, false);
     sSourceIconGrid = GridQuad::createGridQuad(sizeOfSourceIcon, sizeOfSourceIcon, 0, 0, 1.0f, 1.0f, false);
 
-    // The quad for the text label.
-    float seedTextWidth = (App::PIXEL_DENSITY < 1.5f) ? 128.0f : 256.0f;
-    float textWidth = (seedTextWidth / (float)itemWidth) * width;
-    float textHeightPow2 = (App::PIXEL_DENSITY < 1.5f) ? 32.0f : 64.0f;
-    float textHeight = (textHeightPow2 / (float)itemHeight) * height;
-    sTextGrid = GridQuad::createGridQuad(textWidth, textHeight, 0, 0.0f, 1.0f, 1.0f, false);
+    // The quad for the text label. One texture pixel maps to one cell pixel, so
+    // the glyphs arrive at the size the font was rendered at.
+    float textWidth = ((float)labelTextureWidth() / (float)itemWidth) * width;
+    float textHeight = ((float)labelTextureHeight() / (float)itemHeight) * height;
+    // Hung from its top edge rather than centred. The label is drawn at the top
+    // of its box, so a box grown to clear a taller font would otherwise carry
+    // the text up with it.
+    sTextGrid = GridQuad::createGridQuad(textWidth, textHeight, 0, -textHeight * 0.5f, 1.0f, 1.0f, false);
 
     sFrame = GridQuadFrame::createFrame(width, height, itemWidth, itemHeight);
 }

@@ -287,21 +287,35 @@ Bitmap StringTexture::load(RenderView *view) {
     const int boundsWidth = mWidth * scale;
     const int boundsHeight = mHeight * scale;
 
+    std::string text = mText;
     float fontSize = mConfig.fontSize * (float)scale;
     int textWidth = 0;
     int textHeight = 0;
-    Canvas::measureText(mText, fontSize, mConfig.bold, &textWidth, &textHeight);
+    Canvas::measureText(text, fontSize, mConfig.bold, &textWidth, &textHeight);
+
+    int shadowRadius = mConfig.shadowRadius * scale;
+    int padding = 1 + shadowRadius;
 
     if (mConfig.sizeMode == Config::SIZE_TEXT_TO_BOUNDS) {
         // Shrink until the string fits the fixed width, exactly as the original.
         while (textWidth >= boundsWidth && fontSize > 6.0f * (float)scale) {
             fontSize -= (float)scale;
-            Canvas::measureText(mText, fontSize, mConfig.bold, &textWidth, &textHeight);
+            Canvas::measureText(text, fontSize, mConfig.bold, &textWidth, &textHeight);
+        }
+    } else if (mConfig.overflowMode == Config::OVERFLOW_ELLIPSIZE) {
+        // Cut the tail off instead, which holds the font size steady across
+        // labels of different lengths.
+        const std::string ellipsis = "...";
+        const int room = boundsWidth - 2 * padding;
+        if (textWidth > room) {
+            int ellipsisWidth = 0;
+            Canvas::measureText(ellipsis, fontSize, mConfig.bold, &ellipsisWidth, nullptr);
+            size_t fit = Canvas::lengthToFit(text, fontSize, mConfig.bold, room - ellipsisWidth);
+            text = text.substr(0, fit) + ellipsis;
+            Canvas::measureText(text, fontSize, mConfig.bold, &textWidth, &textHeight);
         }
     }
 
-    int shadowRadius = mConfig.shadowRadius * scale;
-    int padding = 1 + shadowRadius;
     int backWidth = boundsWidth;
     int backHeight = boundsHeight;
     if (mConfig.sizeMode == Config::SIZE_BOUNDS_TO_TEXT) {
@@ -312,7 +326,7 @@ Bitmap StringTexture::load(RenderView *view) {
         return Bitmap();
     }
 
-    Bitmap glyphs = Canvas::renderText(mText, fontSize, mConfig.bold);
+    Bitmap glyphs = Canvas::renderText(text, fontSize, mConfig.bold);
     if (!glyphs.valid()) {
         return Bitmap();
     }

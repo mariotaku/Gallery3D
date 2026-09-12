@@ -1,6 +1,7 @@
 #include "DisplaySlot.h"
 
 #include "App.h"
+#include "GridDrawables.h"
 #include "MediaSet.h"
 #include "Shared.h"
 
@@ -17,11 +18,15 @@ void DisplaySlot::initStyles() {
     if (sStylesReady) {
         return;
     }
-    int labelWidth = (App::PIXEL_DENSITY < 1.5f) ? 128 : 256;
-    int labelHeight = (App::PIXEL_DENSITY < 1.5f) ? 32 : 64;
+    int labelWidth = GridDrawables::labelTextureWidth();
+    int labelHeight = GridDrawables::labelTextureHeight();
 
-    sCaptionStyle.sizeMode = StringTexture::Config::SIZE_TEXT_TO_BOUNDS;
-    sCaptionStyle.fontSize = 16 * App::PIXEL_DENSITY;
+    // A fixed box and a fixed font, so every album label comes out the same
+    // size. A title too long for the box loses its tail to an ellipsis rather
+    // than dragging the whole label down a few points.
+    sCaptionStyle.sizeMode = StringTexture::Config::SIZE_EXACT;
+    sCaptionStyle.overflowMode = StringTexture::Config::OVERFLOW_ELLIPSIZE;
+    sCaptionStyle.fontSize = GridDrawables::labelFontSize();
     sCaptionStyle.bold = true;
     sCaptionStyle.width = labelWidth;
     sCaptionStyle.height = labelHeight;
@@ -31,12 +36,10 @@ void DisplaySlot::initStyles() {
 
     sClusterStyle = sCaptionStyle;
 
-    sLocationStyle.sizeMode = StringTexture::Config::SIZE_TEXT_TO_BOUNDS;
-    sLocationStyle.fontSize = 12 * App::PIXEL_DENSITY;
-    sLocationStyle.width = labelWidth;
-    sLocationStyle.height = labelHeight;
-    sLocationStyle.xalignment = StringTexture::Config::ALIGN_HCENTER;
-    sLocationStyle.superSample = 2;
+    sLocationStyle = sCaptionStyle;
+    sLocationStyle.fontSize = 0.75f * GridDrawables::labelFontSize();
+    sLocationStyle.bold = false;
+    sLocationStyle.yalignment = StringTexture::Config::ALIGN_VCENTER;
 
     sStylesReady = true;
 }
