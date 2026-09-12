@@ -91,6 +91,9 @@ int keyCodeFromSDL(SDL_Keycode key) {
     switch (key) {
     case SDLK_ESCAPE:
     case SDLK_BACKSPACE:
+    // Android's own back key, which SDL delivers once the back button is
+    // trapped rather than letting the platform act on it.
+    case SDLK_AC_BACK:
         return KeyEvent::KEYCODE_BACK;
     case SDLK_LEFT:
         return KeyEvent::KEYCODE_DPAD_LEFT;
@@ -639,6 +642,13 @@ int main(int argc, char **argv) {
     // and ours has to be the one on top.
     Backtrace::install();
 
+#if defined(__ANDROID__)
+    // Without this the platform handles back itself and closes the activity
+    // from wherever the user is, rather than backing out of an album. The wall
+    // leaves at the top level on its own.
+    SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+#endif
+
     // Sensors are asked for but not required: a machine with none still runs,
     // it just never leans.
     if (!SDL_InitSubSystem(SDL_INIT_SENSOR)) {
@@ -969,7 +979,11 @@ int main(int argc, char **argv) {
             }
             case SDL_EVENT_KEY_DOWN: {
                 int keyCode = keyCodeFromSDL(sdlEvent.key.key);
-                if (keyCode == KeyEvent::KEYCODE_BACK && sdlEvent.key.key == SDLK_ESCAPE &&
+                // Back at the top level leaves. Backspace does not, so a stray
+                // one while browsing cannot close the app.
+                const bool leavesAtTopLevel =
+                    sdlEvent.key.key == SDLK_ESCAPE || sdlEvent.key.key == SDLK_AC_BACK;
+                if (keyCode == KeyEvent::KEYCODE_BACK && leavesAtTopLevel &&
                     gridLayer.getState() == GridLayer::STATE_MEDIA_SETS) {
                     running = false;
                     break;
