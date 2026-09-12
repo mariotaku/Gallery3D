@@ -1028,6 +1028,12 @@ void GridLayer::onFeedChanged(MediaFeed *feed, bool needsLayout) {
 
 DisplayItem *GridLayer::getRepresentativeDisplayItem() {
     int slotIndex = mInputProcessor ? mInputProcessor->getCurrentFocusSlot() : Shared::INVALID;
+    if (slotIndex == Shared::INVALID && mState == STATE_FULL_SCREEN && mInputProcessor != nullptr) {
+        // Fullscreen shows one photo, so the background belongs to that one.
+        // The middle of the visible range is a neighbour as often as not, and
+        // stepping photo by photo leaves it on the wrong one.
+        slotIndex = mInputProcessor->getCurrentSelectedSlot();
+    }
     if (slotIndex == Shared::INVALID) {
         slotIndex = getAnchorSlotIndex(ANCHOR_CENTER);
     }
