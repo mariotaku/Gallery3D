@@ -77,7 +77,11 @@ std::shared_ptr<StringTexture> DisplaySlot::getTitleImage(
     if (mSetRef == nullptr) {
         return nullptr;
     }
-    const std::string &title = mSetRef->mTruncTitleString;
+    // The untruncated title: the label box measures the string and ellipsizes
+    // what will not fit. mTruncTitleString has already cut the name to sixteen
+    // characters and put an ellipsis of its own in, which the box would then
+    // cut again, ending the label on six dots.
+    const std::string &title = mSetRef->mTitleString;
     if (!mTitleImage && !title.empty() && title != mTitle) {
         bool isFolder = (mSetRef->mId != Shared::INVALID && mSetRef->mId != 0);
         mTitleImage = getTextureForString(title, textureTable, isFolder ? sCaptionStyle : sClusterStyle);
