@@ -59,7 +59,13 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
 
     // Lay out rows between the top and bottom bars; the wall still draws edge to edge.
     const App::SafeAreaInsets &safe = App::SAFE_AREA;
-    const float obscured = safe.top + safe.bottom + PathBarLayer::preferredHeight() + MenuBar::preferredHeight();
+    // A row's worth of air on top of the bars, so the grid does not run from
+    // one bar to the other. It buys back a whole row, and because the block is
+    // centred on the camera the height that frees up becomes margin at both
+    // ends rather than a gap at one.
+    const float margin = (float)pitch;
+    const float obscured =
+        safe.top + safe.bottom + margin + PathBarLayer::preferredHeight() + MenuBar::preferredHeight();
     const int available = (int)((float)mCamera->mHeight - obscured);
 
     // n rows span n items and the n-1 gaps between them.
