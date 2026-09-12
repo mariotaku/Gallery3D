@@ -9,6 +9,7 @@
 #include "App.h"
 #include "GridLayer.h"
 #include "GridLayoutInterface.h"
+#include "Texture.h"
 
 namespace {
 
@@ -114,4 +115,34 @@ TEST(the_drawable_bucket_follows_the_chrome_density) {
     // And past the top bucket there is nothing better to pick, so it stays.
     App::UI_DENSITY = 2.0f;
     CHECK_NEAR(App::drawableBucketDensity(), 1.5f, 0.001f);
+}
+
+TEST(a_thumbnail_texture_takes_the_nearer_power_of_two) {
+    // 128 units at 4.5 wants 576 pixels. Rounding up to 1024 holds three times
+    // the pixels of a 512 the grid already draws smaller than.
+    CHECK_EQ(thumbnailTextureEdge(128, 4.5f, 0), 512);
+    // Past the midpoint it does round up, so a density that genuinely wants the
+    // larger texture still gets it: 896 is nearer 1024 than 512.
+    CHECK_EQ(thumbnailTextureEdge(128, 7.0f, 0), 1024);
+    // Exactly halfway takes the smaller one. Either is the same distance from
+    // what was asked for, and the smaller costs a quarter of the memory.
+    CHECK_EQ(thumbnailTextureEdge(128, 6.0f, 0), 512);
+    CHECK_EQ(thumbnailTextureEdge(128, 1.0f, 0), 128);
+    CHECK_EQ(thumbnailTextureEdge(128, 2.0f, 0), 256);
+}
+
+TEST(a_device_can_ask_for_a_smaller_thumbnail_than_its_density_wants) {
+    // What a slow or small-memory phone sets: the cap wins.
+    CHECK_EQ(thumbnailTextureEdge(128, 4.5f, 256), 256);
+    CHECK_EQ(thumbnailTextureEdge(128, 4.5f, 512), 512);
+    // A cap above what the density asks for changes nothing, so raising it on a
+    // low density screen does not enlarge a thumbnail past its source.
+    CHECK_EQ(thumbnailTextureEdge(128, 2.0f, 1024), 256);
+    // Zero is no cap at all.
+    CHECK_EQ(thumbnailTextureEdge(128, 4.5f, 0), 512);
+}
+
+TEST(a_thumbnail_with_no_size_to_work_from_is_not_a_texture) {
+    CHECK_EQ(thumbnailTextureEdge(0, 4.5f, 0), 0);
+    CHECK_EQ(thumbnailTextureEdge(128, 0.0f, 0), 0);
 }

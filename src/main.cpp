@@ -43,6 +43,7 @@
 #endif
 #include "PopupMenu.h"
 #include "RenderView.h"
+#include "Shared.h"
 #include "CaptionButtons.h"
 #include "HudLayer.h"
 #include "Texture.h"
@@ -343,6 +344,16 @@ bool applySettings(const Settings::Store &settings, App::SafeAreaInsets *safeAre
             return false;
         }
         App::CONTENT_SCALE = scale;
+    }
+    if (settings.has("wall.thumbnail-max")) {
+        const int edge = (int)settings.getFloat("wall.thumbnail-max", 0.0f);
+        // A mip chain needs a power of two, and rounding the number quietly
+        // would hide a typo that costs four times the memory meant.
+        if (edge < 16 || edge > 4096 || !Shared::isPowerOf2(edge)) {
+            SDL_Log("A thumbnail cap of %d is not a power of two between 16 and 4096", edge);
+            return false;
+        }
+        App::THUMBNAIL_MAX_EDGE = edge;
     }
     if (settings.has("backdrop.blur") && !applyBackdropBlur(settings.get("backdrop.blur", ""))) {
         return false;

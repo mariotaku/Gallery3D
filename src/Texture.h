@@ -18,6 +18,12 @@ using TexturePtr = std::shared_ptr<Texture>;
 // May answer inline or later; pixel consumers use this instead of Texture::load.
 void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done);
 
+// The texture edge a grid thumbnail is decoded and uploaded at: a power of two,
+// from the density, held under maxEdge when that is not zero. A mip chain needs
+// the power of two; the cap is for a device that cannot upload what its own
+// density asks for without the wall stopping.
+int thumbnailTextureEdge(int thumbnailWidth, float density, int maxEdge);
+
 class Texture {
   public:
     enum State {

@@ -22,6 +22,8 @@ float UI_DENSITY = 1.0f;
 // Fits two stack rows in the default 1280x800 window and selects 256x64 captions.
 float CONTENT_SCALE = 1.5f;
 int SCREEN_NAIL_MAX_EDGE = 1024;
+// No ceiling: the density decides unless a device asks for less.
+int THUMBNAIL_MAX_EDGE = 0;
 int HI_RES_MAX_EDGE = 2048;
 int BACKDROP_BLUR = BACKDROP_BLUR_GAUSSIAN;
 // Matches the standard deviation of a nine-tap box: sqrt((81 - 1) / 12).

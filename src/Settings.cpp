@@ -49,6 +49,7 @@ const std::vector<Known> &known() {
         {"library.also", "a second directory shown on the same wall"},
         {"library.artic", "browse the Art Institute of Chicago instead of a directory"},
         {"wall.scale", "how much bigger the wall is than the phone it was laid out for"},
+        {"wall.thumbnail-max", "cap a grid thumbnail's texture edge, a power of two"},
         {"backdrop.blur", "how the wash behind the wall is blurred: gaussian or box"},
         {"backdrop.sigma", "how strong the gaussian is, 2.58 matches the box"},
         {"window.safe-area", "pretend the window has cutouts: left,top,right,bottom"},

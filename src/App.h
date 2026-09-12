@@ -17,6 +17,12 @@ extern float CONTENT_SCALE;
 // Maximum screennail edge, set from the window by main(). Uploads are padded to powers of two.
 extern int SCREEN_NAIL_MAX_EDGE;
 
+// Ceiling on a grid thumbnail's texture edge, set by wall.thumbnail-max.
+// Thumbnails are otherwise sized from the density, which on a dense screen asks
+// for more than a slow or small-memory device can upload without the wall
+// stopping. Always a power of two; zero leaves the density's own answer alone.
+extern int THUMBNAIL_MAX_EDGE;
+
 // Maximum zoom texture edge. Only the focused item retains this texture.
 extern int HI_RES_MAX_EDGE;
 

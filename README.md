@@ -48,6 +48,10 @@ Environment names follow the setting: `backdrop.sigma` becomes
   read-only Art Institute of Chicago catalogue.
 - `wall.scale` scales stacks, spacing, captions and thumbnail resolution.
   Display scaling applies separately; controls follow display scale alone.
+- `wall.thumbnail-max` caps a grid thumbnail's texture edge, as a power of two.
+  The size otherwise comes from the display density, which on a dense screen can
+  ask for more than a slow or small-memory device uploads without the wall
+  stopping. 256 is the smallest worth trying; unset, the density decides.
 - `window.safe-area` simulates cutout insets as `left,top,right,bottom`.
   Controls stay inside the safe area; photos and backdrop fill the window.
 - `backdrop.blur` accepts `gaussian` (default) or `box`. `backdrop.sigma` controls

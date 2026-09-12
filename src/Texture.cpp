@@ -167,6 +167,22 @@ void RegionTexture::startLoad(RenderView *view, const TexturePtr &self) {
                           [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
 }
 
+int thumbnailTextureEdge(int thumbnailWidth, float density, int maxEdge) {
+    if (thumbnailWidth <= 0 || density <= 0.0f) {
+        return 0;
+    }
+    // The nearer power of two, not the next one up. At a density of 4.5 a 128
+    // unit thumbnail wants 576 pixels, and rounding up to 1024 would hold three
+    // times the pixels of a 512 that is already wider than the grid draws it.
+    const int wanted = Shared::nearestPowerOf2((int)(thumbnailWidth * density));
+    // A device that cannot upload that much without the wall stopping asks for
+    // less through wall.thumbnail-max.
+    if (maxEdge > 0 && wanted > maxEdge) {
+        return maxEdge;
+    }
+    return wanted;
+}
+
 Bitmap MediaItemTexture::load(RenderView *view) {
     // startLoad handles asynchronous decoding; load is required by the base class.
     (void)view;
@@ -188,10 +204,7 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     // Grid extents are (1.0, oneByAspect): centre-crop to that ratio with a
     // power-of-two width so the quad does not sample texture padding.
     //
-    // The nearer power of two, not the next one up. At a density of 4.5 a 128
-    // unit thumbnail wants 576 pixels, and rounding up to 1024 would hold three
-    // times the pixels of a 512 that is already wider than the grid draws it.
-    const int side = Shared::nearestPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
+    const int side = thumbnailTextureEdge(mConfig->thumbnailWidth, App::PIXEL_DENSITY, App::THUMBNAIL_MAX_EDGE);
     const int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
 
     // Cache cropped thumbnails by modification time and density-dependent crop size.
