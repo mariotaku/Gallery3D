@@ -19,8 +19,13 @@ const float kLabelHeightInFonts = 1.6f;
 
 }  // namespace
 
+// Chrome-sized text that happens to be drawn in the scene, so it follows
+// display scale like the breadcrumb rather than the wall's PIXEL_DENSITY. The
+// cell scaling cancels out between the box and the quad, leaving this value as
+// the glyph height in device pixels, so 16 here is 16dp on any screen and at
+// any wall.scale.
 float GridDrawables::labelFontSize() {
-    return 16.0f * App::PIXEL_DENSITY;
+    return 16.0f * App::UI_DENSITY;
 }
 
 // Both sides are powers of two. sTextGrid samples the whole texture, and
