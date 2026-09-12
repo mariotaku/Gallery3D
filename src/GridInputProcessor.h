@@ -96,6 +96,8 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
     void touchBegan(int posX, int posY);
     void touchMoved(int posX, int posY, float timeElapsed);
     void touchEnded(int posX, int posY, float timeElapsed);
+    // Lets go of a touch the platform took over, without acting on it.
+    void touchCancelled();
     void constrainCamera(bool b);
     void selectSlot(int slotId);
 

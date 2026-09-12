@@ -954,6 +954,22 @@ int main(int argc, char **argv) {
                     renderView.queueTouchEvent(event);
                 }
                 break;
+            case SDL_EVENT_FINGER_CANCELED: {
+                // The platform has taken the gesture over, a system back swipe
+                // being the one that happens. Cancelling says the touch is over
+                // and nothing should come of it; lifting would read as a tap on
+                // whatever the finger was over when the swipe began.
+                int index = fingerIndex(sdlEvent.tfinger.fingerID);
+                if (index < 0) {
+                    break;
+                }
+                bool last = fingers.size() == 1;
+                MotionEvent touch = buildTouchEvent(
+                    last ? MotionEvent::ACTION_CANCEL : MotionEvent::ACTION_POINTER_UP, index);
+                fingers.erase(fingers.begin() + index);
+                renderView.queueTouchEvent(touch);
+                break;
+            }
             case SDL_EVENT_FINGER_DOWN: {
                 if (fingerIndex(sdlEvent.tfinger.fingerID) >= 0) {
                     break;

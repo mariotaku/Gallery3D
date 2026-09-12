@@ -59,6 +59,9 @@ bool GridInputProcessor::onTouchEvent(const MotionEvent &event) {
     case MotionEvent::ACTION_MOVE:
         touchMoved(mTouchPosX, mTouchPosY, timeElapsed);
         break;
+    case MotionEvent::ACTION_CANCEL:
+        touchCancelled();
+        break;
     default:
         break;
     }
@@ -389,6 +392,18 @@ void GridInputProcessor::touchEnded(int posX, int posY, float timeElapsedx) {
     mPrevTouchPosX = (float)posX;
     mPrevTouchPosY = (float)posY;
     mProcessTouch = false;
+}
+
+void GridInputProcessor::touchCancelled() {
+    // The touch is over and nothing is to come of it, so the slot under the
+    // finger is let go without being acted on. touchEnded cannot do this: it
+    // snaps the camera and opens whatever was pressed.
+    mCurrentFocusSlot = Shared::INVALID;
+    mCurrentFocusIsPressed = false;
+    mTouchMoved = false;
+    mProcessTouch = false;
+    mTouchVelX = 0.0f;
+    mTouchVelY = 0.0f;
 }
 
 void GridInputProcessor::constrainCamera(bool b) {
