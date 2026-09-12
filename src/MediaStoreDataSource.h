@@ -10,6 +10,7 @@
 #include <string>
 
 #include "LocalDataSource.h"
+#include "RegionDecoder.h"
 
 class MediaStoreDataSource : public DataSource {
   public:
@@ -22,6 +23,12 @@ class MediaStoreDataSource : public DataSource {
     // app may open, so the decoders never see one.
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
 
+    // Zoomed photos are cropped by BitmapRegionDecoder, which reads the same
+    // content uri.
+    bool supportsRegions(const MediaItem *item) const override;
+    void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                       RegionCallback done) override;
+
   private:
     void loadBucketItems(MediaFeed *feed, MediaSet *set, const std::string &bucketId);
 
@@ -31,4 +38,5 @@ class MediaStoreDataSource : public DataSource {
 
     std::map<int64_t, std::string> mBuckets;
     mutable std::mutex mBucketsMutex;
+    RegionDecoderCache mDecoders;
 };

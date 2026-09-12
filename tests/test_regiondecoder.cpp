@@ -232,6 +232,36 @@ TEST(a_region_outside_the_picture_fails_instead_of_guessing) {
     fs::remove(path);
 }
 
+TEST(the_cache_holds_one_decoder_and_swaps_it_for_another_photo) {
+    // What stops a zoom reopening the same photo once per tile, and what lets
+    // the next photo replace it.
+    const std::string first = writeGradientJpeg("gallery3d_region_cache_a.jpg", 512, 512);
+    const std::string second = writeGradientJpeg("gallery3d_region_cache_b.jpg", 256, 256);
+
+    RegionDecoderCache cache;
+    const RegionDecoderPtr a = cache.get(first);
+    CHECK(a != nullptr);
+    // The same source gets the same decoder back rather than a second one.
+    CHECK(cache.get(first) == a);
+
+    const RegionDecoderPtr b = cache.get(second);
+    CHECK(b != nullptr);
+    CHECK(b != a);
+    if (b != nullptr) {
+        CHECK_EQ(b->width(), 256);
+    }
+
+    // The first decoder is still usable while someone holds it, even though the
+    // cache has moved on. In the app that someone is a tile still decoding.
+    fs::remove(first);
+    CHECK(a->decodeRegion(0, 0, 256, 256, 256, 256).valid());
+
+    // A source with no decoder behind it caches the miss rather than reopening.
+    CHECK(cache.get("/no/such/file.jpg") == nullptr);
+
+    fs::remove(second);
+}
+
 TEST(the_header_pass_reports_the_pixel_size) {
     // Tiling needs the full size before anything is decoded, and the header
     // pass is where the scan already is.

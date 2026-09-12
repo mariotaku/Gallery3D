@@ -39,6 +39,7 @@
 #if defined(__ANDROID__)
 #include "AndroidBridge.h"
 #include "MediaStoreDataSource.h"
+#include "RegionDecoder.h"
 #endif
 #include "PopupMenu.h"
 #include "RenderView.h"
@@ -423,6 +424,7 @@ int main(int argc, char **argv) {
     // Here, because this is the one thread that can look an app class up by
     // name. The loader threads start later and cannot.
     AndroidBridge::init();
+    RegionDecoder::initAndroid();
 #endif
 
     // Read --config before loading settings, then process run arguments.

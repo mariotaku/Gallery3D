@@ -126,14 +126,6 @@ class LocalDataSource : public DataSource {
 
     void scan(const std::string &path, std::vector<Folder> &folders) const;
 
-    // The decoder for the photo being zoomed. Opening one reads the whole file,
-    // and a zoom asks for dozens of tiles from the same picture, so it is kept
-    // until another photo needs it. One entry is enough: only one photo is
-    // fullscreen at a time.
-    RegionDecoderPtr decoderFor(const std::string &path);
-
     std::string mRootPath;
-    std::mutex mDecoderMutex;
-    std::string mDecoderPath;
-    RegionDecoderPtr mDecoder;
+    RegionDecoderCache mDecoders;
 };

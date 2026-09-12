@@ -201,17 +201,6 @@ bool LocalDataSource::supportsRegions(const MediaItem *item) const {
     return item != nullptr && !item->mFilePath.empty() && RegionDecoder::looksSupported(item->mMimeType);
 }
 
-RegionDecoderPtr LocalDataSource::decoderFor(const std::string &path) {
-    std::lock_guard<std::mutex> lock(mDecoderMutex);
-    if (mDecoderPath != path) {
-        // Held across the open so that the decode threads starting on the same
-        // photo together read the file once between them rather than each.
-        mDecoder = RegionDecoder::open(path);
-        mDecoderPath = path;
-    }
-    return mDecoder;
-}
-
 void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth,
                                     int outHeight, RegionCallback done) {
     if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
@@ -227,7 +216,7 @@ void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, in
         done(Bitmap());
         return;
     }
-    RegionDecoderPtr decoder = decoderFor(item->mFilePath);
+    RegionDecoderPtr decoder = mDecoders.get(item->mFilePath);
     if (!decoder) {
         done(Bitmap());
         return;

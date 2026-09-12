@@ -133,8 +133,9 @@ if(NOT EMSCRIPTEN AND NOT ANDROID)
 endif()
 if(ANDROID)
     # log for SDL's own output, android for the asset manager and the JNI the
-    # media sources go through.
-    target_link_libraries(gallery3d PRIVATE log android)
+    # media sources go through, jnigraphics to read a decoded region's pixels
+    # out of the platform bitmap it arrives in.
+    target_link_libraries(gallery3d PRIVATE log android jnigraphics)
 endif()
 
 gallery3d_add_warnings(gallery3d)

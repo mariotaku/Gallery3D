@@ -2,6 +2,7 @@
 
 #if defined(__ANDROID__)
 
+#include <algorithm>
 #include <memory>
 
 #include <SDL3/SDL.h>
@@ -14,6 +15,10 @@
 #include "MediaSet.h"
 
 namespace {
+
+// What MediaStore.Images.Media.EXTERNAL_CONTENT_URI spells out to. An item's
+// own uri is this plus its id.
+const char *const kImagesUri = "content://media/external/images/media/";
 
 // MediaStore's bucket id is a string. The wall keys its sets on a number, so
 // the string is folded into one and the pair is remembered to query with later.
@@ -115,7 +120,15 @@ void MediaStoreDataSource::loadBucketItems(MediaFeed *feed, MediaSet *parentSet,
         auto item = std::make_unique<MediaItem>();
         item->mId = id;
         // No file path: scoped storage means the app may not open one. Every
-        // read goes back through the content resolver by id.
+        // read goes back through the content resolver by this uri. The three
+        // sizes name the same photo, as they do for a local file, and the
+        // decoders reach it through readItemBytes rather than by opening the
+        // string. The screennail one has to be set: an empty one is how a
+        // display item spells "this photo has no fullscreen image", which
+        // leaves it drawing an enlarged thumbnail and never tiling.
+        item->mContentUri = kImagesUri + std::to_string(id);
+        item->mThumbnailUri = item->mContentUri;
+        item->mScreennailUri = item->mContentUri;
         item->mMimeType = stringOr(photo, "mime", "image/jpeg");
         item->mCaption = stringOr(photo, "name", "");
         item->mRotation = rotationFor((int)intOr(photo, "orientation", 0));
@@ -142,6 +155,37 @@ bool MediaStoreDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *
         return false;
     }
     return AndroidBridge::readImage(item->mId, bytes);
+}
+
+bool MediaStoreDataSource::supportsRegions(const MediaItem *item) const {
+    // Asked once a frame while a photo is fullscreen, so it opens nothing.
+    return item != nullptr && !item->mContentUri.empty() &&
+           RegionDecoder::looksSupported(item->mMimeType);
+}
+
+void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height,
+                                         int outWidth, int outHeight, RegionCallback done) {
+    if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 ||
+        outHeight <= 0) {
+        done(Bitmap());
+        return;
+    }
+    // Clamp to the image. The caller sizes the output for the trimmed region.
+    x = std::max(0, x);
+    y = std::max(0, y);
+    width = std::min(width, item->mFullWidth - x);
+    height = std::min(height, item->mFullHeight - y);
+    if (width <= 0 || height <= 0) {
+        done(Bitmap());
+        return;
+    }
+    RegionDecoderPtr decoder = mDecoders.get(item->mContentUri);
+    if (!decoder) {
+        done(Bitmap());
+        return;
+    }
+    // The decode pool already runs this off the render thread.
+    done(decoder->decodeRegion(x, y, width, height, outWidth, outHeight));
 }
 
 std::string MediaStoreDataSource::bucketIdForSet(int64_t setId) const {

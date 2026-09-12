@@ -5,10 +5,16 @@
 #include <algorithm>
 
 bool RegionDecoder::looksSupported(const std::string &mimeType) {
-    // JPEG is what the desktop backend crops, and what the Android one is
-    // certain to handle. Anything else opens nothing and stays on its
-    // screennail.
+#if defined(__ANDROID__)
+    // What BitmapRegionDecoder documents. A format it turns out not to handle
+    // fails at open() instead, and that photo keeps its screennail.
+    return mimeType == "image/jpeg" || mimeType == "image/png" || mimeType == "image/webp" ||
+           mimeType == "image/heif" || mimeType == "image/heic";
+#else
+    // libjpeg is the only region decoder the desktop links. Anything else opens
+    // nothing and stays on one downscaled decode.
     return mimeType == "image/jpeg";
+#endif
 }
 
 #if defined(GALLERY3D_HAVE_JPEG)
@@ -217,22 +223,211 @@ RegionDecoderPtr RegionDecoder::open(const std::string &path) {
 
 #elif defined(__ANDROID__)
 
-// Android decodes regions through android.graphics.BitmapRegionDecoder, which
-// reaches the same libjpeg underneath while also covering HEIF and the vendor's
-// own formats. It keeps one decoder object per image, which is the shape open()
-// returns. It arrives with the Android build.
-RegionDecoderPtr RegionDecoder::open(const std::string &path) {
-    (void)path;
-    return nullptr;
+// Android crops through android.graphics.BitmapRegionDecoder. It reaches the
+// same libjpeg underneath while also covering PNG, WebP and whatever else the
+// vendor's decoders handle, and it is already the object-per-image shape open()
+// returns. A photo here has no path the app may read, so the source string is a
+// content uri.
+#include <android/bitmap.h>
+#include <jni.h>
+
+#include <mutex>
+
+namespace {
+
+const char *const kBridgeClass = "me/mariotaku/gallery3d/RegionDecoderBridge";
+
+// Taken once from the thread that runs main(). A loader thread attaches without
+// the app's class loader and cannot look this up by name.
+jclass gBridge = nullptr;
+jmethodID gOpen = nullptr;
+jmethodID gWidth = nullptr;
+jmethodID gHeight = nullptr;
+jmethodID gDecodeRegion = nullptr;
+jmethodID gClose = nullptr;
+jmethodID gRecycle = nullptr;
+
+JNIEnv *jni() {
+    // SDL attaches the calling thread and detaches it when the thread ends.
+    return (JNIEnv *)SDL_GetAndroidJNIEnv();
+}
+
+bool threw(JNIEnv *env, const char *what) {
+    if (env == nullptr || env->ExceptionCheck() == JNI_FALSE) {
+        return false;
+    }
+    SDL_Log("Java threw in %s", what);
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    return true;
+}
+
+class AndroidRegionDecoder : public RegionDecoder {
+  public:
+    ~AndroidRegionDecoder() override {
+        JNIEnv *env = jni();
+        if (env == nullptr || mDecoder == nullptr) {
+            return;
+        }
+        env->CallStaticVoidMethod(gBridge, gClose, mDecoder);
+        threw(env, "close");
+        env->DeleteGlobalRef(mDecoder);
+    }
+
+    bool open(JNIEnv *env, const std::string &uri) {
+        jstring argument = env->NewStringUTF(uri.c_str());
+        jobject local = env->CallStaticObjectMethod(gBridge, gOpen, argument);
+        env->DeleteLocalRef(argument);
+        if (threw(env, "open") || local == nullptr) {
+            return false;
+        }
+        mDecoder = env->NewGlobalRef(local);
+        env->DeleteLocalRef(local);
+
+        mWidth = env->CallStaticIntMethod(gBridge, gWidth, mDecoder);
+        mHeight = env->CallStaticIntMethod(gBridge, gHeight, mDecoder);
+        return !threw(env, "size") && mWidth > 0 && mHeight > 0;
+    }
+
+    Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) override;
+
+  private:
+    jobject mDecoder = nullptr;
+    // BitmapRegionDecoder serializes on its own native lock, so two threads
+    // decoding one photo would queue up inside it regardless. Holding the lock
+    // here keeps the jobject handling around the call single threaded too.
+    std::mutex mMutex;
+};
+
+Bitmap AndroidRegionDecoder::decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) {
+    if (width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
+        return Bitmap();
+    }
+    JNIEnv *env = jni();
+    if (env == nullptr || mDecoder == nullptr) {
+        return Bitmap();
+    }
+
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    // The caller asks for a whole-number reduction; the platform rounds it down
+    // to a power of two, which is what the tile grid works in anyway.
+    const int sampleSize = std::max(1, width / outWidth);
+    jobject tile = env->CallStaticObjectMethod(gBridge, gDecodeRegion, mDecoder, (jint)x, (jint)y,
+                                               (jint)width, (jint)height, (jint)sampleSize);
+    if (threw(env, "decodeRegion") || tile == nullptr) {
+        return Bitmap();
+    }
+
+    Bitmap decoded;
+    AndroidBitmapInfo info {};
+    void *pixels = nullptr;
+    if (AndroidBitmap_getInfo(env, tile, &info) == ANDROID_BITMAP_RESULT_SUCCESS &&
+        info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 &&
+        AndroidBitmap_lockPixels(env, tile, &pixels) == ANDROID_BITMAP_RESULT_SUCCESS) {
+        decoded = Bitmap((int)info.width, (int)info.height);
+        if (decoded.valid()) {
+            // RGBA_8888 is R, G, B, A in memory and the platform premultiplies
+            // it, which is what this port's pixels already are. Only the stride
+            // differs, so the copy goes row by row.
+            const uint8_t *source = (const uint8_t *)pixels;
+            uint8_t *destination = decoded.pixels();
+            const size_t row = (size_t)info.width * 4;
+            for (unsigned line = 0; line < info.height; ++line) {
+                SDL_memcpy(destination, source, row);
+                source += info.stride;
+                destination += row;
+            }
+        }
+        AndroidBitmap_unlockPixels(env, tile);
+    } else {
+        SDL_Log("A decoded region was not in the pixel format expected");
+    }
+
+    // The platform bitmap is finished with the moment its pixels are copied,
+    // and waiting for the collector to notice would hold a tile's worth of
+    // memory per region.
+    env->CallStaticVoidMethod(gBridge, gRecycle, tile);
+    threw(env, "recycle");
+    env->DeleteLocalRef(tile);
+
+    if (!decoded.valid()) {
+        return Bitmap();
+    }
+    if (decoded.width() == outWidth && decoded.height() == outHeight) {
+        return decoded;
+    }
+    // An edge tile the platform rounded differently still needs the last step
+    // to the size the caller asked for.
+    return decoded.scaled(outWidth, outHeight);
+}
+
+}  // namespace
+
+void RegionDecoder::initAndroid() {
+    if (gBridge != nullptr) {
+        return;
+    }
+    JNIEnv *env = jni();
+    if (env == nullptr) {
+        return;
+    }
+    jclass local = env->FindClass(kBridgeClass);
+    if (local == nullptr || threw(env, "initAndroid")) {
+        SDL_Log("Could not find %s, so zoomed photos stay on their screennail", kBridgeClass);
+        return;
+    }
+    gBridge = (jclass)env->NewGlobalRef(local);
+    env->DeleteLocalRef(local);
+
+    gOpen = env->GetStaticMethodID(gBridge, "open", "(Ljava/lang/String;)Ljava/lang/Object;");
+    gWidth = env->GetStaticMethodID(gBridge, "width", "(Ljava/lang/Object;)I");
+    gHeight = env->GetStaticMethodID(gBridge, "height", "(Ljava/lang/Object;)I");
+    gDecodeRegion = env->GetStaticMethodID(gBridge, "decodeRegion",
+                                           "(Ljava/lang/Object;IIIII)Landroid/graphics/Bitmap;");
+    gClose = env->GetStaticMethodID(gBridge, "close", "(Ljava/lang/Object;)V");
+    gRecycle = env->GetStaticMethodID(gBridge, "recycle", "(Landroid/graphics/Bitmap;)V");
+    if (threw(env, "initAndroid") || gOpen == nullptr || gDecodeRegion == nullptr) {
+        SDL_Log("The region decoder bridge is not the shape expected");
+        gBridge = nullptr;
+    }
+}
+
+RegionDecoderPtr RegionDecoder::open(const std::string &source) {
+    JNIEnv *env = jni();
+    if (env == nullptr || gBridge == nullptr || source.empty()) {
+        return nullptr;
+    }
+    auto decoder = std::make_shared<AndroidRegionDecoder>();
+    if (!decoder->open(env, source)) {
+        return nullptr;
+    }
+    return decoder;
 }
 
 #else
 
 // The browser decodes whole images only, so a zoomed local photo stays on its
 // screennail. The museum crops on the server and does not come through here.
-RegionDecoderPtr RegionDecoder::open(const std::string &path) {
-    (void)path;
+RegionDecoderPtr RegionDecoder::open(const std::string &source) {
+    (void)source;
     return nullptr;
 }
 
 #endif
+
+#if !defined(__ANDROID__)
+void RegionDecoder::initAndroid() {
+}
+#endif
+
+RegionDecoderPtr RegionDecoderCache::get(const std::string &source) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (mSource != source) {
+        // Held across the open so that decode threads starting on the same
+        // photo together read the image once between them rather than each.
+        mDecoder = RegionDecoder::open(source);
+        mSource = source;
+    }
+    return mDecoder;
+}
