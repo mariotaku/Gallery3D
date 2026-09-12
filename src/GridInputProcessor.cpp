@@ -80,6 +80,11 @@ namespace {
 // stepping.
 const float kWheelScrollFraction = 0.2f;
 
+// A wheel scroll ends this long after its last tick. A wheel reports no end of
+// its own, and the lean the wall takes on at either end of its travel has to
+// be held until the hand stops rather than dropped between ticks.
+const float kWheelScrollIdleSeconds = 0.25f;
+
 }  // namespace
 
 void GridInputProcessor::onWheelScroll(float ticks) {
@@ -99,6 +104,16 @@ void GridInputProcessor::onWheelScroll(float ticks) {
         return;
     }
 
+    // Where the wall begins and ends, so a tick past either is felt as one.
+    Vector3f firstPosition;
+    Vector3f lastPosition;
+    Vector3f deltaAnchorPosition;
+    deltaAnchorPosition.set(layer->getDeltaAnchorPosition());
+    LayoutInterface *layout = layer->getLayoutInterface();
+    GridCameraManager::getSlotPositionForSlotIndex(0, camera, layout, deltaAnchorPosition, firstPosition);
+    const int lastSlotIndex = layer->getCompleteRange().end;
+    GridCameraManager::getSlotPositionForSlotIndex(lastSlotIndex, camera, layout, deltaAnchorPosition, lastPosition);
+
     // The wall runs across the window, so the wheel drives x. Wheel down goes
     // forward, which is the direction a wheel scrolls a page.
     Vector3f worldPosDelta;
@@ -107,7 +122,14 @@ void GridInputProcessor::onWheelScroll(float ticks) {
     camera->mConvergenceSpeed = 2.0f;
     camera->mFriction = 0.0f;
     camera->moveBy(worldPosDelta.x, 0.0f, 0.0f);
-    constrainCamera(true);
+
+    // Not the constraining call. Past either end of the wall this gathers how
+    // far the tick asked to go and leans the camera by it, which constraining
+    // would throw away. update() lets go once the ticks stop, and the wall
+    // swings back. The same feedback a drag gets.
+    camera->computeConstraints(false, true, firstPosition, lastPosition);
+    mWheelScrolling = true;
+    mWheelIdleSeconds = 0.0f;
 }
 
 bool GridInputProcessor::onKeyDown(int keyCode, const KeyEvent &event, int state) {
@@ -388,6 +410,15 @@ void GridInputProcessor::update(float timeElapsed) {
     mDpadIgnoreTime += timeElapsed;
     mGestureDetector.update(SDL_GetTicks());
     mScaleGestureDetector.update(timeElapsed);
+    if (mWheelScrolling) {
+        mWheelIdleSeconds += timeElapsed;
+        if (mWheelIdleSeconds >= kWheelScrollIdleSeconds) {
+            mWheelScrolling = false;
+            // Puts the camera back inside its range and drops the lean, which
+            // the camera then eases out of.
+            constrainCamera(true);
+        }
+    }
     if (mCamera->mFriction != 0.0f) {
         constrainCamera(true);
     }

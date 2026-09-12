@@ -103,6 +103,11 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
     bool mCurrentFocusIsPressed = false;
     int mCurrentSelectedSlot = -1;
 
+    // A wheel scroll has no end of its own, so the lean it can leave the wall
+    // in at either end of its travel is released once the ticks stop.
+    bool mWheelScrolling = false;
+    float mWheelIdleSeconds = 0.0f;
+
     int mTouchPosX = 0;
     int mTouchPosY = 0;
     int mActionCode = 0;

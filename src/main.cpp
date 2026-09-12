@@ -53,9 +53,11 @@
 
 namespace {
 
-// Frames to keep drawing after a wheel pinch, long enough to cover the quarter
+// Frames to keep drawing after a wheel event, long enough to cover the quarter
 // second the gesture waits for another tick plus the wall settling afterwards.
-const int kWheelPinchFrames = 40;
+// Both wheel gestures end on that timer rather than on a finger lifting, so
+// the frames it needs to run out have to be asked for.
+const int kWheelFrames = 40;
 
 std::string defaultPhotoDirectory() {
     // Reads the Known Folder on Windows and the XDG user directory on Linux,
@@ -998,13 +1000,10 @@ int main(int argc, char **argv) {
                 GridInputProcessor *input = gridLayer.getInputProcessor();
                 if ((SDL_GetModState() & SDL_KMOD_CTRL) != 0) {
                     input->onWheel(mouseX * scale, mouseY * scale, sdlEvent.wheel.y);
-                    // A wheel pinch ends on a timer rather than on a finger
-                    // lifting, so the frames it needs to run out have to be
-                    // asked for here.
-                    gridLayer.markDirty(kWheelPinchFrames);
                 } else {
                     input->onWheelScroll(sdlEvent.wheel.y);
                 }
+                gridLayer.markDirty(kWheelFrames);
                 renderView.requestRender();
                 break;
             }
