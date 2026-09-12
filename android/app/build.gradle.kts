@@ -12,9 +12,9 @@ val stageAssets = tasks.register<Copy>("stageAssets") {
     into(assetStage.map { it.dir("assets") })
 }
 
-tasks.withType<com.android.build.gradle.tasks.MergeSourceSetFolders>().configureEach {
-    dependsOn(stageAssets)
-}
+// Nothing wires this by hand. Handing the source set the task rather than the
+// directory is what tells Gradle who produces it, so every task that reads the
+// assets waits for the copy, not just the one that merges them.
 
 android {
     namespace = "me.mariotaku.gallery3d"
@@ -56,7 +56,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDir(assetStage)
+            assets.srcDir(stageAssets)
         }
     }
 
@@ -64,6 +64,11 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Signed with the debug key so a release build can be installed and
+            // measured without a keystore. The debug variant builds the native
+            // code at -O0, which makes any timing taken from it meaningless.
+            // Replace this before the apk goes anywhere.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

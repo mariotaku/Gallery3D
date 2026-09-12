@@ -127,6 +127,13 @@ sh android/fetch-deps.sh
 cd android && ./gradlew installDebug
 ```
 
+Measure with `installRelease`, never with the debug build. Gradle builds the
+native code at `-O0` for the debug variant, which is slow enough to invent
+problems that are not there: composing the path bar's texture takes 260ms in a
+debug build and 5.6ms in a release one. The release build is signed with the
+debug key so it installs without a keystore, which has to change before the apk
+goes anywhere.
+
 `fetch-deps.sh` downloads SDL's official Android archives, which are not on
 Maven Central. They carry prefab modules, so `find_package(SDL3 CONFIG)` finds
 them the same way it finds vcpkg's copy. minSdk is 24 and the build is
