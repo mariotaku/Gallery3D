@@ -41,13 +41,17 @@ bool contains(const std::vector<MediaItem *> &items, MediaItem *item) {
     return std::find(items.begin(), items.end(), item) != items.end();
 }
 
-// The least the grid leaves above and below itself, in display units. Follows
-// the display scale rather than the wall's own, because this is about how much
-// room the eye is given and not about how big the wall is drawn.
-const float kGridMinMarginDp = 50.0f;
+// The least the grid leaves above and below itself, as a share of the window's
+// height. A proportion rather than a fixed size because this is about how the
+// screen is divided up, which is the same question on a small screen as on a
+// large one. A fixed size is not: it is a fifth of a short window and a
+// twentieth of a tall one, so it costs a short screen rows it cannot spare.
+const float kGridMarginFraction = 0.06f;
 
-// Below this the grid reads as a column rather than a wall, so a screen too
-// short to hold both the rows and the margin keeps the rows.
+// Below this the grid reads as a column rather than a wall. A screen short
+// enough that the margin costs it this much keeps the rows instead: the
+// proportion shrinks with the screen, but on a small one at a high density
+// barely two rows fit before any margin is taken.
 const int kGridMinRows = 2;
 
 }  // namespace
@@ -73,16 +77,14 @@ int GridLayer::rowsForViewport(int spacingX, int spacingY) const {
 
     // Rows are chosen by what is left over rather than by what fits. The block
     // is centred, so half the leftover shows at each end, and a row only earns
-    // its place if both ends keep this much. Holding the margin rather than a
-    // row count is what makes the answer travel between screens.
-    const float minMargin = kGridMinMarginDp * App::UI_DENSITY;
+    // its place if both ends keep this much.
+    const float minMargin = kGridMarginFraction * (float)mCamera->mHeight;
     int available = (int)(betweenBars - 2.0f * minMargin);
 
     // n rows span n items and the n-1 gaps between them.
     int rows = (available + spacingY) / pitch;
 
-    // A short screen cannot always spare the margin. One row is a column, not
-    // a grid, so the air is what gives way there rather than the wall.
+    // The air is what gives way when there is not enough of both.
     if (rows < kGridMinRows) {
         available = (int)betweenBars;
         rows = (available + spacingY) / pitch;
