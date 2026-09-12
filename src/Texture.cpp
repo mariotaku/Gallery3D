@@ -187,7 +187,11 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
 
     // Grid extents are (1.0, oneByAspect): centre-crop to that ratio with a
     // power-of-two width so the quad does not sample texture padding.
-    const int side = Shared::nextPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
+    //
+    // The nearer power of two, not the next one up. At a density of 4.5 a 128
+    // unit thumbnail wants 576 pixels, and rounding up to 1024 would hold three
+    // times the pixels of a 512 that is already wider than the grid draws it.
+    const int side = Shared::nearestPowerOf2((int)(mConfig->thumbnailWidth * App::PIXEL_DENSITY));
     const int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
 
     // Cache cropped thumbnails by modification time and density-dependent crop size.

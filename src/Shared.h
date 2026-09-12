@@ -34,6 +34,18 @@ inline int nextPowerOf2(int n) {
     return (int)(v + 1);
 }
 
+// The closer of the two powers of two around n. Rounding up instead can nearly
+// double an edge, which is four times the pixels for a texture that is already
+// larger than it is drawn.
+inline int nearestPowerOf2(int n) {
+    if (n < 2) {
+        return 1;
+    }
+    const int above = nextPowerOf2(n);
+    const int below = above / 2;
+    return (n - below <= above - n) ? below : above;
+}
+
 inline int clamp(int value, int minValue, int maxValue) {
     if (value < minValue) {
         return minValue;

@@ -751,6 +751,14 @@ void RenderView::processAllTextures() {
 }
 
 void RenderView::textureLoadThread(int index) {
+    // Below the render thread. Four of these decoding full size photos will
+    // take every core they are given, and at equal priority they take them from
+    // the thread drawing the wall: opening an album cost the render thread a
+    // fifth of a second on the run queue, measured through schedstat on a six
+    // core phone. A tile arriving a frame later is not something a viewer sees;
+    // the wall stopping is.
+    SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_LOW);
+
     // Thread 0 drains the cached queue and thread 1 the video queue, matching
     // the original assignment.
     while (mLoadThreadsRunning.load()) {
@@ -834,6 +842,9 @@ void RenderView::growNetworkPoolLocked() {
 }
 
 void RenderView::networkLoadThread() {
+    // Same reasoning as the decode threads: these decode what they download.
+    SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_LOW);
+
     const auto idleTimeout = std::chrono::seconds(NETWORK_THREAD_IDLE_SECONDS);
     for (;;) {
         TexturePtr texture;
