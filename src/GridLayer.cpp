@@ -153,9 +153,9 @@ void GridLayer::keepWallInRange() {
     mCamera->clampToScrollRange(firstPosition, lastPosition);
 }
 
-void GridLayer::updateRowsForLayout() {
+void GridLayer::updateRowsForLayout(int forState) {
     // Fullscreen is one photo at a time, so its single row is not a choice.
-    if (mState == GridLayer::STATE_FULL_SCREEN || mLayoutInterface == nullptr) {
+    if (forState == GridLayer::STATE_FULL_SCREEN || mLayoutInterface == nullptr) {
         return;
     }
     GridLayoutInterface *layout = (GridLayoutInterface *)mLayoutInterface;
@@ -264,7 +264,7 @@ void GridLayer::setState(int state) {
         }
         layoutInterface->mSpacingX = (int)(10 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(10 * App::PIXEL_DENSITY);
-        updateRowsForLayout();
+        updateRowsForLayout(state);
         if (mState == STATE_MEDIA_SETS) {
             // Entering an album.
             mInAlbum = true;
@@ -298,7 +298,7 @@ void GridLayer::setState(int state) {
         disableLocationFiltering();
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
-        updateRowsForLayout();
+        updateRowsForLayout(state);
         break;
     case STATE_FULL_SCREEN:
         layoutInterface->mNumRows = 1;
@@ -327,7 +327,7 @@ void GridLayer::setState(int state) {
         mInputProcessor->clearSelection();
         layoutInterface->mSpacingX = (int)(100 * App::PIXEL_DENSITY);
         layoutInterface->mSpacingY = (int)(70 * App::PIXEL_DENSITY * yStretch);
-        updateRowsForLayout();
+        updateRowsForLayout(state);
         if (mInAlbum) {
             if (mState == STATE_FULL_SCREEN) {
                 mHud.getPathBar()->popLabel();
@@ -927,8 +927,9 @@ void GridLayer::onFeedChanged(MediaFeed *feed, bool needsLayout) {
         }
     }
 
-    // Recompute row count when the feed's slot count changes.
-    updateRowsForLayout();
+    // Recompute row count when the feed's slot count changes. Outside setState,
+    // so the current state is the one to lay out for.
+    updateRowsForLayout(mState);
 
     int firstBufferedVisibleSlotIndex = mBufferedVisibleRange.begin;
     int lastBufferedVisibleSlotIndex = mBufferedVisibleRange.end;

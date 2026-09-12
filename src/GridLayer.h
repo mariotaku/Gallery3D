@@ -55,7 +55,10 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
 
     // Puts that on the layout, for the state and feed as they are now. Called
     // whenever either changes.
-    void updateRowsForLayout();
+    // Takes the state being laid out for. setState assigns mState after its
+    // switch, so a caller inside that switch would otherwise be asking about
+    // the state being left.
+    void updateRowsForLayout(int forState);
 
     // Keeps the camera inside the range it may scroll over, which for a wall
     // that fits the window is a single point in the middle of it.
