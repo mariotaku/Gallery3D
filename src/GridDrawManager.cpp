@@ -433,6 +433,16 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         // it in. The thumbnail also stands in as fsTexture while the camera
         // zooms, so compare against the thumbnail itself.
         if (texture == thumbnailTexture && texture->getHeight() > 0) {
+            // Hold the whole picture's area black. This pass draws additively
+            // over a cleared buffer, so a zero colour adds nothing. The quad
+            // still writes depth, which keeps the background out of the area.
+            const float drawAlpha = view->getAlpha();
+            view->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+            quad->bindArrays(view);
+            drawDisplayItem(view, displayItem, texture, PASS_FOCUS_CONTENT, nullptr, 0.0f);
+            quad->unbindArrays(view);
+            view->setAlpha(drawAlpha);
+
             const float cropAspect = (float)texture->getWidth() / (float)texture->getHeight();
             float cropWidth = pictureWidth;
             float cropHeight = (cropAspect > 0.0f) ? (pictureWidth / cropAspect) : pictureHeight;
