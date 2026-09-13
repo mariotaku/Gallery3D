@@ -1,23 +1,36 @@
 # Fallbacks, each compiled only for the platforms that have no implementation
 # of their own.
 
+# Decoding and PNG writing through SDL_image. Windows has WIC.
+if(NOT WIN32)
+    target_sources(gallery3d_core PRIVATE
+        BitmapDecode.cpp)
+    target_link_libraries(gallery3d_core PUBLIC SDL3_image::SDL3_image)
+endif()
+
 # No network, where neither libcurl nor the browser's fetch is there.
 if(NOT GALLERY3D_DESKTOP AND NOT EMSCRIPTEN)
     target_sources(gallery3d_core PRIVATE
         Http.cpp)
 endif()
 
-# SDL_image, decoding on the calling thread. The browser decodes on its own.
+# Bitmap decoding on the calling thread. The browser decodes on its own.
 if(NOT EMSCRIPTEN)
     target_sources(gallery3d_core PRIVATE
         ImageDecode.cpp)
 endif()
 
-# No region or reduced decode, where neither libjpeg nor a platform decoder is
+# No region decoder, where neither libjpeg, WIC nor a platform decoder is
 # linked.
 if(NOT GALLERY3D_DESKTOP AND NOT ANDROID)
     target_sources(gallery3d_core PRIVATE
-        RegionDecoder.cpp
+        RegionDecoder.cpp)
+endif()
+
+# No reduced decode apart from Bitmap's own. On Windows that is WIC reducing
+# inside its codecs.
+if((NOT GALLERY3D_DESKTOP AND NOT ANDROID) OR WIN32)
+    target_sources(gallery3d_core PRIVATE
         SubsampledDecode.cpp)
 endif()
 

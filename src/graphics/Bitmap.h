@@ -34,11 +34,19 @@ class Bitmap {
 
     // Decodes a file. Returns an invalid bitmap when the file cannot be read.
     // maxEdge scales the result down so neither edge exceeds it; pass 0 to keep
-    // the natural size.
+    // the natural size. The decoder is the platform's: WIC on Windows,
+    // SDL_image elsewhere.
     static Bitmap load(const std::string &path, int maxEdge);
 
     // Decodes encoded bytes without an intermediate file.
     static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge);
+
+    // Whether this build decodes files with the extension, given with its dot
+    // and in any case. On Windows that is whatever codecs are installed.
+    static bool decodesExtension(const std::string &extension);
+
+    // Writes the bitmap as a PNG, with its alpha made straight again.
+    bool savePng(const std::string &path) const;
 
     // Copies straight RGBA and premultiplies it, including browser-decoded pixels.
     static Bitmap fromStraightRGBA(const uint8_t *pixels, int width, int height);

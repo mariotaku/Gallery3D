@@ -9,7 +9,9 @@
 #include <string>
 #include <vector>
 
+#if !defined(_WIN32)
 #include <jpeglib.h>
+#endif
 
 #include "graphics/Bitmap.h"
 #include "media/LocalDataSource.h"
@@ -17,6 +19,9 @@
 #include "media/MediaSet.h"
 #include "graphics/RegionDecoder.h"
 #include "graphics/TiledImage.h"
+#if defined(_WIN32)
+#include "platform/windows/Wic.h"
+#endif
 
 namespace fs = std::filesystem;
 
@@ -25,7 +30,55 @@ namespace {
 // A JPEG whose colour varies with position, so a tile taken from the wrong
 // offset does not accidentally match the right one. Quality 100 with sampling
 // off keeps the codec from blurring neighbouring pixels together, which is what
-// lets the comparison below be exact.
+// lets the comparison below be exact. Written by the codec that reads it back:
+// WIC on Windows, libjpeg elsewhere.
+#if defined(_WIN32)
+std::string writeGradientJpeg(const char *name, int width, int height) {
+    const fs::path path = fs::temp_directory_path() / name;
+    IWICImagingFactory *imaging = Wic::factory();
+    Wic::Ptr<IWICStream> stream;
+    Wic::Ptr<IWICBitmapEncoder> encoder;
+    Wic::Ptr<IWICBitmapFrameEncode> frame;
+    Wic::Ptr<IPropertyBag2> options;
+    if (imaging == nullptr || FAILED(imaging->CreateStream(stream.put())) ||
+        FAILED(stream->InitializeFromFilename(path.wstring().c_str(), GENERIC_WRITE)) ||
+        FAILED(imaging->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, encoder.put())) ||
+        FAILED(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache)) ||
+        FAILED(encoder->CreateNewFrame(frame.put(), options.put()))) {
+        return std::string();
+    }
+    PROPBAG2 names[2] = {};
+    names[0].pstrName = (LPOLESTR)L"ImageQuality";
+    names[1].pstrName = (LPOLESTR)L"JpegYCrCbSubsampling";
+    VARIANT values[2];
+    VariantInit(&values[0]);
+    values[0].vt = VT_R4;
+    values[0].fltVal = 1.0f;
+    VariantInit(&values[1]);
+    values[1].vt = VT_UI1;
+    values[1].bVal = (BYTE)WICJpegYCrCbSubsampling444;
+    WICPixelFormatGUID format = GUID_WICPixelFormat24bppBGR;
+    if (FAILED(options->Write(2, names, values)) || FAILED(frame->Initialize(options.get())) ||
+        FAILED(frame->SetSize((UINT)width, (UINT)height)) || FAILED(frame->SetPixelFormat(&format)) ||
+        format != GUID_WICPixelFormat24bppBGR) {
+        return std::string();
+    }
+    std::vector<uint8_t> pixels((size_t)width * (size_t)height * 3);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            uint8_t *pixel = pixels.data() + ((size_t)y * (size_t)width + (size_t)x) * 3;
+            pixel[0] = (uint8_t)((x + y) % 256);
+            pixel[1] = (uint8_t)(y % 256);
+            pixel[2] = (uint8_t)(x % 256);
+        }
+    }
+    if (FAILED(frame->WritePixels((UINT)height, (UINT)width * 3, (UINT)pixels.size(), pixels.data())) ||
+        FAILED(frame->Commit()) || FAILED(encoder->Commit())) {
+        return std::string();
+    }
+    return path.string();
+}
+#else
 std::string writeGradientJpeg(const char *name, int width, int height) {
     const fs::path path = fs::temp_directory_path() / name;
     std::FILE *file = std::fopen(path.string().c_str(), "wb");
@@ -64,6 +117,7 @@ std::string writeGradientJpeg(const char *name, int width, int height) {
     std::fclose(file);
     return path.string();
 }
+#endif
 
 // The largest per-channel difference between a region and the same rectangle of
 // the whole image.

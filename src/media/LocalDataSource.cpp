@@ -43,29 +43,29 @@ bool LocalDataSource::isSupportedImage(const std::string &path) {
         return false;
     }
     std::string extension = toLower(path.substr(dot));
-    return extension == ".jpg" || extension == ".jpeg" || extension == ".png" || extension == ".bmp" ||
-           extension == ".gif" || extension == ".webp" || extension == ".tif" || extension == ".tiff";
+    // Icons, cursors and textures decode too, but are not photos.
+    if (extension == ".ico" || extension == ".icon" || extension == ".cur" || extension == ".dds") {
+        return false;
+    }
+    return Bitmap::decodesExtension(extension);
 }
 
 std::string LocalDataSource::mimeTypeForPath(const std::string &path) {
     size_t dot = path.find_last_of('.');
     std::string extension = (dot == std::string::npos) ? "" : toLower(path.substr(dot));
-    if (extension == ".png") {
-        return "image/png";
-    }
-    if (extension == ".gif") {
-        return "image/gif";
-    }
-    if (extension == ".webp") {
-        return "image/webp";
-    }
-    if (extension == ".bmp") {
-        return "image/bmp";
+    if (extension.empty() || extension == ".jpg" || extension == ".jpeg" || extension == ".jpe" ||
+        extension == ".jfif") {
+        return "image/jpeg";
     }
     if (extension == ".tif" || extension == ".tiff") {
         return "image/tiff";
     }
-    return "image/jpeg";
+    if (extension == ".heic" || extension == ".heif" || extension == ".hif") {
+        return "image/heif";
+    }
+    // PNG, GIF, WebP, BMP, AVIF and the camera RAW formats go by the extension,
+    // which is also how the details sheet names them: image/arw reads ARW.
+    return "image/" + extension.substr(1);
 }
 
 namespace {

@@ -83,15 +83,19 @@ On Android the wall runs under the status and navigation bars, which stay visibl
 but transparent; controls keep clear of them the same way they keep clear of a
 display cutout.
 
-A photo is decoded straight to the size it is wanted at, by libjpeg-turbo on the
-desktop and BitmapFactory on Android, rather than being built at full size and
-scaled after. Formats with no reducing decoder behind them take the whole-image
-path.
+A photo is decoded straight to the size it is wanted at, rather than being built
+at full size and scaled after. WIC does that on Windows, libjpeg-turbo on the
+other desktops and BitmapFactory on Android. On Windows a thumbnail stored in
+the file stands in when it is big enough, and a RAW photo decodes from the
+camera's embedded preview. Formats with no reducing decoder behind them take
+the whole-image path.
 
 Zoomed images load only the tiles on screen. The museum crops on its server. A
-local JPEG is cropped by libjpeg-turbo on the desktop and by BitmapRegionDecoder
-on Android, either way reading the photo once rather than once per tile. Formats
-with no region decoder behind them stay on one downscaled decode.
+local photo is cropped by WIC on Windows, by libjpeg-turbo on the other
+desktops and by BitmapRegionDecoder on Android, each reading the photo once
+rather than once per tile. WIC crops JPEG, HEIF, TIFF, WebP and RAW; libjpeg
+only JPEG. Formats with no region decoder behind them stay on one downscaled
+decode.
 
 For scripted screenshots:
 
@@ -192,8 +196,10 @@ Photos are read from the app's Documents folder, which the Files app shows.
 The catalogue has no network there yet, and a zoomed photo stays on its
 screennail.
 
-The vcpkg manifest supplies SDL3, SDL3_image (PNG, JPEG, WebP, TIFF), SDL3_ttf
-and other dependencies. Assets are copied next to the binary. Tests run without a window.
+The vcpkg manifest supplies SDL3, curl and nlohmann-json. Windows needs no
+SDL_image, SDL_ttf or libjpeg: WIC decodes every image, including HEIF and
+camera RAW once their extensions are installed from the Microsoft Store, and
+DirectWrite draws the text. Assets are copied next to the binary. Tests run without a window.
 To build and run the Debug tests directly:
 
 ```sh

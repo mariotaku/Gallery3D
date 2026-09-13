@@ -9,7 +9,7 @@ bool isAsynchronous() {
 }
 
 void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done) {
-    // SDL_image decodes on the calling thread and answers before returning.
+    // Bitmap decodes on the calling thread and answers before returning.
     Bitmap bitmap = Bitmap::loadFromMemory(bytes.data(), bytes.size(), maxEdge);
     if (done) {
         done(std::move(bitmap));

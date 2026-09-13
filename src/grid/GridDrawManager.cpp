@@ -323,9 +323,8 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
                 mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
             }
         }
-        // Zoom uses visible tiles where the source supports cropping, otherwise a higher-
-        // resolution
-        // whole image: SDL_image cannot decode regions.
+        // Zoom uses visible tiles where the source supports cropping, otherwise a
+        // higher-resolution whole image.
         const bool tiled = TiledImage::canTile(item);
         TexturePtr hiRes =
             (!tiled && zoomValue != 1.0f && i == 0 && item->getMediaType() != MediaItem::MEDIA_TYPE_VIDEO)

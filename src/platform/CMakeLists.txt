@@ -6,7 +6,8 @@
 #   android/  Android
 #   web/      the browser, through Emscripten
 #   posix/    every platform that is not Windows
-#   desktop/  Windows, Linux and macOS, which link libcurl and libjpeg
+#   desktop/  Windows, Linux and macOS: libcurl on all three, and libjpeg
+#             on the two that have no WIC
 #   generic/  fallbacks for a platform without an implementation of its own
 #
 # Each directory's own list says which of its files a platform takes.

@@ -1,0 +1,220 @@
+// Image decoding through WIC, with whichever codecs Windows has installed.
+// Beyond the built-in ones those can include HEIF and camera RAW, from their
+// Store extensions.
+#include "graphics/Bitmap.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <string>
+#include <unordered_set>
+
+#include "platform/windows/Wic.h"
+
+namespace {
+
+// How far an embedded image's shape may stray from the frame's and still stand
+// in for it. A 4:3 thumbnail with bars stored for a 3:2 photo would squash the
+// wall's copy of it.
+const float kShapeTolerance = 0.02f;
+
+bool sameShape(UINT width, UINT height, UINT frameWidth, UINT frameHeight) {
+    if (width == 0 || height == 0 || frameWidth == 0 || frameHeight == 0) {
+        return false;
+    }
+    const float shape = (float)width / (float)height;
+    const float frameShape = (float)frameWidth / (float)frameHeight;
+    return std::fabs(shape - frameShape) <= kShapeTolerance * frameShape;
+}
+
+UINT longEdge(UINT width, UINT height) {
+    return std::max(width, height);
+}
+
+// An image stored beside the frame, if it covers wanted on its long edge in the
+// frame's shape.
+Wic::Ptr<IWICBitmapSource> embeddedCovering(HRESULT fetched, Wic::Ptr<IWICBitmapSource> image, UINT wanted,
+                                            UINT frameWidth, UINT frameHeight) {
+    UINT width = 0;
+    UINT height = 0;
+    if (FAILED(fetched) || !image || FAILED(image->GetSize(&width, &height)) || longEdge(width, height) < wanted ||
+        !sameShape(width, height, frameWidth, frameHeight)) {
+        image.reset();
+    }
+    return image;
+}
+
+Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
+    IWICImagingFactory *imaging = Wic::factory();
+    Wic::Ptr<IWICBitmapFrameDecode> frame;
+    if (imaging == nullptr || decoder == nullptr || FAILED(decoder->GetFrame(0, frame.put()))) {
+        return Bitmap();
+    }
+    UINT width = 0;
+    UINT height = 0;
+    if (FAILED(frame->GetSize(&width, &height)) || width == 0 || height == 0) {
+        return Bitmap();
+    }
+
+    // The size asked for, in the frame's shape and never larger than it.
+    UINT targetWidth = width;
+    UINT targetHeight = height;
+    if (maxEdge > 0 && longEdge(width, height) > (UINT)maxEdge) {
+        const float ratio = (float)maxEdge / (float)longEdge(width, height);
+        targetWidth = std::max(1u, (UINT)(width * ratio));
+        targetHeight = std::max(1u, (UINT)(height * ratio));
+    }
+    const UINT wanted = longEdge(targetWidth, targetHeight);
+    const bool reducing = wanted < longEdge(width, height);
+
+    // What to decode from. An embedded thumbnail that covers the request costs
+    // a tenth of reducing a HEIF. A codec that cannot reduce while decoding,
+    // which is RAW's, is better served by the full-size JPEG preview the camera
+    // stored beside the raw data. Everything else decodes the frame, which a
+    // codec like JPEG's reduces as it goes.
+    Wic::Ptr<IWICBitmapSource> source;
+    if (reducing) {
+        Wic::Ptr<IWICBitmapSource> thumbnail;
+        const HRESULT fetched = frame->GetThumbnail(thumbnail.put());
+        source = embeddedCovering(fetched, std::move(thumbnail), wanted, width, height);
+    }
+    if (!source) {
+        Wic::Ptr<IWICBitmapSourceTransform> transform;
+        if (FAILED(frame->QueryInterface(IID_PPV_ARGS(transform.put())))) {
+            Wic::Ptr<IWICBitmapSource> preview;
+            const HRESULT fetched = decoder->GetPreview(preview.put());
+            source = embeddedCovering(fetched, std::move(preview), wanted, width, height);
+        }
+    }
+    if (!source && FAILED(frame->QueryInterface(IID_PPV_ARGS(source.put())))) {
+        return Bitmap();
+    }
+
+    UINT sourceWidth = 0;
+    UINT sourceHeight = 0;
+    source->GetSize(&sourceWidth, &sourceHeight);
+    if (sourceWidth == targetWidth && sourceHeight == targetHeight) {
+        return Wic::copy(source.get(), nullptr);
+    }
+
+    // With alpha, scaled once premultiplied, so a transparent pixel lends no
+    // colour to its neighbours. Without, the scaler sits straight on the
+    // source, which is what lets WIC hand the reduction to the codec.
+    Wic::Ptr<IWICBitmapSource> input;
+    if (Wic::hasAlpha(source.get())) {
+        Wic::Ptr<IWICFormatConverter> premultiplied;
+        if (FAILED(imaging->CreateFormatConverter(premultiplied.put())) ||
+            FAILED(premultiplied->Initialize(source.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone,
+                                             nullptr, 0.0, WICBitmapPaletteTypeCustom)) ||
+            FAILED(premultiplied->QueryInterface(IID_PPV_ARGS(input.put())))) {
+            return Bitmap();
+        }
+    } else {
+        input = std::move(source);
+    }
+    Wic::Ptr<IWICBitmapScaler> scaler;
+    if (FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
+        FAILED(scaler->Initialize(input.get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant))) {
+        return Bitmap();
+    }
+    return Wic::copy(scaler.get(), nullptr);
+}
+
+std::unordered_set<std::string> installedExtensions() {
+    std::unordered_set<std::string> found;
+    IWICImagingFactory *imaging = Wic::factory();
+    Wic::Ptr<IEnumUnknown> components;
+    if (imaging == nullptr ||
+        FAILED(imaging->CreateComponentEnumerator(WICDecoder, WICComponentEnumerateDefault, components.put()))) {
+        return found;
+    }
+    Wic::Ptr<IUnknown> component;
+    ULONG fetched = 0;
+    while (components->Next(1, component.put(), &fetched) == S_OK) {
+        Wic::Ptr<IWICBitmapDecoderInfo> info;
+        UINT length = 0;
+        if (FAILED(component->QueryInterface(IID_PPV_ARGS(info.put()))) ||
+            FAILED(info->GetFileExtensions(0, nullptr, &length)) || length == 0) {
+            continue;
+        }
+        std::wstring list(length, L'\0');
+        if (FAILED(info->GetFileExtensions(length, list.data(), &length))) {
+            continue;
+        }
+        // A comma-separated list, such as ".jpeg,.jpe,.jpg".
+        std::string extension;
+        for (wchar_t c : list) {
+            if (c == L',' || c == L'\0') {
+                if (!extension.empty()) {
+                    found.insert(extension);
+                }
+                extension.clear();
+            } else if (c < 128) {
+                extension.push_back((char)std::tolower((unsigned char)c));
+            }
+        }
+        if (!extension.empty()) {
+            found.insert(extension);
+        }
+    }
+    return found;
+}
+
+}  // namespace
+
+Bitmap Bitmap::load(const std::string &path, int maxEdge) {
+    std::vector<uint8_t> bytes;
+    if (!readFile(path, &bytes)) {
+        return Bitmap();
+    }
+    return loadFromMemory(bytes.data(), bytes.size(), maxEdge);
+}
+
+Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
+    Wic::Ptr<IWICBitmapDecoder> decoder = Wic::decoderFor(bytes, size);
+    return decoder ? decode(decoder.get(), maxEdge) : Bitmap();
+}
+
+bool Bitmap::decodesExtension(const std::string &extension) {
+    // A scan asks once per file. Codecs register when they are installed, so
+    // the list is gathered once and holds for the run.
+    static const std::unordered_set<std::string> extensions = installedExtensions();
+    std::string lower = extension;
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+    return extensions.count(lower) != 0;
+}
+
+bool Bitmap::savePng(const std::string &path) const {
+    IWICImagingFactory *imaging = Wic::factory();
+    if (imaging == nullptr || !valid()) {
+        return false;
+    }
+    const int wideLength = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+    if (wideLength <= 0) {
+        return false;
+    }
+    std::wstring widePath((size_t)wideLength, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, widePath.data(), wideLength);
+
+    Wic::Ptr<IWICBitmap> pixels;
+    Wic::Ptr<IWICFormatConverter> straight;
+    Wic::Ptr<IWICStream> stream;
+    Wic::Ptr<IWICBitmapEncoder> encoder;
+    Wic::Ptr<IWICBitmapFrameEncode> frame;
+    WICPixelFormatGUID format = GUID_WICPixelFormat32bppRGBA;
+    // PNG stores straight alpha, and these pixels are premultiplied.
+    return SUCCEEDED(imaging->CreateBitmapFromMemory((UINT)mWidth, (UINT)mHeight, GUID_WICPixelFormat32bppPRGBA,
+                                                     (UINT)mWidth * 4, (UINT)mPixels.size(),
+                                                     (BYTE *)mPixels.data(), pixels.put())) &&
+           SUCCEEDED(imaging->CreateFormatConverter(straight.put())) &&
+           SUCCEEDED(straight->Initialize(pixels.get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone,
+                                          nullptr, 0.0, WICBitmapPaletteTypeCustom)) &&
+           SUCCEEDED(imaging->CreateStream(stream.put())) &&
+           SUCCEEDED(stream->InitializeFromFilename(widePath.c_str(), GENERIC_WRITE)) &&
+           SUCCEEDED(imaging->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put())) &&
+           SUCCEEDED(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache)) &&
+           SUCCEEDED(encoder->CreateNewFrame(frame.put(), nullptr)) && SUCCEEDED(frame->Initialize(nullptr)) &&
+           SUCCEEDED(frame->SetSize((UINT)mWidth, (UINT)mHeight)) && SUCCEEDED(frame->SetPixelFormat(&format)) &&
+           SUCCEEDED(frame->WriteSource(straight.get(), nullptr)) && SUCCEEDED(frame->Commit()) &&
+           SUCCEEDED(encoder->Commit());
+}

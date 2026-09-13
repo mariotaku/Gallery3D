@@ -115,15 +115,19 @@ elseif(IOS)
         APPEND_STRING PROPERTY COMPILE_FLAGS " -x objective-c")
 else()
     find_package(SDL3 CONFIG REQUIRED)
-    find_package(SDL3_image CONFIG REQUIRED)
-    find_package(SDL3_ttf CONFIG REQUIRED)
+    # Windows decodes images through WIC and draws text through DirectWrite, so
+    # SDL_image, SDL_ttf and libjpeg are the other desktops' alone.
+    if(NOT WIN32)
+        find_package(SDL3_image CONFIG REQUIRED)
+        find_package(SDL3_ttf CONFIG REQUIRED)
+        # The region decoder crops a tile out of a large JPEG without decoding
+        # the rest, which SDL_image cannot do. SDL_image already links this, so
+        # asking for the headers adds no library.
+        find_package(JPEG REQUIRED)
+    endif()
     # Module mode, not CONFIG. Distro libcurl ships no CMake config package,
     # and FindCURL looks for one before falling back. Both give CURL::libcurl.
     find_package(CURL REQUIRED)
-    # The region decoder crops a tile out of a large JPEG without decoding the
-    # rest, which SDL_image cannot do. SDL_image already links this, so asking
-    # for the headers adds no library.
-    find_package(JPEG REQUIRED)
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
 
@@ -164,7 +168,6 @@ add_library(gallery3d_core OBJECT)
 target_include_directories(gallery3d_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(gallery3d_core PUBLIC
     SDL3::SDL3
-    SDL3_image::SDL3_image
     nlohmann_json::nlohmann_json)
 gallery3d_add_warnings(gallery3d_core)
 gallery3d_add_symbols(gallery3d_core)

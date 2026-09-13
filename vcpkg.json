@@ -4,22 +4,11 @@
   "dependencies": [
     "sdl3",
     {
-      "name": "sdl3-image",
-      "features": [
-        "png",
-        "jpeg",
-        "webp",
-        "tiff"
-      ]
-    },
-    "sdl3-ttf",
-    {
       "name": "curl",
       "features": [
         "ssl"
       ]
     },
-    "libjpeg-turbo",
     "nlohmann-json"
   ]
 }

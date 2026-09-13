@@ -1,5 +1,5 @@
 // Decodes encoded bytes to Bitmap pixels for cropping, blur and caching.
-// Native SDL_image answers inline; browser decoders require asynchronous callbacks.
+// Native decoders answer inline; browser decoders require asynchronous callbacks.
 #pragma once
 
 #include <cstddef>

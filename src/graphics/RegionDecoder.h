@@ -4,8 +4,8 @@
 // A decoder is bound to one image and outlives the tiles taken from it: opening
 // is what costs, and a zoom asks for dozens of regions from the same picture.
 // This is the shape of Android's BitmapRegionDecoder, which is the backend
-// there. The desktop uses libjpeg-turbo, because SDL_image decodes whole files
-// only.
+// there. Windows uses WIC, and the other desktops libjpeg-turbo, because
+// SDL_image decodes whole files only.
 #pragma once
 
 #include <memory>

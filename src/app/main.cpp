@@ -1,7 +1,6 @@
 // Entry point replacing com.cooliris.media.Gallery. Settings come from INI/environment;
 // command-line actions drive a single run. See --help.
 #include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
 
 #if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
 // On Android there is no process to start: SDLActivity loads this library and
@@ -31,6 +30,7 @@
 #include "media/ArticDataSource.h"
 #include "core/Backtrace.h"
 #include "app/Settings.h"
+#include "graphics/Bitmap.h"
 #include "graphics/Canvas.h"
 #include "media/ConcatenatedDataSource.h"
 #include "grid/GridLayer.h"
@@ -150,20 +150,22 @@ bool saveFramebuffer(int width, int height, const std::string &path) {
         return false;
     }
 
-    // GL returns bottom up rows.
-    std::vector<unsigned char> flipped(pixels.size());
+    // GL returns bottom up rows. The window shows every pixel opaque whatever
+    // alpha the blending left behind, so the file does too.
+    Bitmap flipped(width, height);
     size_t stride = (size_t)width * 4;
     for (int y = 0; y < height; ++y) {
-        std::memcpy(&flipped[(size_t)y * stride], &pixels[(size_t)(height - 1 - y) * stride], stride);
+        uint8_t *row = flipped.pixels() + (size_t)y * stride;
+        std::memcpy(row, &pixels[(size_t)(height - 1 - y) * stride], stride);
+        for (size_t alpha = 3; alpha < stride; alpha += 4) {
+            row[alpha] = 255;
+        }
     }
-    SDL_Surface *surface =
-        SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, flipped.data(), (int)stride);
-    if (surface == nullptr) {
-        return false;
+    if (flipped.savePng(path)) {
+        SDL_Log("Wrote %s", path.c_str());
+    } else {
+        SDL_Log("Could not write %s", path.c_str());
     }
-    IMG_SavePNG(surface, path.c_str());
-    SDL_DestroySurface(surface);
-    SDL_Log("Wrote %s", path.c_str());
     return true;
 }
 

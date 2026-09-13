@@ -45,8 +45,8 @@ int main() {
     // less than the assertion it was about to make.
     Backtrace::install();
 
-    // Bitmap decodes through SDL_image and Canvas measures through SDL_ttf, so
-    // both have to be up even though nothing here opens a window.
+    // Bitmap and Canvas read files and build surfaces through SDL, so it has to
+    // be up even though nothing here opens a window.
     if (!SDL_Init(0)) {
         std::printf("SDL_Init failed: %s\n", SDL_GetError());
         return 1;

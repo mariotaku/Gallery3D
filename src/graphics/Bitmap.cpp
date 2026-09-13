@@ -1,15 +1,14 @@
+// Bitmap's pixel arithmetic and EXIF reader. Decoding and PNG writing are the
+// platform's, in BitmapDecode.cpp under src/platform/.
 #include "graphics/Bitmap.h"
 
 #include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <utility>
-
-#include "graphics/SubsampledDecode.h"
 
 namespace {
 
@@ -62,33 +61,6 @@ void premultiply(uint8_t *pixels, size_t count) {
     }
 }
 
-Bitmap fromSurface(SDL_Surface *surface) {
-    Bitmap result;
-    if (!surface) {
-        return result;
-    }
-    SDL_Surface *rgba = surface;
-    bool owned = false;
-    if (surface->format != SDL_PIXELFORMAT_RGBA32) {
-        rgba = SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32);
-        owned = true;
-    }
-    if (rgba) {
-        result = Bitmap(rgba->w, rgba->h);
-        const uint8_t *src = (const uint8_t *)rgba->pixels;
-        uint8_t *dst = result.pixels();
-        for (int y = 0; y < rgba->h; ++y) {
-            std::memcpy(dst + (size_t)y * (size_t)rgba->w * 4, src + (size_t)y * (size_t)rgba->pitch,
-                        (size_t)rgba->w * 4);
-        }
-        premultiply(dst, (size_t)rgba->w * (size_t)rgba->h);
-    }
-    if (owned && rgba) {
-        SDL_DestroySurface(rgba);
-    }
-    return result;
-}
-
 SDL_Surface *toSurface(const Bitmap &bitmap) {
     if (!bitmap.valid()) {
         return nullptr;
@@ -106,43 +78,6 @@ Bitmap::Bitmap(int width, int height) : mWidth(width), mHeight(height) {
         mWidth = 0;
         mHeight = 0;
     }
-}
-
-namespace {
-
-// Shared tail of both loaders: take the surface, convert, and bring it down to
-// maxEdge if it is over.
-Bitmap finishDecode(SDL_Surface *surface, int maxEdge);
-
-// Brings a decoded image down to maxEdge on its long edge, keeping its shape.
-Bitmap trimToMaxEdge(Bitmap decoded, int maxEdge);
-
-}  // namespace
-
-Bitmap Bitmap::load(const std::string &path, int maxEdge) {
-    return finishDecode(IMG_Load(path.c_str()), maxEdge);
-}
-
-Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
-    if (bytes == nullptr || size == 0) {
-        return Bitmap();
-    }
-    if (maxEdge > 0) {
-        // Reduce inside the decoder where it is close to free, rather than
-        // building the full size image only to throw most of it away. What
-        // comes back can land a little under maxEdge, or over it, in which
-        // case the tail below trims it to exactly that.
-        Bitmap reduced = SubsampledDecode::decode(bytes, size, maxEdge);
-        if (reduced.valid()) {
-            return trimToMaxEdge(std::move(reduced), maxEdge);
-        }
-    }
-    SDL_IOStream *stream = SDL_IOFromConstMem(bytes, size);
-    if (stream == nullptr) {
-        return Bitmap();
-    }
-    // IMG_Load_IO closes the stream for us, including on failure.
-    return finishDecode(IMG_Load_IO(stream, true), maxEdge);
 }
 
 bool Bitmap::readFile(const std::string &path, std::vector<uint8_t> *bytes) {
@@ -173,33 +108,6 @@ Bitmap Bitmap::fromStraightRGBA(const uint8_t *pixels, int width, int height) {
     premultiply(result.pixels(), count);
     return result;
 }
-
-namespace {
-
-Bitmap trimToMaxEdge(Bitmap decoded, int maxEdge) {
-    if (!decoded.valid() || maxEdge <= 0) {
-        return decoded;
-    }
-    int longest = std::max(decoded.width(), decoded.height());
-    if (longest <= maxEdge) {
-        return decoded;
-    }
-    float ratio = (float)maxEdge / (float)longest;
-    int newWidth = std::max(1, (int)(decoded.width() * ratio));
-    int newHeight = std::max(1, (int)(decoded.height() * ratio));
-    return decoded.scaled(newWidth, newHeight);
-}
-
-Bitmap finishDecode(SDL_Surface *surface, int maxEdge) {
-    if (surface == nullptr) {
-        return Bitmap();
-    }
-    Bitmap decoded = fromSurface(surface);
-    SDL_DestroySurface(surface);
-    return trimToMaxEdge(std::move(decoded), maxEdge);
-}
-
-}  // namespace
 
 Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
     if (!valid() || newWidth <= 0 || newHeight <= 0) {
