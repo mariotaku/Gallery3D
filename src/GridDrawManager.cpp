@@ -236,6 +236,9 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
     int firstBufferedVisibleSlot = mBufferedVisibleRange.begin;
     int lastBufferedVisibleSlot = mBufferedVisibleRange.end;
     bool isCameraZAnimating = camera->isZAnimating();
+    for (FocusShadow &shadow : mFocusShadows) {
+        shadow = FocusShadow();
+    }
 
     for (int i = firstBufferedVisibleSlot; i <= lastBufferedVisibleSlot; ++i) {
         if (selectedSlotIndex != Shared::INVALID && (i >= selectedSlotIndex - 2 && i <= selectedSlotIndex + 2)) {
@@ -428,8 +431,9 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         // Only while it fits: zoomed in, the picture is larger than the screen
         // by intent, and the tiles drawn over it are placed from the item's own
         // centre.
-        quad->setCenterOffset((zoomValue == 1.0f) ? safeOffsetX : 0.0f,
-                              (zoomValue == 1.0f) ? safeOffsetY : 0.0f);
+        const float centerOffsetX = (zoomValue == 1.0f) ? safeOffsetX : 0.0f;
+        const float centerOffsetY = (zoomValue == 1.0f) ? safeOffsetY : 0.0f;
+        quad->setCenterOffset(centerOffsetX, centerOffsetY);
         quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight);
         const float pictureWidth = quad->getWidth();
         const float pictureHeight = quad->getHeight();
@@ -459,9 +463,19 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             }
             quad->setShape(cropWidth, cropHeight, u, v);
         }
+        // Transparent pixels show a checkerboard rather than black. The
+        // picture is blended over it, since adding would brighten it.
+        const bool transparent = texture->mHasAlpha;
+        if (transparent) {
+            drawFocusChecker(view, displayItem, quad, centerOffsetX, centerOffsetY, u, v, alpha);
+            view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        }
         quad->bindArrays(view);
         drawDisplayItem(view, displayItem, texture, PASS_FOCUS_CONTENT, nullptr, 0.0f);
         quad->unbindArrays(view);
+        if (transparent) {
+            view->blendFunc(GL_ONE, GL_ONE);
+        }
 
         // Overlay tiles only after the thumbnail-to-screennail fade settles the quad's size.
         if (i == 0 && zoomValue != 1.0f && selectedMixRatio == 1.0f && !slideshowMode) {
@@ -474,9 +488,18 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             u = fsTexture->getNormalizedWidth();
             v = fsTexture->getNormalizedHeight();
             quad->setShape(pictureWidth, pictureHeight, u, v);
+            const bool fsTransparent = fsTexture->mHasAlpha;
+            if (fsTransparent) {
+                view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                drawFocusChecker(view, displayItem, quad, centerOffsetX, centerOffsetY, u, v,
+                                 alpha * selectedMixRatio);
+            }
             quad->bindArrays(view);
             drawDisplayItem(view, displayItem, fsTexture, PASS_FOCUS_CONTENT, nullptr, 1.0f);
             quad->unbindArrays(view);
+            if (fsTransparent) {
+                view->blendFunc(GL_ONE, GL_ONE);
+            }
         }
         if (i == 0 || slideshowMode) {
             mCurrentFocusItemWidth = pictureWidth;
@@ -485,6 +508,7 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
                 std::swap(mCurrentFocusItemWidth, mCurrentFocusItemHeight);
             }
         }
+        mFocusShadows[vboIndex] = {displayItem, pictureWidth, pictureHeight, centerOffsetX, centerOffsetY, alpha};
         view->setAlpha(alpha);
         if (item->getMediaType() == MediaItem::MEDIA_TYPE_VIDEO) {
             // The play graphic overlay.
@@ -580,11 +604,95 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
     view->blendFunc(GL_ONE, GL_ONE);
 }
 
+void GridDrawManager::drawFocusChecker(RenderView *view, DisplayItem *displayItem, GridQuad *quad, float offsetX,
+                                       float offsetY, float u, float v, float alpha) {
+    const TexturePtr &checker = mDrawables->mTextureChecker;
+    const float worldPerPixel = mCamera->worldUnitsPerPixel(displayItem->mAnimatedPosition.z);
+    if (!checker || worldPerPixel <= 0.0f) {
+        return;
+    }
+    // Cells stay one size on screen while the picture zooms, so the pattern
+    // is measured from the eye's distance this frame, not from the picture.
+    // It is centred on the picture and grows out from the middle. One repeat
+    // of the texture is two cells.
+    const float cellDp = 8.0f;
+    const float repeat = 2.0f * cellDp * App::UI_DENSITY * worldPerPixel;
+    const float width = quad->getWidth();
+    const float height = quad->getHeight();
+    const float halfWidth = width * 0.5f;
+    const float halfHeight = height * 0.5f;
+    const float uHalf = halfWidth / repeat;
+    const float vHalf = halfHeight / repeat;
+    const float previousAlpha = view->getAlpha();
+    view->setAlpha(alpha);
+    quad->setCorners(offsetX - halfWidth, offsetY - halfHeight, offsetX + halfWidth, offsetY + halfHeight, uHalf, vHalf,
+                     -uHalf, -vHalf);
+    quad->bindArrays(view);
+    drawDisplayItem(view, displayItem, checker, PASS_FOCUS_CONTENT, nullptr, 0.0f);
+    quad->unbindArrays(view);
+    quad->setShape(width, height, u, v);
+    view->setAlpha(previousAlpha);
+}
+
+void GridDrawManager::drawFocusShadows(RenderView *view, float visibility) {
+    GridQuad *quad = GridDrawables::sShadowGrid;
+    const TexturePtr &texture = mDrawables->mTextureShadow;
+    if (quad == nullptr || !texture || visibility <= 0.0f) {
+        return;
+    }
+    GridCamera *camera = mCamera;
+    const float radiusDp = 16.0f;
+    const float radius = radiusDp * App::UI_DENSITY / (float)camera->mHeight;
+    // Just behind the picture, so the depth test keeps the shadow off any
+    // picture it reaches, its own or a neighbour sliding in.
+    const float behind = 0.01f;
+    const float previousAlpha = view->getAlpha();
+    for (FocusShadow &shadow : mFocusShadows) {
+        DisplayItem *item = shadow.item;
+        if (item == nullptr || shadow.width <= 0.0f || shadow.height <= 0.0f) {
+            continue;
+        }
+        const float halfWidth = shadow.width * 0.5f;
+        const float halfHeight = shadow.height * 0.5f;
+        const std::array<GridDrawables::ShadowPiece, 8> pieces =
+            GridDrawables::shadowPieces(shadow.offsetX - halfWidth, shadow.offsetY - halfHeight,
+                                        shadow.offsetX + halfWidth, shadow.offsetY + halfHeight, radius);
+
+        // The transform drawDisplayItem gives the picture itself.
+        const float translateX = item->mAnimatedPosition.x * camera->mOneByScale;
+        const float translateY = item->mAnimatedPosition.y * camera->mOneByScale;
+        const float translateZ = -item->mAnimatedPosition.z - behind;
+        const float theta = item->mAnimatedImageTheta + item->mAnimatedTheta;
+        view->glTranslatef(-translateX, -translateY, -translateZ);
+        if (theta != 0.0f) {
+            view->glRotatef(theta, 0.0f, 0.0f, 1.0f);
+        }
+        view->setAlpha(visibility * shadow.alpha);
+        for (const GridDrawables::ShadowPiece &piece : pieces) {
+            quad->setCorners(piece.xMin, piece.yMin, piece.xMax, piece.yMax, piece.uAtXMin, piece.vAtYMin,
+                             piece.uAtXMax, piece.vAtYMax);
+            quad->bindArrays(view);
+            if (view->bind(texture)) {
+                GridQuad::draw(view, 0.0f);
+            }
+            quad->unbindArrays(view);
+        }
+        if (theta != 0.0f) {
+            view->glRotatef(-theta, 0.0f, 0.0f, 1.0f);
+        }
+        view->glTranslatef(translateX, translateY, translateZ);
+        shadow = FocusShadow();
+    }
+    view->setAlpha(previousAlpha);
+}
+
 void GridDrawManager::drawBlendedComponents(RenderView *view, float alpha, int state, int hudMode,
                                             float stackMixRatio, float gridMixRatio,
                                             MediaBucketList &selectedBucketList, MediaBucketList &markedBucketList,
                                             bool isFeedLoading) {
-    (void)alpha;
+    // The wall fades out as the fullscreen pictures come in, and the shadows
+    // with them.
+    drawFocusShadows(view, 1.0f - alpha);
     int firstBufferedVisibleSlot = mBufferedVisibleRange.begin;
     int lastBufferedVisibleSlot = mBufferedVisibleRange.end;
     int firstVisibleSlot = mVisibleRange.begin;

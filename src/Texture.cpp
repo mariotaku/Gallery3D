@@ -30,6 +30,7 @@ void Texture::clear() {
     mHeight = 0;
     mNormalizedWidth = 0.0f;
     mNormalizedHeight = 0.0f;
+    mHasAlpha = false;
     mBitmap = Bitmap();
 }
 

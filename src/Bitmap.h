@@ -56,6 +56,9 @@ class Bitmap {
     // Scales to cover the box and centre-crops it.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 
+    // Whether any pixel is less than fully opaque.
+    bool hasTransparency() const;
+
     // What one pass over a JPEG's header yields. Every field stays at its
     // default when the tag is missing or the file is not a JPEG.
     struct ExifInfo {

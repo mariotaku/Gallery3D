@@ -63,6 +63,12 @@ class Texture {
         return false;
     }
 
+    // Wrap and sample texel by texel, for a pattern tiled across a quad. The
+    // bitmap has to be a power of two already, since padding would tile too.
+    virtual bool wantsRepeat() const {
+        return false;
+    }
+
     void clear();
 
     bool isLoaded() const {
@@ -100,6 +106,8 @@ class Texture {
     int mHeight = 0;
     float mNormalizedWidth = 0.0f;
     float mNormalizedHeight = 0.0f;
+    // Some pixel is less than fully opaque. Found when the bitmap arrives.
+    bool mHasAlpha = false;
     Bitmap mBitmap;
     RenderView *mOwner = nullptr;
     // Bookkeeping for the texture budget in RenderView: how much GPU memory
@@ -109,6 +117,29 @@ class Texture {
     // a different length of time on a 60Hz panel and a 120Hz one, so counting
     // them would throw work away twice as fast on the faster screen.
     uint64_t mLastUsedMs = 0;
+};
+
+// A bitmap built in code rather than decoded.
+class GeneratedTexture : public Texture {
+  public:
+    GeneratedTexture(Bitmap bitmap, bool repeat) : mSource(std::move(bitmap)), mRepeat(repeat) {}
+
+    bool isCached() const override {
+        return true;
+    }
+
+    bool wantsRepeat() const override {
+        return mRepeat;
+    }
+
+    Bitmap load(RenderView *view) override {
+        (void)view;
+        return mSource;
+    }
+
+  private:
+    Bitmap mSource;
+    bool mRepeat;
 };
 
 // Loads a PNG out of assets/drawable.

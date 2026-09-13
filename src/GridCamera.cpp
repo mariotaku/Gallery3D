@@ -260,6 +260,13 @@ bool GridCamera::isZAnimating() const {
     return mPosZ != mTargetPosZ;
 }
 
+float GridCamera::worldUnitsPerPixel(float z) const {
+    if (mHeight <= 0) {
+        return 0.0f;
+    }
+    return 2.0f * mTanFovBy2 * (mEyeZ + z) / (float)mHeight;
+}
+
 void GridCamera::update(float timeElapsed) {
     timeElapsed = timeElapsed * mConvergenceSpeed;
     float oldPosX = mPosX;

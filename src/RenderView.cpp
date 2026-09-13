@@ -574,6 +574,7 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
 }
 
 void RenderView::applyBitmap(const TexturePtr &texture, Bitmap bitmap) {
+    texture->mHasAlpha = bitmap.valid() && bitmap.hasTransparency();
     if (bitmap.valid()) {
         int width = bitmap.width();
         int height = bitmap.height();
@@ -622,15 +623,17 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     GLuint textureId = 0;
     glGenTextures(1, &textureId);
     glBindTexture(GL_TEXTURE_2D, textureId);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    const bool repeat = texture->wantsRepeat();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     // ES 2.0 only accepts a mip chain on a power of two texture, and every
     // texture that asks for one is padded to a power of two anyway.
     bool mipmapped = texture->wantsMipmaps() && mMaxAnisotropy > 1.0f &&
                      Shared::isPowerOf2(texture->mBitmap.width()) &&
                      Shared::isPowerOf2(texture->mBitmap.height());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mipmapped ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    const GLint minFilter = mipmapped ? GL_LINEAR_MIPMAP_LINEAR : (repeat ? GL_NEAREST : GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, repeat ? GL_NEAREST : GL_LINEAR);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mBitmap.width(), texture->mBitmap.height(), 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, texture->mBitmap.pixels());

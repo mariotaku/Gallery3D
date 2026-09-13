@@ -256,6 +256,20 @@ Bitmap Bitmap::paddedTo(int paddedWidth, int paddedHeight, bool clampEdges) cons
     return result;
 }
 
+bool Bitmap::hasTransparency() const {
+    if (!valid()) {
+        return false;
+    }
+    const size_t count = (size_t)mWidth * (size_t)mHeight;
+    const uint8_t *pixels = mPixels.data();
+    for (size_t i = 0; i < count; ++i) {
+        if (pixels[i * 4 + 3] != 255) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
     if (!valid() || newWidth <= 0 || newHeight <= 0) {
         return Bitmap();

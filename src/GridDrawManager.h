@@ -59,6 +59,25 @@ class GridDrawManager {
     // Overlays tiles on the screennail's quad; skips items that cannot be tiled.
     void drawFocusTiles(RenderView *view, DisplayItem *displayItem, GridQuad *quad);
 
+    // Draws the checkerboard at the quad's current shape, with cells a fixed
+    // size on screen, then puts the quad back.
+    void drawFocusChecker(RenderView *view, DisplayItem *displayItem, GridQuad *quad, float offsetX, float offsetY,
+                          float u, float v, float alpha);
+
+    // The shadows around the pictures drawFocusItems drew this frame. Runs in
+    // the blended pass, after the backdrop it darkens.
+    void drawFocusShadows(RenderView *view, float visibility);
+
+    // Where a fullscreen picture was drawn, in its local space, for its shadow.
+    struct FocusShadow {
+        DisplayItem *item = nullptr;
+        float width = 0.0f;
+        float height = 0.0f;
+        float offsetX = 0.0f;
+        float offsetY = 0.0f;
+        float alpha = 0.0f;
+    };
+
     static MediaItemTexture::Config sThumbnailConfig;
 
     DisplayItem **mDisplayItems;
@@ -77,6 +96,7 @@ class GridDrawManager {
     FloatAnim mSelectedMixRatio{0.0f};
     float mCurrentFocusItemWidth = 0.0f;
     float mCurrentFocusItemHeight = 0.0f;
+    FocusShadow mFocusShadows[3];
     bool mCurrentFocusIsPressed = false;
     TexturePtr mNoItemsTexture;
     int mCurrentScaleSlot = -1;

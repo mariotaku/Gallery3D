@@ -1,6 +1,7 @@
 // Port of com.cooliris.media.GridDrawables.
 #pragma once
 
+#include <array>
 #include <map>
 #include <memory>
 #include <string>
@@ -26,6 +27,33 @@ class GridDrawables {
     // Shared quad repositioned for each fullscreen tile. Excluded from GridLayer's
     // per-frame update, which would overwrite the tile corners.
     static GridQuad *sTileGrid;
+    // Shared quad repositioned for each piece of a fullscreen picture's shadow.
+    static GridQuad *sShadowGrid;
+
+    // One piece of the shadow around a picture, in the picture's local space,
+    // with the texture coordinates at its two corners in the arguments' order
+    // for GridQuad::setCorners.
+    struct ShadowPiece {
+        float xMin;
+        float yMin;
+        float xMax;
+        float yMax;
+        float uAtXMin;
+        float vAtYMin;
+        float uAtXMax;
+        float vAtYMax;
+    };
+
+    // Premultiplied black, strongest in the middle and gone at the rim. The
+    // middle of the texture is where the picture's edges and corners go.
+    static Bitmap shadowBitmap(int size, float maxAlpha);
+
+    // Eight pieces that ring the rectangle out to radius. None of them lies
+    // over the rectangle, so nothing is drawn where the picture covers it.
+    static std::array<ShadowPiece, 8> shadowPieces(float left, float bottom, float right, float top, float radius);
+
+    // Two greys on a two by two texel pattern, to repeat behind transparency.
+    static Bitmap checkerBitmap();
 
     // Text labels cached by string.
     static std::map<std::string, std::shared_ptr<StringTexture>> sStringTextureTable;
@@ -58,6 +86,8 @@ class GridDrawables {
     TexturePtr mTexturePicasaSmall;
     TexturePtr mTextureTransparent;
     TexturePtr mTexturePlaceholder;
+    TexturePtr mTextureShadow;
+    TexturePtr mTextureChecker;
 
     GridDrawables(int itemWidth, int itemHeight);
 

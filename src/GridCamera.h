@@ -73,6 +73,10 @@ class GridCamera {
     bool isAnimating() const;
     bool isZAnimating() const;
 
+    // How much of the world one screen pixel spans at depth z, from where the
+    // eye is this frame rather than where it is heading.
+    float worldUnitsPerPixel(float z) const;
+
     void update(float timeElapsed);
 
   private:
