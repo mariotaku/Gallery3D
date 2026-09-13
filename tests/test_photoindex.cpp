@@ -10,12 +10,12 @@
 #include <string>
 #include <vector>
 
-#include "Bitmap.h"
-#include "LocalDataSource.h"
-#include "MediaFeed.h"
-#include "MediaItem.h"
-#include "MediaSet.h"
-#include "PhotoIndex.h"
+#include "graphics/Bitmap.h"
+#include "media/LocalDataSource.h"
+#include "media/MediaFeed.h"
+#include "media/MediaItem.h"
+#include "media/MediaSet.h"
+#include "media/PhotoIndex.h"
 
 namespace fs = std::filesystem;
 

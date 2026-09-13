@@ -10,8 +10,8 @@ if(EMSCRIPTEN)
     # sdl3_image, and mixing a port with a source build means two SDL3s in one
     # link. Building all three keeps one.
     #
-    # No curl: a page cannot open a socket, so Http.cpp uses the Fetch API
-    # instead. See Http.h.
+    # No curl: a page cannot open a socket, so src/platform/web/Http.cpp uses
+    # the Fetch API instead. See Http.h.
     include(FetchContent)
     set(FETCHCONTENT_QUIET OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -53,8 +53,9 @@ elseif(ANDROID)
     find_package(SDL3_image CONFIG REQUIRED)
     # No SDL_ttf: android.graphics.Paint draws the text, which also keeps the
     # one library in the apk that is not aligned for a 16 KB page out of it.
-    # No curl: Http.cpp goes through the platform instead. No libjpeg either,
-    # because cropping a region is BitmapRegionDecoder's job here.
+    # No curl: HTTP here has to go through the platform, which is not wired up
+    # yet. No libjpeg either, because cropping a region is
+    # BitmapRegionDecoder's job here.
     # nlohmann/json is a header, so it comes from source as it does on the web.
     include(FetchContent)
     set(JSON_BuildTests OFF CACHE INTERNAL "")
@@ -62,10 +63,10 @@ elseif(ANDROID)
                               GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(nlohmann_json)
 elseif(IOS)
-    # Cross-compiled from Linux with ios/xtool.toolchain.cmake. There is no
-    # package manager for an iPhone, so the libraries are built from source as
-    # they are for the web, and linked in statically: an app may not carry
-    # loose dylibs.
+    # Cross-compiled from Linux with ios/xtool.toolchain.cmake, or built as an
+    # Xcode project on a Mac. There is no package manager for an iPhone, so the
+    # libraries are built from source as they are for the web, and linked in
+    # statically: an app may not carry loose dylibs.
     #
     # No curl, which the SDK does not include, and no libjpeg: ImageIO decodes
     # for SDL_image, and a zoomed photo stays on its screennail as it does in
@@ -119,30 +120,12 @@ else()
     # Module mode, not CONFIG. Distro libcurl ships no CMake config package,
     # and FindCURL looks for one before falling back. Both give CURL::libcurl.
     find_package(CURL REQUIRED)
-    # RegionDecoder crops a tile out of a large JPEG without decoding the rest,
-    # which SDL_image cannot do. SDL_image already links this, so asking for the
-    # headers adds no library.
+    # The region decoder crops a tile out of a large JPEG without decoding the
+    # rest, which SDL_image cannot do. SDL_image already links this, so asking
+    # for the headers adds no library.
     find_package(JPEG REQUIRED)
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
-
-# Both targets want the same platform libraries, so they are set up in one place.
-function(gallery3d_add_backtrace target)
-    # Crash handler. dbghelp turns return addresses into names, and without /Zi plus
-    # /DEBUG there are no names to find - Release drops them by default, which is
-    # exactly when a stack trace is hardest to get any other way.
-    if(WIN32)
-        # dbghelp for the stack trace; dwmapi and comctl32 for the extended
-        # window frame in WindowFrame.cpp.
-        target_link_libraries(${target} PRIVATE dbghelp dwmapi comctl32)
-    endif()
-    if(MSVC)
-        target_compile_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/Zi>)
-        target_link_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/DEBUG>
-                                              $<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
-                                              $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
-    endif()
-endfunction()
 
 # The same warning level on every compiler, so a warning that appears on one
 # platform is not a surprise on the next.
@@ -157,40 +140,44 @@ function(gallery3d_add_warnings target)
     endif()
 endfunction()
 
-file(GLOB GALLERY_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/src/*.cpp")
+# Symbols for the crash handler's stack traces. dbghelp turns return addresses
+# into names, and without /Zi plus /DEBUG there are no names to find: Release
+# drops them by default, which is exactly when a trace is hardest to get any
+# other way. /Zi goes on whatever compiles, /DEBUG on whatever links.
+function(gallery3d_add_symbols target)
+    if(NOT MSVC)
+        return()
+    endif()
+    target_compile_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/Zi>)
+    get_target_property(type ${target} TYPE)
+    if(NOT type STREQUAL "OBJECT_LIBRARY")
+        target_link_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/DEBUG>
+                                              $<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
+                                              $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
+    endif()
+endfunction()
 
-# One text backend is compiled, and it is chosen here. The platform's own knows
-# which font the system reads in and what to fall back to for a glyph that font
-# has never seen, which is the difference between Japanese and a row of boxes.
-# The rest of the platforms take SDL_ttf. Excluded rather than guarded inside,
-# so each backend reads as the one thing it is.
-set(GALLERY_TEXT_BACKENDS
-    "${CMAKE_SOURCE_DIR}/src/TextBackendSDL.cpp"
-    "${CMAKE_SOURCE_DIR}/src/TextBackendWindows.cpp"
-    "${CMAKE_SOURCE_DIR}/src/TextBackendAndroid.cpp")
-list(REMOVE_ITEM GALLERY_SOURCES ${GALLERY_TEXT_BACKENDS})
-if(ANDROID)
-    list(APPEND GALLERY_SOURCES "${CMAKE_SOURCE_DIR}/src/TextBackendAndroid.cpp")
-elseif(WIN32)
-    list(APPEND GALLERY_SOURCES "${CMAKE_SOURCE_DIR}/src/TextBackendWindows.cpp")
-else()
-    list(APPEND GALLERY_SOURCES "${CMAKE_SOURCE_DIR}/src/TextBackendSDL.cpp")
-endif()
-
-# Everything but the entry point, so the tests can link the same code.
-set(GALLERY_LIB_SOURCES ${GALLERY_SOURCES})
-list(REMOVE_ITEM GALLERY_LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
+# Everything but the entry point, compiled once and linked into both the app
+# and the tests. Each directory under src/ adds its own files to it, and an
+# include names a file by its path from src/.
+add_library(gallery3d_core OBJECT)
+target_include_directories(gallery3d_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(gallery3d_core PUBLIC
+    SDL3::SDL3
+    SDL3_image::SDL3_image
+    nlohmann_json::nlohmann_json)
+gallery3d_add_warnings(gallery3d_core)
+gallery3d_add_symbols(gallery3d_core)
 
 if(ANDROID)
     # Android has no process to start. SDLActivity loads this and calls the
     # main() inside it, and it looks for the library by the name below.
-    add_library(gallery3d SHARED ${GALLERY_SOURCES})
+    add_library(gallery3d SHARED)
     set_target_properties(gallery3d PROPERTIES OUTPUT_NAME "main")
 elseif(IOS)
     # An app bundle: the executable, its Info.plist and, after the post-build
     # copy below, assets/ beside them. xtool signs it when it installs it.
-    add_executable(gallery3d MACOSX_BUNDLE ${GALLERY_SOURCES})
+    add_executable(gallery3d MACOSX_BUNDLE)
     set_target_properties(gallery3d PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/ios/Info.plist.in"
         MACOSX_BUNDLE_GUI_IDENTIFIER "me.mariotaku.gallery3d"
@@ -198,34 +185,13 @@ elseif(IOS)
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
         MACOSX_BUNDLE_BUNDLE_VERSION "1")
 else()
-    add_executable(gallery3d ${GALLERY_SOURCES})
+    add_executable(gallery3d)
 endif()
-
-target_include_directories(gallery3d PRIVATE "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(gallery3d PRIVATE
-    SDL3::SDL3
-    SDL3_image::SDL3_image
-    nlohmann_json::nlohmann_json)
-if(NOT ANDROID)
-    target_link_libraries(gallery3d PRIVATE SDL3_ttf::SDL3_ttf)
-endif()
-if(NOT EMSCRIPTEN AND NOT ANDROID AND NOT IOS)
-    target_link_libraries(gallery3d PRIVATE CURL::libcurl JPEG::JPEG)
-    target_compile_definitions(gallery3d PRIVATE GALLERY3D_HAVE_JPEG)
-endif()
-if(ANDROID)
-    # log for SDL's own output, android for the asset manager and the JNI the
-    # media sources go through, jnigraphics to read a decoded region's pixels
-    # out of the platform bitmap it arrives in.
-    target_link_libraries(gallery3d PRIVATE log android jnigraphics)
-endif()
-if(WIN32)
-    # DirectWrite, which draws the text.
-    target_link_libraries(gallery3d PRIVATE dwrite)
-endif()
-
+target_link_libraries(gallery3d PRIVATE gallery3d_core)
 gallery3d_add_warnings(gallery3d)
-gallery3d_add_backtrace(gallery3d)
+gallery3d_add_symbols(gallery3d)
+
+add_subdirectory(src)
 
 if(EMSCRIPTEN)
     # The browser owns the frame clock and the canvas, so most of this is
@@ -240,7 +206,7 @@ if(EMSCRIPTEN)
         # The wall's textures are the bulk of the memory and there is no
         # knowing how many up front.
         -sALLOW_MEMORY_GROWTH=1
-        # Http.cpp talks to the museum through this.
+        # src/platform/web/Http.cpp talks to the museum through this.
         -sFETCH=1
         # No threads. Fetching and decoding both go through the browser and
         # answer in callbacks, so there is nothing here that would block a
@@ -261,37 +227,9 @@ else()
             "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:gallery3d>/assets")
 endif()
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-# Desktop only. They are a console binary that runs to completion, which is
-# neither the browser's shape nor a phone's.
+# Desktop only. The tests are a console binary that runs to completion, which
+# is neither the browser's shape nor a phone's.
 if(NOT EMSCRIPTEN AND NOT ANDROID AND NOT IOS)
-# Only the parts that hold still: decoding, geometry and layout arithmetic.
-# Anything needing a GL context stays with the screenshot checks instead.
-enable_testing()
-
-file(GLOB GALLERY_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/tests/*.cpp")
-
-add_executable(gallery3d_tests ${GALLERY_TEST_SOURCES} ${GALLERY_LIB_SOURCES})
-target_include_directories(gallery3d_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(gallery3d_tests PRIVATE
-    SDL3::SDL3
-    SDL3_image::SDL3_image
-    SDL3_ttf::SDL3_ttf
-    CURL::libcurl
-    JPEG::JPEG
-    nlohmann_json::nlohmann_json)
-target_compile_definitions(gallery3d_tests PRIVATE
-    GALLERY3D_HAVE_JPEG
-    GALLERY3D_ASSET_ROOT="${CMAKE_SOURCE_DIR}/assets")
-
-if(WIN32)
-    target_link_libraries(gallery3d_tests PRIVATE dwrite)
-endif()
-
-gallery3d_add_warnings(gallery3d_tests)
-gallery3d_add_backtrace(gallery3d_tests)
-
-add_test(NAME gallery3d_tests COMMAND gallery3d_tests)
+    enable_testing()
+    add_subdirectory(tests)
 endif()

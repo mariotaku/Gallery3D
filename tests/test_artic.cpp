@@ -9,9 +9,9 @@
 
 #include <nlohmann/json.hpp>
 
-#include "ArticDataSource.h"
-#include "DateLabels.h"
-#include "MediaItem.h"
+#include "media/ArticDataSource.h"
+#include "core/DateLabels.h"
+#include "media/MediaItem.h"
 
 namespace {
 

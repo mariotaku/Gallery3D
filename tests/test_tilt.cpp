@@ -6,9 +6,9 @@
 // does not do what it looks like it does.
 #include "tests.h"
 
-#include "GridCamera.h"
-#include "GridInputProcessor.h"
-#include "GridLayer.h"
+#include "grid/GridCamera.h"
+#include "grid/GridInputProcessor.h"
+#include "grid/GridLayer.h"
 
 namespace {
 

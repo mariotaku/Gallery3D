@@ -1,0 +1,149 @@
+// Port of com.cooliris.media.DataSource and LocalDataSource.
+// Walks a directory tree: one MediaSet per image folder, one MediaItem per image.
+#pragma once
+
+#include <cstdint>
+#include <functional>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include "graphics/Bitmap.h"
+#include "media/PhotoIndex.h"
+#include "graphics/RegionDecoder.h"
+
+class MediaFeed;
+class MediaSet;
+
+class MediaItem;
+
+class DataSource {
+  public:
+    virtual ~DataSource() = default;
+    // Enumerates sets on a worker thread. Pass the owning source to addMediaSet
+    // so item loads and operations route back to it.
+    virtual void loadMediaSets(MediaFeed *feed) = 0;
+    // Loads one set's items on a worker thread; may be empty if loadMediaSets filled them.
+    virtual void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) = 0;
+    // Performs a MediaFeed::OPERATION_ on an item. Return success only when it persisted;
+    // the feed updates only successful items.
+    virtual bool performOperation(int operation, MediaItem *item, const void *data) {
+        (void)operation;
+        (void)item;
+        (void)data;
+        return false;
+    }
+
+    // Whether the source supports a MediaFeed::OPERATION_; controls HUD availability.
+    virtual bool supportsOperation(int operation) const {
+        (void)operation;
+        return false;
+    }
+
+    // Whether item reads use the network; routes loads to a separate pool from local decoding.
+    virtual bool readsBlockOnNetwork() const {
+        return false;
+    }
+
+    // Called with the item's encoded bytes, or with false. May answer before it
+    // returns or long after, so the caller has to be written for both.
+    using BytesCallback = std::function<void(bool ok, std::vector<uint8_t> bytes)>;
+
+    // Called with a decoded region, or with an invalid Bitmap. Answers inline
+    // or later, the same as BytesCallback.
+    using RegionCallback = std::function<void(Bitmap bitmap)>;
+
+    // Texture-loader entry point; defaults to an inline blocking read and callback.
+    virtual void requestItemBytes(MediaItem *item, BytesCallback done) {
+        std::vector<uint8_t> bytes;
+        const bool ok = readItemBytes(item, &bytes);
+        if (done) {
+            done(ok, std::move(bytes));
+        }
+    }
+
+    virtual bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
+        (void)item;
+        (void)bytes;
+        return false;
+    }
+
+    // Whether this item can be drawn from cropped regions rather than one
+    // downscaled decode. It takes the item because a local source answers per
+    // file: only some formats have a region decoder behind them.
+    virtual bool supportsRegions(const MediaItem *item) const {
+        (void)item;
+        return false;
+    }
+
+    // Requests a region in original-image pixels, decoded at outWidth by outHeight.
+    // Only used with supportsRegions; callback may run inline or later.
+    //
+    // This hands back pixels rather than encoded bytes so each source can reach
+    // them its own way: the museum decodes what the server sends, and a local
+    // file is cropped straight out of the original.
+    virtual void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                               RegionCallback done) {
+        (void)x;
+        (void)y;
+        (void)width;
+        (void)height;
+        (void)outWidth;
+        (void)outHeight;
+        (void)item;
+        if (done) {
+            done(Bitmap());
+        }
+    }
+
+    virtual void shutdown() {}
+};
+
+class LocalDataSource : public DataSource {
+  public:
+    // What to call a folder on the wall: its own last component. A path that
+    // ends in a separator has no filename of its own, and that is how SDL hands
+    // out the user's folders, so the separator comes off first.
+    static std::string folderDisplayName(const std::string &path);
+
+    explicit LocalDataSource(std::string rootPath) : mRoots{std::move(rootPath)} {}
+
+    // Several folders walked as one library. A folder inside another is walked
+    // once, and an album inside any of cameraRolls is marked as the camera's.
+    LocalDataSource(std::vector<std::string> roots, std::vector<std::string> cameraRolls)
+        : mRoots(std::move(roots)), mCameraRolls(std::move(cameraRolls)) {}
+
+    void loadMediaSets(MediaFeed *feed) override;
+    void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
+    bool performOperation(int operation, MediaItem *item, const void *data) override;
+    bool supportsOperation(int operation) const override;
+
+    bool supportsRegions(const MediaItem *item) const override;
+    void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+                       RegionCallback done) override;
+
+    static bool isSupportedImage(const std::string &path);
+    static std::string mimeTypeForPath(const std::string &path);
+
+    // Where a scan gets what is already known about each photo, before it
+    // falls back to reading the file. PhotoIndex::query unless replaced, which
+    // a test does to stand in for the platform's index.
+    using MetadataLookup = std::function<PhotoIndex::Entries(const std::vector<std::string> &folders)>;
+    void setMetadataLookup(MetadataLookup lookup) {
+        mMetadataLookup = std::move(lookup);
+    }
+
+  private:
+    struct Folder {
+        std::string path;
+        std::string name;
+        std::vector<std::string> files;
+    };
+
+    void scan(const std::string &path, std::vector<Folder> &folders) const;
+
+    std::vector<std::string> mRoots;
+    std::vector<std::string> mCameraRolls;
+    MetadataLookup mMetadataLookup = PhotoIndex::query;
+    RegionDecoderCache mDecoders;
+};

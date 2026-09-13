@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "GestureDetector.h"
-#include "Input.h"
+#include "grid/GestureDetector.h"
+#include "app/Input.h"
 
 namespace {
 

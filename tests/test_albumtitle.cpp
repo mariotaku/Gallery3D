@@ -10,9 +10,9 @@
 #include <memory>
 #include <string>
 
-#include "DisplaySlot.h"
-#include "MediaSet.h"
-#include "Texture.h"
+#include "grid/DisplaySlot.h"
+#include "media/MediaSet.h"
+#include "graphics/Texture.h"
 
 namespace {
 

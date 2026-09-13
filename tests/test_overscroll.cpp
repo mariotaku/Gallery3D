@@ -8,8 +8,8 @@
 
 #include <cmath>
 
-#include "GridCamera.h"
-#include "Vector3f.h"
+#include "grid/GridCamera.h"
+#include "core/Vector3f.h"
 
 namespace {
 

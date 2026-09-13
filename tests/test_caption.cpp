@@ -6,10 +6,10 @@
 // not something a screenshot check would notice.
 #include "tests.h"
 
-#include "App.h"
-#include "Bitmap.h"
-#include "CaptionButtons.h"
-#include "HudLayer.h"
+#include "app/App.h"
+#include "graphics/Bitmap.h"
+#include "hud/CaptionButtons.h"
+#include "hud/HudLayer.h"
 
 namespace {
 

@@ -6,10 +6,10 @@
 // ever runs at density 1 would pass whatever the arithmetic did.
 #include "tests.h"
 
-#include "App.h"
-#include "GridLayer.h"
-#include "GridLayoutInterface.h"
-#include "Texture.h"
+#include "app/App.h"
+#include "grid/GridLayer.h"
+#include "grid/GridLayoutInterface.h"
+#include "graphics/Texture.h"
 
 namespace {
 

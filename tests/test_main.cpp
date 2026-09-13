@@ -12,9 +12,9 @@
 
 #include <SDL3/SDL.h>
 
-#include "App.h"
-#include "Backtrace.h"
-#include "Canvas.h"
+#include "app/App.h"
+#include "core/Backtrace.h"
+#include "graphics/Canvas.h"
 
 namespace {
 

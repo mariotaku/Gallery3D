@@ -8,9 +8,9 @@
 #include <cmath>
 #include <vector>
 
-#include "AdaptiveBackgroundTexture.h"
-#include "App.h"
-#include "Bitmap.h"
+#include "grid/AdaptiveBackgroundTexture.h"
+#include "app/App.h"
+#include "graphics/Bitmap.h"
 
 namespace {
 

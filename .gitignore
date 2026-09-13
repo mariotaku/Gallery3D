@@ -26,7 +26,7 @@ build-ios/
 #   git clone --depth 1 --branch android-2.3.7_r1 \
 #     https://android.googlesource.com/platform/packages/apps/Gallery3D reference
 # Not committed, because it is someone else's repository and it is one command
-# to get back. Every file here has a counterpart in src/ under the same name.
+# to get back. Every file here has a counterpart under src/ with the same name.
 reference/
 
 # The iOS cross toolchain's source, for its documentation and SDK layout:

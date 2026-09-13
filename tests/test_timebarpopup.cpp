@@ -8,7 +8,7 @@
 
 #include <string>
 
-#include "TimeBar.h"
+#include "hud/TimeBar.h"
 
 namespace {
 

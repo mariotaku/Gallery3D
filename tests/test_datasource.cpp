@@ -10,14 +10,14 @@
 #include <string>
 #include <vector>
 
-#include "Bitmap.h"
-#include "ConcatenatedDataSource.h"
-#include "LocalDataSource.h"
-#include "MediaBucketList.h"
-#include "MediaFeed.h"
-#include "MediaItem.h"
-#include "MediaSet.h"
-#include "Texture.h"
+#include "graphics/Bitmap.h"
+#include "media/ConcatenatedDataSource.h"
+#include "media/LocalDataSource.h"
+#include "media/MediaBucketList.h"
+#include "media/MediaFeed.h"
+#include "media/MediaItem.h"
+#include "media/MediaSet.h"
+#include "graphics/Texture.h"
 
 namespace {
 

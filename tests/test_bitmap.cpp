@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "App.h"
-#include "Bitmap.h"
-#include "Shared.h"
+#include "app/App.h"
+#include "graphics/Bitmap.h"
+#include "core/Shared.h"
 
 namespace {
 

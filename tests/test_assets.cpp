@@ -4,8 +4,8 @@
 
 #include <string>
 
-#include "App.h"
-#include "Canvas.h"
+#include "app/App.h"
+#include "graphics/Canvas.h"
 
 namespace {
 

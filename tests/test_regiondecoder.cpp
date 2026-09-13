@@ -11,12 +11,12 @@
 
 #include <jpeglib.h>
 
-#include "Bitmap.h"
-#include "LocalDataSource.h"
-#include "MediaItem.h"
-#include "MediaSet.h"
-#include "RegionDecoder.h"
-#include "TiledImage.h"
+#include "graphics/Bitmap.h"
+#include "media/LocalDataSource.h"
+#include "media/MediaItem.h"
+#include "media/MediaSet.h"
+#include "graphics/RegionDecoder.h"
+#include "graphics/TiledImage.h"
 
 namespace fs = std::filesystem;
 

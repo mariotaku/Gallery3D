@@ -198,5 +198,5 @@ To build and run the Debug tests directly:
 
 ```sh
 cmake --build build --config Debug --target gallery3d gallery3d_tests
-./build/Debug/gallery3d_tests.exe
+./build/tests/Debug/gallery3d_tests.exe
 ```

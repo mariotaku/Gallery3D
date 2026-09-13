@@ -4,8 +4,8 @@
 
 #include <algorithm>
 
-#include "Bitmap.h"
-#include "GridDrawables.h"
+#include "graphics/Bitmap.h"
+#include "grid/GridDrawables.h"
 
 namespace {
 

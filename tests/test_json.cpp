@@ -6,7 +6,7 @@
 // wall came up empty and said nothing about why.
 #include "tests.h"
 
-#include "JsonValue.h"
+#include "core/JsonValue.h"
 
 TEST(reading_a_field_that_is_not_there_gives_the_fallback) {
     nlohmann::json empty = nlohmann::json::object();

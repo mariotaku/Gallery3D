@@ -6,8 +6,8 @@
 // blurring a photo that is not the one being looked at.
 #include "tests.h"
 
-#include "GridLayer.h"
-#include "Shared.h"
+#include "grid/GridLayer.h"
+#include "core/Shared.h"
 
 namespace {
 

@@ -5,10 +5,10 @@
 // case below pins a way that arithmetic has already gone wrong once.
 #include "tests.h"
 
-#include "App.h"
-#include "GridDrawables.h"
-#include "GridLayer.h"
-#include "Shared.h"
+#include "app/App.h"
+#include "grid/GridDrawables.h"
+#include "grid/GridLayer.h"
+#include "core/Shared.h"
 
 namespace {
 

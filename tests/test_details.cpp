@@ -9,11 +9,11 @@
 #include <string>
 #include <vector>
 
-#include "Dates.h"
-#include "MediaBucketList.h"
-#include "MediaDetails.h"
-#include "MediaItem.h"
-#include "MediaSet.h"
+#include "core/Dates.h"
+#include "media/MediaBucketList.h"
+#include "media/MediaDetails.h"
+#include "media/MediaItem.h"
+#include "media/MediaSet.h"
 
 namespace {
 

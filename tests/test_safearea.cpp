@@ -3,11 +3,11 @@
 // behind it deliberately does not, which is why only the HUD is checked here.
 #include "tests.h"
 
-#include "App.h"
-#include "HudLayer.h"
-#include "MenuBar.h"
-#include "PathBarLayer.h"
-#include "TimeBar.h"
+#include "app/App.h"
+#include "hud/HudLayer.h"
+#include "hud/MenuBar.h"
+#include "hud/PathBarLayer.h"
+#include "hud/TimeBar.h"
 
 namespace {
 

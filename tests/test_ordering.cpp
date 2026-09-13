@@ -10,9 +10,9 @@
 #include <memory>
 #include <vector>
 
-#include "Dates.h"
-#include "MediaItem.h"
-#include "MediaSet.h"
+#include "core/Dates.h"
+#include "media/MediaItem.h"
+#include "media/MediaSet.h"
 
 namespace {
 

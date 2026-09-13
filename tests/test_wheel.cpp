@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "GestureDetector.h"
+#include "grid/GestureDetector.h"
 
 namespace {
 

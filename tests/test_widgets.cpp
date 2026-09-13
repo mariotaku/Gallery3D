@@ -10,11 +10,11 @@
 #include <string>
 #include <vector>
 
-#include "App.h"
-#include "Bitmap.h"
-#include "MenuBar.h"
-#include "PathBarLayer.h"
-#include "PopupMenu.h"
+#include "app/App.h"
+#include "graphics/Bitmap.h"
+#include "hud/MenuBar.h"
+#include "hud/PathBarLayer.h"
+#include "hud/PopupMenu.h"
 
 namespace {
 

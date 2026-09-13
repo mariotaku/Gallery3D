@@ -6,7 +6,7 @@
 // rather than a trimmed tile, so that corner never arrives at all.
 #include "tests.h"
 
-#include "TiledImage.h"
+#include "graphics/TiledImage.h"
 
 TEST(the_grid_is_as_coarse_as_the_screen_allows) {
     // A 4000 pixel picture drawn 1000 wide. Halving it twice leaves 1000, which

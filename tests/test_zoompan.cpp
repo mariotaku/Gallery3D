@@ -2,10 +2,10 @@
 // bars and the cutout never hide its last row or column.
 #include "tests.h"
 
-#include "App.h"
-#include "GridCamera.h"
-#include "GridCameraManager.h"
-#include "Vector3f.h"
+#include "app/App.h"
+#include "grid/GridCamera.h"
+#include "grid/GridCameraManager.h"
+#include "core/Vector3f.h"
 
 namespace {
 
