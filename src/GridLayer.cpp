@@ -538,10 +538,13 @@ bool GridLayer::update(RenderView *view, float timeElapsed) {
     }
     bool dirty = mDrawManager->update(timeElapsed);
     dirty |= mSlideshowMode;
-    dirty |= mFramesDirty > 0;
+    dirty |= mDirtyFrames > 0 || mDirtySeconds > 0.0f;
     ++mFrameCount;
-    if (mFramesDirty > 0) {
-        --mFramesDirty;
+    if (mDirtyFrames > 0) {
+        --mDirtyFrames;
+    }
+    if (mDirtySeconds > 0.0f) {
+        mDirtySeconds -= timeElapsed;
     }
     (void)view;
     return mDisplayList.getNumAnimatables() != 0 || mCamera->isAnimating() || mSelectedAlpha != mTargetAlpha || dirty;

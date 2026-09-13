@@ -53,11 +53,12 @@
 
 namespace {
 
-// Frames to keep drawing after a wheel event, long enough to cover the quarter
-// second the gesture waits for another tick plus the wall settling afterwards.
-// Both wheel gestures end on that timer rather than on a finger lifting, so
-// the frames it needs to run out have to be asked for.
-const int kWheelFrames = 40;
+// How long to keep drawing after a wheel event: the quarter second the gesture
+// waits for another tick, and the wall settling afterwards. Both wheel gestures
+// end on that timer rather than on a finger lifting, so the frames it needs to
+// run out have to be asked for. In seconds, because a count of frames is a
+// different length of time on every panel.
+const float kWheelSettleSeconds = 0.75f;
 
 std::string defaultPhotoDirectory() {
     // Reads the Known Folder on Windows and the XDG user directory on Linux,
@@ -728,9 +729,18 @@ int main(int argc, char **argv) {
         SDL_Log("Failed to load GL entry points");
         return 1;
     }
+    // One frame per refresh, whatever the panel runs at. Nothing downstream
+    // counts frames to measure time, so a 120Hz screen simply gets twice as
+    // many of them.
     SDL_GL_SetSwapInterval(1);
     SDL_Log("GL_VERSION  : %s", (const char *)glGetString(GL_VERSION));
     SDL_Log("GL_RENDERER : %s", (const char *)glGetString(GL_RENDERER));
+    if (const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window))) {
+        // Worth having in the log: it is the frame budget, and a reading taken
+        // on one panel means something else on another.
+        SDL_Log("Refresh rate %.1f Hz, so %.1f ms a frame", mode->refresh_rate,
+                (mode->refresh_rate > 0.0f) ? (1000.0f / mode->refresh_rate) : 0.0f);
+    }
 
     App::ASSET_ROOT = assetRoot();
     applyDisplayScale(window);
@@ -1000,7 +1010,7 @@ int main(int argc, char **argv) {
                 } else {
                     input->onWheelScroll(sdlEvent.wheel.y);
                 }
-                gridLayer.markDirty(kWheelFrames);
+                gridLayer.markDirtyFor(kWheelSettleSeconds);
                 renderView.requestRender();
                 break;
             }

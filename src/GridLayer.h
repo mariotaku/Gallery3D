@@ -211,8 +211,18 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
         return mMediaFeed.get();
     }
 
-    void markDirty(int numFrames) {
-        mFramesDirty = numFrames;
+    // Draw one more frame, for a change that has already been made.
+    void markDirty() {
+        mDirtyFrames = 1;
+    }
+
+    // Keep drawing for this long, for something that settles over time. In
+    // seconds rather than frames: a frame is half as long on a 120Hz panel, so
+    // a count of them would run out in half the time it was meant to.
+    void markDirtyFor(float seconds) {
+        if (seconds > mDirtySeconds) {
+            mDirtySeconds = seconds;
+        }
     }
 
     void onLayout(int newAnchorSlotIndex, int currentAnchorSlotIndex, LayoutInterface *oldLayout);
@@ -299,7 +309,8 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     bool mPickIntent = false;
     bool mViewIntent = false;
     int mStartMemoryRange = 0;
-    int mFramesDirty = 0;
+    int mDirtyFrames = 0;
+    float mDirtySeconds = 0.0f;
     std::string mRequestFocusContentUri;
     int mFrameCount = 0;
     bool mRequestToEnterSelection = false;

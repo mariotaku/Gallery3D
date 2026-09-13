@@ -105,7 +105,10 @@ class Texture {
     // Bookkeeping for the texture budget in RenderView: how much GPU memory
     // this one holds, and the frame it was last bound on.
     size_t mBytes = 0;
-    uint64_t mLastUsedFrame = 0;
+    // When it was last drawn, in milliseconds. Not a frame number: a frame is
+    // a different length of time on a 60Hz panel and a 120Hz one, so counting
+    // them would throw work away twice as fast on the faster screen.
+    uint64_t mLastUsedMs = 0;
 };
 
 // Loads a PNG out of assets/drawable.

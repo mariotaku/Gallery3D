@@ -661,7 +661,7 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         if (mipmapped) {
             texture->mBytes += texture->mBytes / 3;
         }
-        texture->mLastUsedFrame = mFrameCounter;
+        texture->mLastUsedMs = SDL_GetTicks();
         mTextureBytes += texture->mBytes;
         mLiveTextures.push_back(texture);
         requestRender();
@@ -697,9 +697,10 @@ void RenderView::processTextures(bool processAll) {
 void RenderView::enforceTextureBudget() {
     // Evict least-recently-bound textures above the memory budget.
     const size_t kBudgetBytes = 192u * 1024u * 1024u;
-    // Never drop something drawn in the last few frames, or scrolling would
-    // evict and reload the same thumbnails every frame.
-    const uint64_t kKeepFrames = 120;
+    // Never drop something drawn in the last couple of seconds, or scrolling
+    // would evict and reload the same thumbnails as it goes.
+    const uint64_t kKeepMs = 2000;
+    const uint64_t nowMs = SDL_GetTicks();
 
     // Prune the entries whose textures have gone and total up what is left.
     // The list holds weak references, so it never keeps a texture alive.
@@ -725,14 +726,14 @@ void RenderView::enforceTextureBudget() {
     // Oldest first, and stop once there is comfortable headroom so this does
     // not run again on the very next frame.
     std::sort(alive.begin(), alive.end(), [](const TexturePtr &a, const TexturePtr &b) {
-        return a->mLastUsedFrame < b->mLastUsedFrame;
+        return a->mLastUsedMs < b->mLastUsedMs;
     });
     const size_t targetBytes = kBudgetBytes - kBudgetBytes / 10;
     for (const TexturePtr &texture : alive) {
         if (mTextureBytes <= targetBytes) {
             break;
         }
-        if (texture->mLastUsedFrame + kKeepFrames > mFrameCounter) {
+        if (texture->mLastUsedMs + kKeepMs > nowMs) {
             // Everything from here on is hotter still.
             break;
         }
@@ -899,7 +900,7 @@ bool RenderView::bind(const TexturePtr &texture) {
     case Texture::STATE_LOADED:
         glBindTexture(GL_TEXTURE_2D, texture->mId);
         mBoundTexture = texture.get();
-        texture->mLastUsedFrame = mFrameCounter;
+        texture->mLastUsedMs = SDL_GetTicks();
         return true;
     default:
         break;

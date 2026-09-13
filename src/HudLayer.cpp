@@ -35,13 +35,13 @@ HudLayer::HudLayer() {
     mZoomInButton.setAction([this]() {
         if (mGridLayer != nullptr) {
             mGridLayer->zoomInToSelectedItem();
-            mGridLayer->markDirty(1);
+            mGridLayer->markDirty();
         }
     });
     mZoomOutButton.setAction([this]() {
         if (mGridLayer != nullptr) {
             mGridLayer->zoomOutFromSelectedItem();
-            mGridLayer->markDirty(1);
+            mGridLayer->markDirty();
         }
     });
 }
