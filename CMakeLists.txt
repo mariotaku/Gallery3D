@@ -108,6 +108,24 @@ endfunction()
 file(GLOB GALLERY_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
+# One text backend is compiled, and it is chosen here. The platform's own knows
+# which font the system reads in and what to fall back to for a glyph that font
+# has never seen, which is the difference between Japanese and a row of boxes.
+# The rest of the platforms take SDL_ttf. Excluded rather than guarded inside,
+# so each backend reads as the one thing it is.
+set(GALLERY_TEXT_BACKENDS
+    "${CMAKE_SOURCE_DIR}/src/TextBackendSDL.cpp"
+    "${CMAKE_SOURCE_DIR}/src/TextBackendWindows.cpp"
+    "${CMAKE_SOURCE_DIR}/src/TextBackendAndroid.cpp")
+list(REMOVE_ITEM GALLERY_SOURCES ${GALLERY_TEXT_BACKENDS})
+if(ANDROID)
+    list(APPEND GALLERY_SOURCES "${CMAKE_SOURCE_DIR}/src/TextBackendAndroid.cpp")
+elseif(WIN32)
+    list(APPEND GALLERY_SOURCES "${CMAKE_SOURCE_DIR}/src/TextBackendWindows.cpp")
+else()
+    list(APPEND GALLERY_SOURCES "${CMAKE_SOURCE_DIR}/src/TextBackendSDL.cpp")
+endif()
+
 # Everything but the entry point, so the tests can link the same code.
 set(GALLERY_LIB_SOURCES ${GALLERY_SOURCES})
 list(REMOVE_ITEM GALLERY_LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
@@ -136,6 +154,10 @@ if(ANDROID)
     # media sources go through, jnigraphics to read a decoded region's pixels
     # out of the platform bitmap it arrives in.
     target_link_libraries(gallery3d PRIVATE log android jnigraphics)
+endif()
+if(WIN32)
+    # DirectWrite, which draws the text.
+    target_link_libraries(gallery3d PRIVATE dwrite)
 endif()
 
 gallery3d_add_warnings(gallery3d)
@@ -199,6 +221,10 @@ target_link_libraries(gallery3d_tests PRIVATE
 target_compile_definitions(gallery3d_tests PRIVATE
     GALLERY3D_HAVE_JPEG
     GALLERY3D_ASSET_ROOT="${CMAKE_SOURCE_DIR}/assets")
+
+if(WIN32)
+    target_link_libraries(gallery3d_tests PRIVATE dwrite)
+endif()
 
 gallery3d_add_warnings(gallery3d_tests)
 gallery3d_add_backtrace(gallery3d_tests)

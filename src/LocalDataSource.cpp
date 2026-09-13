@@ -65,13 +65,33 @@ std::string LocalDataSource::mimeTypeForPath(const std::string &path) {
     return "image/jpeg";
 }
 
+namespace {
+
+// std::filesystem::path::string() converts to the process code page on Windows,
+// which turns anything outside it into question marks: a folder named in
+// Japanese arrives as a row of them. Everything past here is UTF-8, which is
+// also what SDL reads paths as.
+std::string utf8Of(const fs::path &path) {
+    const auto wide = path.u8string();
+    return std::string(wide.begin(), wide.end());
+}
+
+// And back. Constructing a path from a narrow string reads it as the code page
+// too, so a UTF-8 one has to say so or it throws on the first byte it cannot
+// make sense of.
+fs::path pathOf(const std::string &utf8) {
+    return fs::u8path(utf8);
+}
+
+}  // namespace
+
 std::string LocalDataSource::folderDisplayName(const std::string &path) {
-    fs::path trimmed(path);
+    fs::path trimmed = pathOf(path);
     if (!trimmed.has_filename()) {
         // Ends in a separator, so its last component is the parent's filename.
         trimmed = trimmed.parent_path();
     }
-    const std::string name = trimmed.filename().string();
+    const std::string name = utf8Of(trimmed.filename());
     // A root has no component of its own to be named after.
     return name.empty() ? path : name;
 }
@@ -83,19 +103,19 @@ void LocalDataSource::scan(const std::string &path, std::vector<Folder> &folders
     folder.name = folderDisplayName(path);
 
     std::vector<std::string> subdirectories;
-    for (const fs::directory_entry &entry : fs::directory_iterator(path, error)) {
+    for (const fs::directory_entry &entry : fs::directory_iterator(pathOf(path), error)) {
         if (error) {
             break;
         }
         std::error_code entryError;
         if (entry.is_directory(entryError)) {
-            std::string name = entry.path().filename().string();
+            std::string name = utf8Of(entry.path().filename());
             if (!name.empty() && name[0] == '.') {
                 continue;
             }
-            subdirectories.push_back(entry.path().string());
+            subdirectories.push_back(utf8Of(entry.path()));
         } else if (entry.is_regular_file(entryError)) {
-            std::string filePath = entry.path().string();
+            std::string filePath = utf8Of(entry.path());
             if (isSupportedImage(filePath)) {
                 folder.files.push_back(filePath);
             }
@@ -129,7 +149,7 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             item->mThumbnailUri = file;
             item->mScreennailUri = file;
             item->mMimeType = mimeTypeForPath(file);
-            item->mCaption = fs::path(file).filename().string();
+            item->mCaption = utf8Of(pathOf(file).filename());
             Bitmap::ExifInfo exif = Bitmap::readExif(file);
             item->mRotation = exif.rotationDegrees;
             item->mLatitude = exif.latitude;
@@ -140,7 +160,7 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             item->mFullHeight = exif.pixelHeight;
 
             std::error_code error;
-            auto writeTime = fs::last_write_time(file, error);
+            auto writeTime = fs::last_write_time(pathOf(file), error);
             if (!error) {
                 // file_clock's epoch is unspecified before C++20 and differs from Unix on
                 // Windows.
