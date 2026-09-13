@@ -151,7 +151,12 @@ void GridLayer::keepWallInRange() {
     }
     Vector3f firstPosition;
     Vector3f lastPosition;
-    Vector3f deltaAnchorPosition(mDeltaAnchorPosition);
+    // The anchor onLayout has just set rather than the one the draw last
+    // committed. Leaving fullscreen centres the camera on the photo with the
+    // new anchor, while the committed one still places the wall where the
+    // fullscreen row had it, and clamping to that range throws the camera off
+    // the photo.
+    Vector3f deltaAnchorPosition(mDeltaAnchorPositionUncommited);
     GridCameraManager::getSlotPositionForSlotIndex(0, mCamera.get(), mLayoutInterface, deltaAnchorPosition,
                                                   firstPosition);
     GridCameraManager::getSlotPositionForSlotIndex(mCompleteRange.end, mCamera.get(), mLayoutInterface,
