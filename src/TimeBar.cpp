@@ -22,8 +22,6 @@ const float FONT_SIZE = 17.0f;
 const float POPUP_PAD_X = 70.0f;
 const float POPUP_PAD_Y = 20.0f;
 
-const char *const MONTHS[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
 float scaled(float value) {
     return value * App::UI_DENSITY;
@@ -262,16 +260,22 @@ bool TimeBar::update(RenderView *view, float frameInterval) {
     return mAnimTextAlpha != mTextAlpha;
 }
 
+std::string TimeBar::popupTextFor(int year, int month, int day) {
+    // Dates::Civil counts months from one. Asking Dates for the name keeps the
+    // counting in the one place that knows about it, and answers for a month
+    // out of range rather than reading past the end of a table.
+    const char *name = Dates::monthAbbreviation(month);
+    if (year <= 1970 || name[0] == '\0') {
+        // Before the epoch means no date was ever read off the file.
+        return "Date unknown";
+    }
+    return std::string(name) + " " + std::to_string(day) + " " + std::to_string(year);
+}
+
 void TimeBar::updatePopup() {
     const Marker *anchor = getAnchorMarker();
-    std::string text;
-    if (anchor == nullptr || anchor->year <= 1970) {
-        // Before the epoch means no date was ever read off the file.
-        text = "Date unknown";
-    } else {
-        text = std::string(MONTHS[anchor->month]) + " " + std::to_string(anchor->day) + " " +
-               std::to_string(anchor->year);
-    }
+    std::string text = (anchor == nullptr) ? std::string("Date unknown")
+                                           : popupTextFor(anchor->year, anchor->month, anchor->day);
     if (text == mPopupText && mPopup->getCanvasWidth() > 0) {
         return;
     }

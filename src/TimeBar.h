@@ -21,6 +21,10 @@ class TimeBar : public Layer {
   public:
     static const int HEIGHT = 48;
 
+    // The date the popup shows over the scroll knob. Static and given the
+    // parts, so what it reads for any date can be checked on its own.
+    static std::string popupTextFor(int year, int month, int day);
+
     class Listener {
       public:
         virtual ~Listener() = default;
