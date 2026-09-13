@@ -641,7 +641,9 @@ void GridDrawManager::drawFocusShadows(RenderView *view, float visibility) {
         return;
     }
     GridCamera *camera = mCamera;
-    const float radiusDp = 16.0f;
+    // Measured against the viewport's height in world units, so the shadow
+    // keeps its proportion to the picture and grows with it as it zooms.
+    const float radiusDp = 32.0f;
     const float radius = radiusDp * App::UI_DENSITY / (float)camera->mHeight;
     // Just behind the picture, so the depth test keeps the shadow off any
     // picture it reaches, its own or a neighbour sliding in.

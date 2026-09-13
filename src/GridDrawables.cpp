@@ -251,9 +251,9 @@ void GridDrawables::onSurfaceCreated(RenderView *view) {
     view->loadTexture(mTextureFrameFocus);
     view->loadTexture(mTextureFramePressed);
 
-    // A quarter of a byte's alpha at most: the shadow lifts the picture off
-    // the backdrop without drawing a line around it.
-    mTextureShadow = std::make_shared<GeneratedTexture>(shadowBitmap(64, 0.4f), false);
+    // Light enough that the shadow lifts the picture off the backdrop without
+    // drawing a line around it.
+    mTextureShadow = std::make_shared<GeneratedTexture>(shadowBitmap(64, 0.28f), false);
     mTextureChecker = std::make_shared<GeneratedTexture>(checkerBitmap(), true);
     view->loadTexture(mTextureShadow);
     view->loadTexture(mTextureChecker);

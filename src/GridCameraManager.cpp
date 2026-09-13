@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "App.h"
 #include "FloatUtils.h"
 #include "GridLayer.h"
 #include "MediaFeed.h"
@@ -64,12 +65,17 @@ bool GridCameraManager::constrainCameraForSlot(LayoutInterface *layout, int slot
     float height = currentFocusItemHeight / 2.0f;
     imgTopLeft.set(position.x - width, position.y - height, 0.0f);
     imgBottomRight.set(position.x + width, position.y + height, 0.0f);
-    camera->convertToCameraSpace(0.0f, 0.0f, 0.0f, topLeft);
-    camera->convertToCameraSpace((float)camera->mWidth, (float)camera->mHeight, 0.0f, bottomRight);
+    // The safe area, not the whole screen: panned to its limit, a picture's
+    // edge stops where the system bars and the cutout begin rather than
+    // under them.
+    const App::SafeAreaInsets &safe = App::SAFE_AREA;
+    camera->convertToCameraSpace(safe.left, safe.top, 0.0f, topLeft);
+    camera->convertToCameraSpace((float)camera->mWidth - safe.right, (float)camera->mHeight - safe.bottom, 0.0f,
+                                 bottomRight);
     camera->mConvergenceSpeed = 2.0f;
     camera->mFriction = 0.0f;
 
-    // Centre the image when the viewport is larger; otherwise clamp to its edges.
+    // Centre the image when the safe area is larger; otherwise clamp to its edges.
     if ((bottomRight.x - topLeft.x) > (imgBottomRight.x - imgTopLeft.x)) {
         float hCenterExtent = (bottomRight.x + topLeft.x) / 2.0f - (imgBottomRight.x + imgTopLeft.x) / 2.0f;
         camera->moveBy(-hCenterExtent, 0.0f, 0.0f);
