@@ -130,8 +130,8 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     if (maxEdge > 0) {
         // Reduce inside the decoder where it is close to free, rather than
         // building the full size image only to throw most of it away. What
-        // comes back is at least maxEdge, so the tail below still trims it to
-        // exactly that.
+        // comes back can land a little under maxEdge, or over it, in which
+        // case the tail below trims it to exactly that.
         Bitmap reduced = SubsampledDecode::decode(bytes, size, maxEdge);
         if (reduced.valid()) {
             return trimToMaxEdge(std::move(reduced), maxEdge);

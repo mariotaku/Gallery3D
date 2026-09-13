@@ -309,9 +309,16 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         const TexturePtr thumbnailTexture = displayItem->getThumbnailImage(&sThumbnailConfig);
         TexturePtr texture = displayItem->getScreennailImage();
         if (isCameraZAnimating && (!texture || !texture->isLoaded())) {
+            // Start the decode as the camera starts to move in, so the
+            // screennail can arrive during the transition instead of after it.
             texture = thumbnailTexture;
-            mSelectedMixRatio.setValue(0.0f);
-            mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
+            // The fade belongs to the centre picture. A neighbour still
+            // waiting for its screennail would otherwise hold it at zero.
+            if (i == 0) {
+                view->prime(displayItem->getScreennailImage(), true);
+                mSelectedMixRatio.setValue(0.0f);
+                mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
+            }
         }
         // Zoom uses visible tiles where the source supports cropping, otherwise a higher-
         // resolution

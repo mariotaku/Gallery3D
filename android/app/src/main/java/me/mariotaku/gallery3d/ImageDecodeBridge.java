@@ -20,9 +20,9 @@ public final class ImageDecodeBridge {
     }
 
     /**
-     * Decodes so the result is no smaller than maxEdge on its long edge.
-     * inSampleSize halves, so the result can be up to twice that; the caller
-     * scales the last step.
+     * Decodes so the result is no smaller than three quarters of maxEdge on
+     * its long edge. inSampleSize halves, so the result can be up to twice
+     * maxEdge; the caller scales the last step down when it is over.
      */
     public static Bitmap decodeSampled(byte[] encoded, int maxEdge) {
         if (encoded == null || encoded.length == 0 || maxEdge <= 0) {
@@ -40,8 +40,12 @@ public final class ImageDecodeBridge {
             BitmapFactory.Options options = new BitmapFactory.Options();
             // Powers of two only: anything else is rounded down to one, and a
             // sample size that overshoots would decode smaller than asked for.
+            // A little under maxEdge is taken over the next size up. A 4000
+            // pixel photo wanted at 2048 would otherwise decode at full size
+            // and scale down, which takes several times as long as decoding
+            // it at 2000 and leaving it there.
             int sample = 1;
-            while (longest / (sample * 2) >= maxEdge) {
+            while (longest / (sample * 2) >= maxEdge * 3 / 4) {
                 sample *= 2;
             }
             options.inSampleSize = sample;
