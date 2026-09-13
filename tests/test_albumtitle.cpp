@@ -57,7 +57,7 @@ TEST(a_long_album_name_is_handed_over_whole) {
 
 TEST(the_label_never_ends_up_with_two_ellipses) {
     // Names past sixteen characters are where the two cuts used to meet.
-    const char *names[] = {"FINAL FANTASY XIV", "C:\Users\Mariotaku\Pictures", "Hokkaido Autumn Trip 2026",
+    const char *names[] = {"FINAL FANTASY XIV", "C:\\Users\\Mariotaku\\Pictures", "Hokkaido Autumn Trip 2026",
                            "a_very_long_album_name_indeed"};
     for (const char *name : names) {
         MediaSet set = namedSet(name, 4);

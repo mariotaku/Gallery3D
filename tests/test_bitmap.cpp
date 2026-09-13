@@ -2,6 +2,7 @@
 #include "tests.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -62,7 +63,8 @@ std::string writeExifJpeg(const std::string &name, const std::vector<uint8_t> &i
     file.push_back(0xFF);
     file.push_back(0xD9);
 
-    std::string path = std::string(GALLERY3D_ASSET_ROOT) + "/../" + name;
+    // The temp folder, not the checkout, which a build may only be able to read.
+    std::string path = (std::filesystem::temp_directory_path() / name).string();
     std::FILE *out = std::fopen(path.c_str(), "wb");
     if (out != nullptr) {
         std::fwrite(file.data(), 1, file.size(), out);

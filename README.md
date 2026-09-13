@@ -99,6 +99,11 @@ Requires CMake 3.21+ and a C++17 compiler. Windows and Linux are the validated
 native platforms. Graphics require OpenGL ES 2.0 or the fallback desktop
 OpenGL 2.1 compatibility context.
 
+`.github/workflows/build.yml` builds Linux (Debian 13), Windows, Android, the
+web and iOS on every push, runs the tests on Linux and Windows, and keeps each
+build as an artifact. iOS builds there as an unsigned Xcode project on a
+macOS runner. The commands below are the ones it runs.
+
 Windows takes its dependencies from vcpkg, with `VCPKG_ROOT` set:
 
 ```sh
@@ -139,7 +144,21 @@ Maven Central. They carry prefab modules, so `find_package(SDL3 CONFIG)` finds
 them the same way it finds vcpkg's copy. minSdk is 24 and the build is
 arm64-v8a. The catalogue and the region decoder are not wired up there yet.
 
-iOS cross-compiles on Linux or WSL with [xtool](https://xtool.sh), which
+The web build needs emsdk 6.0.9 activated, so that `EMSDK` is set:
+
+```sh
+cmake --preset web
+cmake --build --preset web
+```
+
+On a Mac with Xcode, iOS is an ordinary Xcode project, unsigned:
+
+```sh
+cmake --preset ios
+cmake --build --preset ios
+```
+
+Without a Mac, iOS cross-compiles on Linux or WSL with [xtool](https://xtool.sh), which
 provides the SDK, signs the app and installs it. Everything below runs inside
 Linux; on Windows only the USB passthrough lives outside it.
 
