@@ -82,11 +82,16 @@ void GridQuad::commit() {
     mAnimV = mV;
 }
 
+void GridQuad::setCenterOffset(float x, float y) {
+    mOffsetX = x;
+    mOffsetY = y;
+}
+
 void GridQuad::recomputeQuad() {
     float widthBy2 = mAnimWidth * 0.5f;
     float heightBy2 = mAnimHeight * 0.5f;
-    float xOffset = 0.0f;
-    float yOffset = 0.0f;
+    float xOffset = mOffsetX;
+    float yOffset = mOffsetY;
     float u = mU;
     float v = mV;
     // Update both coordinate sets: the single-texture shader uses overlay attribute 1.
@@ -107,7 +112,8 @@ void GridQuad::setCorners(float xMin, float yMin, float xMax, float yMax, float 
     mQuadChanged = true;
 }
 
-void GridQuad::resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight) {
+void GridQuad::resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight,
+                          float fitHeight) {
     // Given u and v we know the aspect ratio of the image, so one axis has to
     // move depending on the image and viewport aspect ratios.
     mU = u;
@@ -132,8 +138,10 @@ void GridQuad::resizeQuad(float viewAspect, float u, float v, float imageWidth, 
             height /= ratio;
         }
     }
-    mWidth = width;
-    mHeight = height;
+    // Shrink the whole thing to the box asked for, after the fit: the aspect
+    // clamp above works the same at any size.
+    mWidth = width * fitHeight;
+    mHeight = height * fitHeight;
     commit();
     recomputeQuad();
 }

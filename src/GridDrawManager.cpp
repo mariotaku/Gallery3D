@@ -276,7 +276,23 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         if (slideshowMode && timeElapsedSinceView > 1.0f && i != 0) {
             continue;
         }
-        float viewAspect = camera->mAspectRatio;
+        // Fit the picture inside the safe area, not the whole screen, so a
+        // cutout or a system bar never lands on it. The camera's aspect is the
+        // window's; this is the aspect of what can actually be seen.
+        const App::SafeAreaInsets &safe = App::SAFE_AREA;
+        const float safeWidth = std::max(1.0f, (float)camera->mWidth - safe.left - safe.right);
+        const float safeHeight = std::max(1.0f, (float)camera->mHeight - safe.top - safe.bottom);
+        float viewAspect = safeWidth / safeHeight;
+        // One world unit is the viewport's height, so this is the share of it
+        // the picture may use.
+        const float fitHeight = safeHeight / (float)camera->mHeight;
+        // The insets are rarely equal at both ends, so the middle of the safe
+        // area is not the middle of the screen: a cutout takes more from the
+        // top than the gesture bar takes from the bottom, and the picture
+        // belongs that much lower. Both axes run the way the screen does, y
+        // downwards, and one world unit is the viewport's height.
+        const float safeOffsetX = (safe.left - safe.right) * 0.5f / (float)camera->mHeight;
+        const float safeOffsetY = (safe.top - safe.bottom) * 0.5f / (float)camera->mHeight;
         int selectedSlotToUse = selectedSlotIndex + i;
         if (selectedSlotToUse < 0 || selectedSlotToUse > lastBufferedVisibleSlot) {
             continue;
@@ -391,7 +407,12 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         if (portrait) {
             viewAspect = 1.0f / viewAspect;
         }
-        quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight);
+        // Only while it fits: zoomed in, the picture is larger than the screen
+        // by intent, and the tiles drawn over it are placed from the item's own
+        // centre.
+        quad->setCenterOffset((zoomValue == 1.0f) ? safeOffsetX : 0.0f,
+                              (zoomValue == 1.0f) ? safeOffsetY : 0.0f);
+        quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight);
         quad->bindArrays(view);
         drawDisplayItem(view, displayItem, texture, PASS_FOCUS_CONTENT, nullptr, 0.0f);
         quad->unbindArrays(view);
@@ -407,7 +428,7 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             v = fsTexture->getNormalizedHeight();
             imageWidth = (float)fsTexture->getWidth();
             imageHeight = (float)fsTexture->getHeight();
-            quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight);
+            quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight);
             quad->bindArrays(view);
             drawDisplayItem(view, displayItem, fsTexture, PASS_FOCUS_CONTENT, nullptr, 1.0f);
             quad->unbindArrays(view);

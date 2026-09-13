@@ -37,7 +37,15 @@ class GridQuad {
     void update(float timeElapsed);
     void commit();
     void recomputeQuad();
-    void resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight);
+    // Fits the image inside a box of this aspect that is fitHeight tall, where
+    // one is the whole viewport. Less than one keeps a picture inside the safe
+    // area rather than under the system bars.
+    void resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight, float fitHeight);
+
+    // Moves the quad off the middle of the screen. The safe area is rarely
+    // centred on it: a cutout takes more from the top than the gesture bar
+    // takes from the bottom.
+    void setCenterOffset(float x, float y);
 
     void bindArrays(RenderView *view);
     void unbindArrays(RenderView *view);
@@ -67,6 +75,8 @@ class GridQuad {
     GLuint mOverlayTextureCoordBufferIndex = 0;
     GLuint mBaseTextureCoordBufferIndex = 0;
     bool mDynamicVBO = false;
+    float mOffsetX = 0.0f;
+    float mOffsetY = 0.0f;
     float mU = 0.0f;
     float mV = 0.0f;
     float mAnimU = 0.0f;
