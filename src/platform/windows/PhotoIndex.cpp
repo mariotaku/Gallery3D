@@ -106,6 +106,9 @@ void addRow(const Row &row, Entries &entries) {
     }
     if (cellAs(row.cells[COLUMN_ORIENTATION], VT_UI4, value)) {
         info.rotationDegrees = Bitmap::degreesForOrientation(value.ulVal);
+        // The item's size is the stored pixels', which the rotation then turns,
+        // as it is when read from EXIF.
+        storedSize(value.ulVal, &info.pixelWidth, &info.pixelHeight);
     }
     // A picture with no position leaves both at zero, which is how ExifInfo
     // says there is none.

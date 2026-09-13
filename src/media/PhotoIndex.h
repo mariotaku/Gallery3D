@@ -29,6 +29,11 @@ std::string key(const std::string &path);
 // as milliseconds since the Unix epoch.
 int64_t unixMsFromOleDate(double date);
 
+// The size the file stores its pixels at, from the size the index holds. The
+// index gives the picture's size as it is shown, so for an EXIF orientation of
+// 5 to 8, which turn it a quarter, the two edges are swapped back.
+void storedSize(unsigned orientation, int *width, int *height);
+
 // The WHERE clause that limits a query to the folders and everything under
 // them, with quotes in a folder's name doubled as the query language wants.
 std::string scopeClause(const std::vector<std::string> &folders);

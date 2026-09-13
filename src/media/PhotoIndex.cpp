@@ -1,6 +1,7 @@
 #include "media/PhotoIndex.h"
 
 #include <cmath>
+#include <utility>
 
 #include "media/PhotoLibrary.h"
 
@@ -13,6 +14,12 @@ std::string key(const std::string &path) {
 int64_t unixMsFromOleDate(double date) {
     // Days since the end of 1899, of which 25569 fall before 1970.
     return (int64_t)std::llround((date - 25569.0) * 86400000.0);
+}
+
+void storedSize(unsigned orientation, int *width, int *height) {
+    if (orientation >= 5 && orientation <= 8) {
+        std::swap(*width, *height);
+    }
 }
 
 std::string scopeClause(const std::vector<std::string> &folders) {

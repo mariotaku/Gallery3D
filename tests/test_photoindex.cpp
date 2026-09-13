@@ -63,6 +63,29 @@ TEST(orientation_turns_the_same_way_from_the_index_and_from_exif) {
     CHECK_EQ(Bitmap::degreesForOrientation(0), 0.0f);
 }
 
+TEST(a_quarter_turned_picture_gets_its_stored_size_back) {
+    // A camera held upright writes 7008x4672 pixels with orientation 8, and
+    // the index reports that picture as 4672x7008.
+    int width = 4672;
+    int height = 7008;
+    PhotoIndex::storedSize(8, &width, &height);
+    CHECK_EQ(width, 7008);
+    CHECK_EQ(height, 4672);
+    for (unsigned orientation : {5u, 6u, 7u}) {
+        width = 4672;
+        height = 7008;
+        PhotoIndex::storedSize(orientation, &width, &height);
+        CHECK_EQ(width, 7008);
+    }
+    for (unsigned orientation : {0u, 1u, 2u, 3u, 4u, 9u}) {
+        width = 7008;
+        height = 4672;
+        PhotoIndex::storedSize(orientation, &width, &height);
+        CHECK_EQ(width, 7008);
+        CHECK_EQ(height, 4672);
+    }
+}
+
 TEST(the_scope_names_every_folder_as_a_file_url) {
     CHECK(PhotoIndex::scopeClause({}).empty());
     CHECK(PhotoIndex::scopeClause({"C:\\Users\\someone\\Pictures", "D:/Dropbox/Photos"}) ==
