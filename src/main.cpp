@@ -37,6 +37,7 @@
 #include "GridLayoutInterface.h"
 #include "Input.h"
 #include "LocalDataSource.h"
+#include "PhotoLibrary.h"
 #if defined(__ANDROID__)
 #include "AndroidBridge.h"
 #include "MediaStoreDataSource.h"
@@ -414,7 +415,7 @@ void printUsage() {
     SDL_Log("Usage: gallery3d [options]");
     logBlankLine();
     SDL_Log("  Browses a directory of photos as a 3D wall, one stack per folder.");
-    SDL_Log("  Set library.photos to choose it; the default is your Pictures folder.");
+    SDL_Log("  Set library.photos to choose it; the default is your Pictures library.");
     logBlankLine();
     SDL_Log("Options");
     SDL_Log("  --config PATH        read settings from this file instead of looking");
@@ -667,8 +668,18 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    if (photoDirectory.empty()) {
-        photoDirectory = defaultPhotoDirectory();
+    // Without a directory named in settings, the platform's own library says
+    // where the photos are. On Windows that is the Pictures library, which can
+    // take in folders on other drives; elsewhere it is the one Pictures folder.
+    // The camera roll is marked whichever folders are walked.
+    const PhotoLibrary::Locations systemPhotos = PhotoLibrary::systemLocations();
+    std::vector<std::string> photoRoots;
+    if (!photoDirectory.empty()) {
+        photoRoots.push_back(photoDirectory);
+    } else if (!systemPhotos.folders.empty()) {
+        photoRoots = systemPhotos.folders;
+    } else {
+        photoRoots.push_back(defaultPhotoDirectory());
     }
 
     // Again, because SDL_Init puts its own exception filter in during startup
@@ -763,7 +774,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    LocalDataSource dataSource(photoDirectory);
+    LocalDataSource dataSource(photoRoots, systemPhotos.cameraRolls);
     // Sources must outlive the layer: feed shutdown uses their bare pointers.
     std::unique_ptr<ArticDataSource> articSource;
     std::unique_ptr<LocalDataSource> alsoSource;
@@ -781,7 +792,8 @@ int main(int argc, char **argv) {
         SDL_Log("Browsing api.artic.edu");
     }
     if (!alsoDirectory.empty()) {
-        alsoSource = std::make_unique<LocalDataSource>(alsoDirectory);
+        alsoSource = std::make_unique<LocalDataSource>(std::vector<std::string>{alsoDirectory},
+                                                       systemPhotos.cameraRolls);
         combinedSource = std::make_unique<ConcatenatedDataSource>(feedSource, alsoSource.get());
         feedSource = combinedSource.get();
         SDL_Log("Also showing %s", alsoDirectory.c_str());
@@ -850,7 +862,12 @@ int main(int argc, char **argv) {
     SDL_Log("Reading the photo library from the media store");
 #else
     if (!artic) {
-        SDL_Log("Scanning %s", photoDirectory.c_str());
+        for (const std::string &root : PhotoLibrary::withoutNested(photoRoots)) {
+            SDL_Log("Scanning %s", root.c_str());
+        }
+        for (const std::string &roll : systemPhotos.cameraRolls) {
+            SDL_Log("Camera roll %s", roll.c_str());
+        }
     }
 #endif
 

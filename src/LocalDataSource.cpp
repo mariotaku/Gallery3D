@@ -10,6 +10,7 @@
 #include "MediaFeed.h"
 #include "MediaItem.h"
 #include "MediaSet.h"
+#include "PhotoLibrary.h"
 #include "RegionDecoder.h"
 
 namespace fs = std::filesystem;
@@ -116,7 +117,9 @@ void LocalDataSource::scan(const std::string &path, std::vector<Folder> &folders
             subdirectories.push_back(utf8Of(entry.path()));
         } else if (entry.is_regular_file(entryError)) {
             std::string filePath = utf8Of(entry.path());
-            if (isSupportedImage(filePath)) {
+            // A cloud placeholder is left off the wall: reading its EXIF here,
+            // or its pixels later, would download the whole file.
+            if (isSupportedImage(filePath) && !PhotoLibrary::isOnlineOnly(filePath)) {
                 folder.files.push_back(filePath);
             }
         }
@@ -133,13 +136,18 @@ void LocalDataSource::scan(const std::string &path, std::vector<Folder> &folders
 
 void LocalDataSource::loadMediaSets(MediaFeed *feed) {
     std::vector<Folder> folders;
-    scan(mRootPath, folders);
+    for (const std::string &root : PhotoLibrary::withoutNested(mRoots)) {
+        scan(root, folders);
+    }
 
     for (const Folder &folder : folders) {
         MediaSet *set = feed->addMediaSet(hashPath(folder.path), this);
         set->mName = folder.name;
         set->mType = MediaSet::TYPE_FOLDER;
         set->mIsLocal = true;
+        set->mIsCameraRoll = std::any_of(mCameraRolls.begin(), mCameraRolls.end(), [&folder](const std::string &roll) {
+            return PhotoLibrary::isWithin(folder.path, roll);
+        });
 
         for (const std::string &file : folder.files) {
             auto item = std::make_unique<MediaItem>();

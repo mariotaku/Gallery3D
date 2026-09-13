@@ -105,7 +105,12 @@ class LocalDataSource : public DataSource {
     // out the user's folders, so the separator comes off first.
     static std::string folderDisplayName(const std::string &path);
 
-    explicit LocalDataSource(std::string rootPath) : mRootPath(std::move(rootPath)) {}
+    explicit LocalDataSource(std::string rootPath) : mRoots{std::move(rootPath)} {}
+
+    // Several folders walked as one library. A folder inside another is walked
+    // once, and an album inside any of cameraRolls is marked as the camera's.
+    LocalDataSource(std::vector<std::string> roots, std::vector<std::string> cameraRolls)
+        : mRoots(std::move(roots)), mCameraRolls(std::move(cameraRolls)) {}
 
     void loadMediaSets(MediaFeed *feed) override;
     void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override;
@@ -128,6 +133,7 @@ class LocalDataSource : public DataSource {
 
     void scan(const std::string &path, std::vector<Folder> &folders) const;
 
-    std::string mRootPath;
+    std::vector<std::string> mRoots;
+    std::vector<std::string> mCameraRolls;
     RegionDecoderCache mDecoders;
 };
