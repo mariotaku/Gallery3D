@@ -3,9 +3,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
-#if defined(__ANDROID__)
-// There is no process to start: SDLActivity loads this library and calls in.
-// The header renames main() to the entry point SDL looks for.
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+// On Android there is no process to start: SDLActivity loads this library and
+// calls in. On iOS UIKit owns the process and SDL starts it. Either way the
+// header renames main() to the entry point SDL looks for.
 #include <SDL3/SDL_main.h>
 #endif
 
@@ -61,6 +62,13 @@ namespace {
 const float kWheelSettleSeconds = 0.75f;
 
 std::string defaultPhotoDirectory() {
+#if defined(SDL_PLATFORM_IOS)
+    // The app's own Documents, which Info.plist shows in the Files app. The
+    // sandbox reaches no other folder of photos without the Photos library.
+    if (const char *documents = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS)) {
+        return documents;
+    }
+#endif
     // Reads the Known Folder on Windows and the XDG user directory on Linux,
     // so a relocated or translated Pictures folder still resolves.
     if (const char *pictures = SDL_GetUserFolder(SDL_FOLDER_PICTURES)) {

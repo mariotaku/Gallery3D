@@ -139,6 +139,32 @@ Maven Central. They carry prefab modules, so `find_package(SDL3 CONFIG)` finds
 them the same way it finds vcpkg's copy. minSdk is 24 and the build is
 arm64-v8a. The catalogue and the region decoder are not wired up there yet.
 
+iOS cross-compiles on Linux or WSL with [xtool](https://xtool.sh), which
+provides the SDK, signs the app and installs it. Everything below runs inside
+Linux; on Windows only the USB passthrough lives outside it.
+
+1. Install the Swift 6.3 toolchain with swiftly, `xtool` 1.19.2 from its
+   AppImage into `~/.local/bin`, and `usbmuxd` and `libimobiledevice-utils`
+   from apt.
+2. Download Xcode 26 from developer.apple.com into Linux, then run
+   `xtool setup`: it logs in to an Apple ID and extracts the iOS SDK from the
+   `.xip`.
+3. On Windows, install [usbipd-win](https://learn.microsoft.com/windows/wsl/connect-usb)
+   and attach the iPhone to WSL with `usbipd attach --wsl --busid <id>`.
+   `ideviceinfo` in WSL should then name the phone.
+
+```sh
+bash tools/ios/build.sh           # build gallery3d.app
+bash tools/ios/build.sh install   # build, sign and install on the phone
+```
+
+SDL, SDL_image and SDL_ttf are built from source and linked statically. The
+build tree is `~/.cache/gallery3d/build-ios` unless `BUILD_DIR` says
+otherwise, because building on the Windows drive from WSL is many times slower.
+Photos are read from the app's Documents folder, which the Files app shows.
+The catalogue has no network there yet, and a zoomed photo stays on its
+screennail.
+
 The vcpkg manifest supplies SDL3, SDL3_image (PNG, JPEG, WebP, TIFF), SDL3_ttf
 and other dependencies. Assets are copied next to the binary. Tests run without a window.
 To build and run the Debug tests directly:

@@ -61,6 +61,47 @@ elseif(ANDROID)
     FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
                               GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(nlohmann_json)
+elseif(IOS)
+    # Cross-compiled from Linux with ios/xtool.toolchain.cmake. There is no
+    # package manager for an iPhone, so the libraries are built from source as
+    # they are for the web, and linked in statically: an app may not carry
+    # loose dylibs.
+    #
+    # No curl, which the SDK does not include, and no libjpeg: ImageIO decodes
+    # for SDL_image, and a zoomed photo stays on its screennail as it does in
+    # the browser.
+    include(FetchContent)
+    set(FETCHCONTENT_QUIET OFF)
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    # SDL_image and SDL_ttf build shared by default and then look for SDL's
+    # shared library, which this build does not make.
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_VENDORED OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_AVIF OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_JXL OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_TIF OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_WEBP OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_VENDORED ON CACHE BOOL "" FORCE)
+    set(SDLTTF_HARFBUZZ OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_PLUTOSVG OFF CACHE BOOL "" FORCE)
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+
+    # The versions the Android build takes. SDL_ttf has no 3.4 release.
+    FetchContent_Declare(SDL3 GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+                              GIT_TAG release-3.4.16 GIT_SHALLOW TRUE)
+    FetchContent_Declare(SDL3_image GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+                              GIT_TAG release-3.4.6 GIT_SHALLOW TRUE)
+    FetchContent_Declare(SDL3_ttf GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+                              GIT_TAG release-3.2.2 GIT_SHALLOW TRUE)
+    FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
+                              GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(SDL3 SDL3_image SDL3_ttf nlohmann_json)
 else()
     find_package(SDL3 CONFIG REQUIRED)
     find_package(SDL3_image CONFIG REQUIRED)
@@ -136,6 +177,16 @@ if(ANDROID)
     # main() inside it, and it looks for the library by the name below.
     add_library(gallery3d SHARED ${GALLERY_SOURCES})
     set_target_properties(gallery3d PROPERTIES OUTPUT_NAME "main")
+elseif(IOS)
+    # An app bundle: the executable, its Info.plist and, after the post-build
+    # copy below, assets/ beside them. xtool signs it when it installs it.
+    add_executable(gallery3d MACOSX_BUNDLE ${GALLERY_SOURCES})
+    set_target_properties(gallery3d PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/ios/Info.plist.in"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "me.mariotaku.gallery3d"
+        MACOSX_BUNDLE_BUNDLE_NAME "Gallery"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1")
 else()
     add_executable(gallery3d ${GALLERY_SOURCES})
 endif()
@@ -148,7 +199,7 @@ target_link_libraries(gallery3d PRIVATE
 if(NOT ANDROID)
     target_link_libraries(gallery3d PRIVATE SDL3_ttf::SDL3_ttf)
 endif()
-if(NOT EMSCRIPTEN AND NOT ANDROID)
+if(NOT EMSCRIPTEN AND NOT ANDROID AND NOT IOS)
     target_link_libraries(gallery3d PRIVATE CURL::libcurl JPEG::JPEG)
     target_compile_definitions(gallery3d PRIVATE GALLERY3D_HAVE_JPEG)
 endif()
@@ -204,8 +255,8 @@ endif()
 # Tests
 # ---------------------------------------------------------------------------
 # Desktop only. They are a console binary that runs to completion, which is
-# neither the browser's shape nor Android's.
-if(NOT EMSCRIPTEN AND NOT ANDROID)
+# neither the browser's shape nor a phone's.
+if(NOT EMSCRIPTEN AND NOT ANDROID AND NOT IOS)
 # Only the parts that hold still: decoding, geometry and layout arithmetic.
 # Anything needing a GL context stays with the screenshot checks instead.
 enable_testing()

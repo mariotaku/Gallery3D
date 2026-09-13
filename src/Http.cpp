@@ -92,14 +92,15 @@ bool get(const std::string &url, std::vector<uint8_t> *out) {
 
 }  // namespace Http
 
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
 
 namespace Http {
 
-// No curl in the ndk. Reaching the network here means going out through the
-// platform, which the museum source will need before it can run on a phone.
+// No curl in the NDK or the iOS SDK. Reaching the network here means going out
+// through the platform, which the museum source will need before it can run on
+// a phone.
 bool get(const std::string &url, std::vector<uint8_t> *out) {
-    SDL_Log("No network on Android yet, cannot fetch %s", url.c_str());
+    SDL_Log("No network on this platform yet, cannot fetch %s", url.c_str());
     if (out != nullptr) {
         out->clear();
     }

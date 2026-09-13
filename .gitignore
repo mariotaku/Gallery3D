@@ -20,6 +20,7 @@ vcpkg_installed/
 # Crash dumps, written next to the binary.
 *.dmp
 build-web/
+build-ios/
 
 # The Java this is a port of, at the tag it was taken from:
 #   git clone --depth 1 --branch android-2.3.7_r1 \
@@ -27,3 +28,7 @@ build-web/
 # Not committed, because it is someone else's repository and it is one command
 # to get back. Every file here has a counterpart in src/ under the same name.
 reference/
+
+# The iOS cross toolchain's source, for its documentation and SDK layout:
+#   git clone --depth 1 --branch 1.19.2 https://github.com/xtool-org/xtool reference-xtool
+reference-xtool/
