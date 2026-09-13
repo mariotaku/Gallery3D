@@ -136,16 +136,103 @@ void LocalDataSource::scan(const std::string &path, std::vector<Folder> &folders
     }
 }
 
+namespace {
+
+// A folder's path as components, which compare the way scan visits folders: a
+// folder before everything inside it, and siblings by name.
+std::vector<std::string> walkOrderOf(const std::string &path) {
+    const std::string spelled = PhotoLibrary::comparable(path);
+    std::vector<std::string> components;
+    size_t start = 0;
+    while (start < spelled.size()) {
+        size_t end = spelled.find('/', start);
+        if (end == std::string::npos) {
+            end = spelled.size();
+        }
+        if (end > start) {
+            components.push_back(spelled.substr(start, end - start));
+        }
+        start = end + 1;
+    }
+    return components;
+}
+
+// Whether folder lies under root through a folder whose name starts with a dot,
+// which scan does not go into.
+bool underHiddenFolder(const std::string &folder, const std::string &root) {
+    const std::vector<std::string> components = walkOrderOf(folder);
+    for (size_t i = walkOrderOf(root).size(); i < components.size(); ++i) {
+        if (components[i][0] == '.') {
+            return true;
+        }
+    }
+    return false;
+}
+
+}  // namespace
+
+void LocalDataSource::list(const std::string &root, const PhotoIndex::Entries &entries,
+                           std::vector<Folder> &folders) const {
+    struct Found {
+        std::vector<std::string> order;
+        std::string folder;
+        std::string file;
+    };
+    std::vector<Found> found;
+    for (const auto &indexed : entries) {
+        const PhotoIndex::Entry &entry = indexed.second;
+        // What scan keeps: pictures this build decodes, and no cloud
+        // placeholder, whose attributes the index holds as well.
+        if (!PhotoLibrary::isWithin(entry.path, root) || !isSupportedImage(entry.path) ||
+            PhotoLibrary::needsDownload(entry.attributes)) {
+            continue;
+        }
+        std::string folder = utf8Of(pathOf(entry.path).parent_path());
+        if (underHiddenFolder(folder, root)) {
+            continue;
+        }
+        std::vector<std::string> order = walkOrderOf(folder);
+        found.push_back({std::move(order), std::move(folder), entry.path});
+    }
+    std::sort(found.begin(), found.end(), [](const Found &a, const Found &b) {
+        return (a.order != b.order) ? (a.order < b.order) : (a.file < b.file);
+    });
+
+    const std::vector<std::string> *current = nullptr;
+    for (Found &picture : found) {
+        if (current == nullptr || *current != picture.order) {
+            Folder folder;
+            folder.path = picture.folder;
+            folder.name = folderDisplayName(picture.folder);
+            folders.push_back(std::move(folder));
+            current = &picture.order;
+        }
+        folders.back().files.push_back(std::move(picture.file));
+    }
+}
+
 void LocalDataSource::loadMediaSets(MediaFeed *feed) {
     const Uint64 started = SDL_GetTicks();
     const std::vector<std::string> roots = PhotoLibrary::withoutNested(mRoots);
+    // One question to the platform for every photo at once. The folders it
+    // covers are listed from its answer, and only the rest are walked.
+    const PhotoIndex::Listing index = mIndexLookup ? mIndexLookup(roots) : PhotoIndex::Listing();
+    const Uint64 asked = SDL_GetTicks();
     std::vector<Folder> folders;
+    size_t listed = 0;
     for (const std::string &root : roots) {
-        scan(root, folders);
+        const bool covered =
+            std::any_of(index.listedFolders.begin(), index.listedFolders.end(),
+                        [&root](const std::string &folder) { return PhotoLibrary::isWithin(root, folder); });
+        if (covered) {
+            list(root, index.entries, folders);
+            ++listed;
+        } else {
+            scan(root, folders);
+        }
     }
-    // One question to the platform for every photo at once, instead of
-    // opening each file for its EXIF.
-    const PhotoIndex::Entries index = mMetadataLookup ? mMetadataLookup(roots) : PhotoIndex::Entries();
+    SDL_Log("Asked the index in %u ms, then listed %zu of %zu locations from it and walked the rest in %u ms",
+            (unsigned)(asked - started), listed, roots.size(), (unsigned)(SDL_GetTicks() - asked));
     size_t fromIndex = 0;
     size_t fromFiles = 0;
 
@@ -170,9 +257,10 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             // The index's answer when it has one worth using. Without a pixel
             // size it has not read the picture, and the file is read instead.
             Bitmap::ExifInfo exif;
-            const auto indexed = index.find(PhotoIndex::key(file));
-            if (indexed != index.end() && indexed->second.pixelWidth > 0 && indexed->second.pixelHeight > 0) {
-                exif = indexed->second;
+            const auto indexed = index.entries.find(PhotoIndex::key(file));
+            if (indexed != index.entries.end() && indexed->second.info.pixelWidth > 0 &&
+                indexed->second.info.pixelHeight > 0) {
+                exif = indexed->second.info;
                 ++fromIndex;
             } else {
                 exif = Bitmap::readExif(file);

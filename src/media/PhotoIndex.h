@@ -1,7 +1,9 @@
 // What the platform has already read about the user's photos, so that a scan
-// does not open every file to read it again. On Windows that is the Windows
-// Search index, which holds each picture's date, size, orientation and
-// position; elsewhere there is nothing to ask and the scan reads EXIF itself.
+// does not have to walk every folder and open every file to find it again. On
+// Windows that is the Windows Search index, which lists each picture with its
+// date, size, orientation, position and file attributes, the way MediaStore
+// lists them on Android. Elsewhere there is nothing to ask, and a scan walks
+// the folders and reads EXIF itself.
 #pragma once
 
 #include <cstdint>
@@ -13,13 +15,30 @@
 
 namespace PhotoIndex {
 
-// What the index knows about each picture, keyed by key() of its path.
-using Entries = std::unordered_map<std::string, Bitmap::ExifInfo>;
+// One picture as the index holds it.
+struct Entry {
+    // The path as the file system spells it, for opening the file.
+    std::string path;
+    Bitmap::ExifInfo info;
+    // The Windows file attributes the index last saw, or zero if it has none.
+    unsigned long attributes = 0;
+};
+
+// Keyed by key() of each picture's path.
+using Entries = std::unordered_map<std::string, Entry>;
+
+struct Listing {
+    Entries entries;
+    // The folders asked about that the index covers whole. Every picture under
+    // one of them is in entries, so a scan lists them from here instead of
+    // walking them. Entries can still hold pictures under the other folders.
+    std::vector<std::string> listedFolders;
+};
 
 // Everything the index holds on the pictures under the folders, in one query.
-// Empty off Windows, and on Windows when the search service is off or the
-// folders are not indexed, which leaves a scan to read the files.
-Entries query(const std::vector<std::string> &folders);
+// Empty off Windows, and on Windows when the search service is off, which
+// leaves a scan to walk every folder and read the files.
+Listing query(const std::vector<std::string> &folders);
 
 // The spelling of a path that entries are keyed by. The index and a directory
 // walk can write the same file differently, in case or in slashes.

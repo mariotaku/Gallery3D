@@ -1,5 +1,7 @@
 // Port of com.cooliris.media.DataSource and LocalDataSource.
-// Walks a directory tree: one MediaSet per image folder, one MediaItem per image.
+// Lists the photos under a set of folders, from the platform's index where it
+// covers them and by walking the folders where it does not: one MediaSet per
+// image folder, one MediaItem per image.
 #pragma once
 
 #include <cstdint>
@@ -125,12 +127,13 @@ class LocalDataSource : public DataSource {
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);
 
-    // Where a scan gets what is already known about each photo, before it
-    // falls back to reading the file. PhotoIndex::query unless replaced, which
-    // a test does to stand in for the platform's index.
-    using MetadataLookup = std::function<PhotoIndex::Entries(const std::vector<std::string> &folders)>;
-    void setMetadataLookup(MetadataLookup lookup) {
-        mMetadataLookup = std::move(lookup);
+    // Where a scan gets what the platform already knows: the pictures under
+    // the folders it covers, and what it has read about each picture.
+    // PhotoIndex::query unless replaced, which a test does to stand in for the
+    // platform's index.
+    using IndexLookup = std::function<PhotoIndex::Listing(const std::vector<std::string> &folders)>;
+    void setIndexLookup(IndexLookup lookup) {
+        mIndexLookup = std::move(lookup);
     }
 
   private:
@@ -140,10 +143,15 @@ class LocalDataSource : public DataSource {
         std::vector<std::string> files;
     };
 
+    // Walks path and every folder under it.
     void scan(const std::string &path, std::vector<Folder> &folders) const;
+
+    // The same folders scan would find under root, taken from the index's
+    // entries instead of the disk, in the order scan finds them.
+    void list(const std::string &root, const PhotoIndex::Entries &entries, std::vector<Folder> &folders) const;
 
     std::vector<std::string> mRoots;
     std::vector<std::string> mCameraRolls;
-    MetadataLookup mMetadataLookup = PhotoIndex::query;
+    IndexLookup mIndexLookup = PhotoIndex::query;
     RegionDecoderCache mDecoders;
 };

@@ -62,12 +62,14 @@ enum Column {
     COLUMN_ORIENTATION,
     COLUMN_LATITUDE,
     COLUMN_LONGITUDE,
+    COLUMN_ATTRIBUTES,
     COLUMN_COUNT,
 };
 
 const char *const kSelect = "SELECT System.ItemPathDisplay, System.Photo.DateTaken, System.Image.HorizontalSize, "
                             "System.Image.VerticalSize, System.Photo.Orientation, System.GPS.LatitudeDecimal, "
-                            "System.GPS.LongitudeDecimal FROM SystemIndex WHERE System.Kind = 'picture' AND ";
+                            "System.GPS.LongitudeDecimal, System.FileAttributes FROM SystemIndex "
+                            "WHERE System.Kind = 'picture' AND ";
 
 // One cell as the rowset fills it: every column is taken as a VARIANT, and
 // the provider converts whatever it stores into one.
@@ -91,10 +93,11 @@ void addRow(const Row &row, Entries &entries) {
     if (!cellAs(row.cells[COLUMN_PATH], VT_BSTR, value)) {
         return;
     }
-    const std::string path = utf8Of(value.bstrVal, (int)SysStringLen(value.bstrVal));
+    Entry entry;
+    entry.path = utf8Of(value.bstrVal, (int)SysStringLen(value.bstrVal));
     VariantClear(&value);
 
-    Bitmap::ExifInfo info;
+    Bitmap::ExifInfo &info = entry.info;
     if (cellAs(row.cells[COLUMN_DATE_TAKEN], VT_DATE, value)) {
         info.dateTakenMs = unixMsFromOleDate(value.date);
     }
@@ -118,11 +121,34 @@ void addRow(const Row &row, Entries &entries) {
     if (cellAs(row.cells[COLUMN_LONGITUDE], VT_R8, value)) {
         info.longitude = value.dblVal;
     }
-    entries[key(path)] = info;
+    if (cellAs(row.cells[COLUMN_ATTRIBUTES], VT_UI4, value)) {
+        entry.attributes = value.ulVal;
+    }
+    const std::string entryKey = key(entry.path);
+    entries[entryKey] = std::move(entry);
 }
 
-// Asks the index. Any step that fails leaves whatever was read so far.
-void run(const std::vector<std::string> &folders, Entries &entries) {
+// The folders the indexer crawls. A folder it does not has no pictures in the
+// index however many are on the disk.
+std::vector<std::string> crawledFolders(ISearchCatalogManager *catalog, const std::vector<std::string> &folders) {
+    std::vector<std::string> crawled;
+    Com<ISearchCrawlScopeManager> scope;
+    if (FAILED(catalog->GetCrawlScopeManager(&scope.pointer))) {
+        return crawled;
+    }
+    for (const std::string &folder : folders) {
+        const std::wstring url = L"file:///" + wideOf(folder);
+        BOOL included = FALSE;
+        if (SUCCEEDED(scope->IncludedInCrawlScope(url.c_str(), &included)) && included) {
+            crawled.push_back(folder);
+        }
+    }
+    return crawled;
+}
+
+// Asks the index. Any step that fails leaves whatever was read so far, and
+// lists no folder whole.
+void run(const std::vector<std::string> &folders, Listing &listing) {
     Com<ISearchManager> manager;
     if (FAILED(CoCreateInstance(__uuidof(CSearchManager), nullptr, CLSCTX_LOCAL_SERVER,
                                 IID_PPV_ARGS(&manager.pointer)))) {
@@ -132,6 +158,7 @@ void run(const std::vector<std::string> &folders, Entries &entries) {
     if (FAILED(manager->GetCatalog(L"SystemIndex", &catalog.pointer))) {
         return;
     }
+    std::vector<std::string> crawled = crawledFolders(catalog.pointer, folders);
     Com<ISearchQueryHelper> helper;
     if (FAILED(catalog->GetQueryHelper(&helper.pointer))) {
         return;
@@ -191,6 +218,7 @@ void run(const std::vector<std::string> &folders, Entries &entries) {
     }
 
     HROW handles[256];
+    bool complete = false;
     for (;;) {
         DBCOUNTITEM obtained = 0;
         HROW *fetchedHandles = handles;
@@ -198,7 +226,7 @@ void run(const std::vector<std::string> &folders, Entries &entries) {
         for (DBCOUNTITEM i = 0; i < obtained; ++i) {
             Row row = {};
             if (SUCCEEDED(rowset->GetData(fetchedHandles[i], accessor, &row))) {
-                addRow(row, entries);
+                addRow(row, listing.entries);
             }
             for (Cell &cell : row.cells) {
                 if (cell.status == DBSTATUS_S_OK) {
@@ -209,29 +237,34 @@ void run(const std::vector<std::string> &folders, Entries &entries) {
         if (obtained > 0) {
             rowset->ReleaseRows(obtained, fetchedHandles, nullptr, nullptr, nullptr);
         }
-        // DB_S_ENDOFROWSET, or a failure: either way there is no more.
         if (fetched != S_OK || obtained == 0) {
+            // Only the end of the rows says every picture was read. A failure
+            // part way through leaves the folders to be walked.
+            complete = fetched == DB_S_ENDOFROWSET || (fetched == S_OK && obtained == 0);
             break;
         }
     }
     accessorFactory->ReleaseAccessor(accessor, nullptr);
+    if (complete) {
+        listing.listedFolders = std::move(crawled);
+    }
 }
 
 }  // namespace
 
-Entries query(const std::vector<std::string> &folders) {
-    Entries entries;
+Listing query(const std::vector<std::string> &folders) {
+    Listing listing;
     if (folders.empty()) {
-        return entries;
+        return listing;
     }
     // Scans run on the feed's loader thread. The index lives in another
     // process, and the free threaded apartment is enough to reach it.
     const HRESULT initialized = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    run(folders, entries);
+    run(folders, listing);
     if (SUCCEEDED(initialized)) {
         CoUninitialize();
     }
-    return entries;
+    return listing;
 }
 
 }  // namespace PhotoIndex

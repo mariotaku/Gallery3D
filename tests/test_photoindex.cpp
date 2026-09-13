@@ -104,22 +104,26 @@ TEST(a_scan_takes_what_the_index_knows_and_reads_the_rest) {
 
     std::vector<std::string> askedFor;
     LocalDataSource source({root.string()}, {});
-    source.setMetadataLookup([&](const std::vector<std::string> &folders) {
+    source.setIndexLookup([&](const std::vector<std::string> &folders) {
         askedFor = folders;
-        PhotoIndex::Entries entries;
-        Bitmap::ExifInfo known;
-        known.dateTakenMs = 1744335836000LL;
-        known.pixelWidth = 4000;
-        known.pixelHeight = 3000;
-        known.rotationDegrees = 90.0f;
-        known.latitude = 35.6845;
-        known.longitude = 139.8398;
-        entries[PhotoIndex::key(indexed.string())] = known;
+        // No folder listed whole, so the root is walked and the index only
+        // answers for the files the walk finds.
+        PhotoIndex::Listing listing;
+        PhotoIndex::Entry known;
+        known.path = indexed.string();
+        known.info.dateTakenMs = 1744335836000LL;
+        known.info.pixelWidth = 4000;
+        known.info.pixelHeight = 3000;
+        known.info.rotationDegrees = 90.0f;
+        known.info.latitude = 35.6845;
+        known.info.longitude = 139.8398;
+        listing.entries[PhotoIndex::key(known.path)] = known;
         // An entry the index has not read the picture for.
-        Bitmap::ExifInfo sizeless;
-        sizeless.rotationDegrees = 180.0f;
-        entries[PhotoIndex::key((root / "Kyoto" / "sizeless.jpg").string())] = sizeless;
-        return entries;
+        PhotoIndex::Entry sizeless;
+        sizeless.path = (root / "Kyoto" / "sizeless.jpg").string();
+        sizeless.info.rotationDegrees = 180.0f;
+        listing.entries[PhotoIndex::key(sizeless.path)] = sizeless;
+        return listing;
     });
     MediaFeed feed(&source, nullptr);
     source.loadMediaSets(&feed);
@@ -147,4 +151,65 @@ TEST(a_scan_takes_what_the_index_knows_and_reads_the_rest) {
         }
     }
     fs::remove_all(root, error);
+}
+
+TEST(a_folder_the_index_covers_is_listed_from_it_and_the_rest_are_walked) {
+    const fs::path base = fs::temp_directory_path() / "gallery3d_photoindex_listing";
+    std::error_code error;
+    fs::remove_all(base, error);
+    const fs::path listedRoot = base / "Listed";
+    const fs::path walkedRoot = base / "Walked";
+    // On the disk under the listed root but not in the index, so only a walk
+    // would find it.
+    emptyPhoto(listedRoot / "Kyoto", "unlisted.jpg");
+    emptyPhoto(walkedRoot / "Osaka", "walked.jpg");
+
+    LocalDataSource source({listedRoot.string(), walkedRoot.string()}, {});
+    source.setIndexLookup([&](const std::vector<std::string> &) {
+        PhotoIndex::Listing listing;
+        listing.listedFolders = {listedRoot.string()};
+        auto add = [&listing](const fs::path &path, unsigned long attributes) {
+            PhotoIndex::Entry entry;
+            entry.path = path.string();
+            entry.attributes = attributes;
+            listing.entries[PhotoIndex::key(entry.path)] = entry;
+        };
+        const unsigned long archive = 0x20;
+        add(listedRoot / "Kyoto" / "temple.jpg", archive);
+        add(listedRoot / "Kyoto" / "Nara" / "deer.jpg", archive);
+        // Nothing a walk would put on the wall: inside a dot folder, kept
+        // online only, not a picture, or under no folder asked about.
+        add(listedRoot / ".thumbnails" / "cached.jpg", archive);
+        add(listedRoot / "Kyoto" / "online.jpg", archive | 0x400000);
+        add(listedRoot / "Kyoto" / "notes.txt", archive);
+        add(base / "Elsewhere" / "outside.jpg", archive);
+        return listing;
+    });
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+
+    CHECK(itemNamed(feed, "temple.jpg") != nullptr);
+    CHECK(itemNamed(feed, "deer.jpg") != nullptr);
+    CHECK(itemNamed(feed, "walked.jpg") != nullptr);
+    for (const char *name : {"unlisted.jpg", "cached.jpg", "online.jpg", "notes.txt", "outside.jpg"}) {
+        CHECK(itemNamed(feed, name) == nullptr);
+    }
+
+    // Albums in the order a walk finds them: a folder before the ones inside
+    // it, and the listed root before the walked one it was given ahead of.
+    int kyoto = -1;
+    int nara = -1;
+    int osaka = -1;
+    const std::vector<MediaSet *> &sets = feed.getMediaSets();
+    for (size_t i = 0; i < sets.size(); ++i) {
+        if (sets[i]->mName == "Kyoto") {
+            kyoto = (int)i;
+        } else if (sets[i]->mName == "Nara") {
+            nara = (int)i;
+        } else if (sets[i]->mName == "Osaka") {
+            osaka = (int)i;
+        }
+    }
+    CHECK(kyoto >= 0 && kyoto < nara && nara < osaka);
+    fs::remove_all(base, error);
 }
