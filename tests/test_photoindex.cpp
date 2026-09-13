@@ -127,6 +127,8 @@ TEST(a_scan_takes_what_the_index_knows_and_reads_the_rest) {
     });
     MediaFeed feed(&source, nullptr);
     source.loadMediaSets(&feed);
+    // The sets join the feed between frames.
+    feed.pumpListener();
 
     CHECK(askedFor.size() == 1 && askedFor[0] == root.string());
 
@@ -187,6 +189,8 @@ TEST(a_folder_the_index_covers_is_listed_from_it_and_the_rest_are_walked) {
     });
     MediaFeed feed(&source, nullptr);
     source.loadMediaSets(&feed);
+    // The sets join the feed between frames.
+    feed.pumpListener();
 
     CHECK(itemNamed(feed, "temple.jpg") != nullptr);
     CHECK(itemNamed(feed, "deer.jpg") != nullptr);

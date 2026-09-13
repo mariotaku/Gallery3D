@@ -10,19 +10,73 @@
 
 MediaFeed::MediaFeed(DataSource *dataSource, Listener *listener) : mDataSource(dataSource), mListener(listener) {}
 
-MediaSet *MediaFeed::addMediaSet(int64_t setId, DataSource *source) {
+void MediaFeed::addMediaSet(std::unique_ptr<MediaSet> set) {
+    if (!set) {
+        return;
+    }
+    if (set->mDataSource == nullptr) {
+        set->mDataSource = mDataSource;
+    }
+    PendingChange change;
+    change.set = std::move(set);
+    {
+        std::lock_guard<std::mutex> lock(mPendingMutex);
+        mPendingChanges.push_back(std::move(change));
+    }
+    updateListener(true);
+}
+
+void MediaFeed::addItems(MediaSet *set, std::vector<std::unique_ptr<MediaItem>> items,
+                         std::function<void(MediaSet &)> then) {
+    if (set == nullptr) {
+        return;
+    }
+    PendingChange change;
+    change.target = set;
+    change.items = std::move(items);
+    change.then = std::move(then);
+    {
+        std::lock_guard<std::mutex> lock(mPendingMutex);
+        mPendingChanges.push_back(std::move(change));
+    }
+    updateListener(true);
+}
+
+void MediaFeed::applyPendingChanges() {
+    std::vector<PendingChange> changes;
+    {
+        std::lock_guard<std::mutex> lock(mPendingMutex);
+        changes.swap(mPendingChanges);
+    }
+    if (changes.empty()) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(mSetsMutex);
-    for (size_t i = 0; i < mMediaSets.size(); ++i) {
-        if (mMediaSets[i]->mId == setId) {
-            // Replace an existing set with the same id during rescans.
-            mMediaSets.erase(mMediaSets.begin() + (long)i);
-            break;
+    for (PendingChange &change : changes) {
+        if (change.set) {
+            const int64_t setId = change.set->mId;
+            auto same = std::find_if(mMediaSets.begin(), mMediaSets.end(),
+                                     [setId](const std::unique_ptr<MediaSet> &existing) { return existing->mId == setId; });
+            if (same != mMediaSets.end()) {
+                // A rescan's set replaces the one it found before.
+                mMediaSets.erase(same);
+            }
+            mMediaSets.push_back(std::move(change.set));
+            continue;
+        }
+        const bool present =
+            std::any_of(mMediaSets.begin(), mMediaSets.end(),
+                        [&change](const std::unique_ptr<MediaSet> &existing) { return existing.get() == change.target; });
+        if (!present) {
+            continue;
+        }
+        for (std::unique_ptr<MediaItem> &item : change.items) {
+            change.target->addItem(std::move(item));
+        }
+        if (change.then) {
+            change.then(*change.target);
         }
     }
-    mMediaSets.push_back(std::make_unique<MediaSet>());
-    mMediaSets.back()->mId = setId;
-    mMediaSets.back()->mDataSource = (source != nullptr) ? source : mDataSource;
-    return mMediaSets.back().get();
 }
 
 void MediaFeed::loadItemsForSet(MediaSet *set) {
@@ -148,6 +202,9 @@ void MediaFeed::postJob(std::function<void()> job) {
 }
 
 void MediaFeed::pumpListener() {
+    // New sets and pages first, so the listener below hears about them.
+    applyPendingChanges();
+
     // Deletions confirmed by the worker are applied here, between frames, so
     // nothing the draw code is holding disappears mid frame.
     {

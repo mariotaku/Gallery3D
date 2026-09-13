@@ -30,7 +30,8 @@ class MediaStoreDataSource : public DataSource {
                        RegionCallback done) override;
 
   private:
-    void loadBucketItems(MediaFeed *feed, MediaSet *set, const std::string &bucketId);
+    // Fills a set the feed does not have yet with the bucket's photos.
+    void loadBucketItems(MediaSet &set, const std::string &bucketId);
 
     // MediaStore bucket ids are what the wall's set ids are built from, but a
     // set id is a number and a bucket id is text, so the mapping is kept.

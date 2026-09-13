@@ -82,7 +82,9 @@ void MediaStoreDataSource::loadMediaSets(MediaFeed *feed) {
             mBuckets[setId] = bucketId;
         }
 
-        MediaSet *set = feed->addMediaSet(setId, this);
+        auto set = std::make_unique<MediaSet>();
+        set->mId = setId;
+        set->mDataSource = this;
         set->mName = stringOr(bucket, "name", bucketId.c_str());
         set->mType = MediaSet::TYPE_FOLDER;
         set->mIsLocal = true;
@@ -92,8 +94,10 @@ void MediaStoreDataSource::loadMediaSets(MediaFeed *feed) {
         set->setNumExpectedItems((int)intOr(bucket, "count", 0));
 
         // The wall draws a stack from the photos in it, so the items come with
-        // the folder rather than waiting to be paged in.
-        loadBucketItems(feed, set, bucketId);
+        // the folder rather than waiting to be paged in. The set goes to the
+        // feed whole once they are in.
+        loadBucketItems(*set, bucketId);
+        feed->addMediaSet(std::move(set));
     }
     feed->finishLoadingMediaSets();
 }
@@ -106,9 +110,8 @@ void MediaStoreDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet)
     }
 }
 
-void MediaStoreDataSource::loadBucketItems(MediaFeed *feed, MediaSet *parentSet,
-                                           const std::string &bucketId) {
-    if (feed == nullptr || parentSet == nullptr || bucketId.empty()) {
+void MediaStoreDataSource::loadBucketItems(MediaSet &set, const std::string &bucketId) {
+    if (bucketId.empty()) {
         return;
     }
 
@@ -142,13 +145,12 @@ void MediaStoreDataSource::loadBucketItems(MediaFeed *feed, MediaSet *parentSet,
         if (item->mDateTakenInMs == 0 && item->mDateModifiedInSec != 0) {
             item->mDateTakenInMs = item->mDateModifiedInSec * 1000LL;
         }
-        parentSet->addItem(std::move(item));
+        set.addItem(std::move(item));
     }
 
-    parentSet->sortItemsByDate();
-    parentSet->updateNumExpectedItems();
-    parentSet->generateTitle(true);
-    feed->updateListener(true);
+    set.sortItemsByDate();
+    set.updateNumExpectedItems();
+    set.generateTitle(true);
 }
 
 bool MediaStoreDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {

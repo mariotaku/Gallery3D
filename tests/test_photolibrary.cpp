@@ -118,6 +118,8 @@ TEST(a_library_of_several_folders_shows_each_album_once) {
                            {tree.path("pictures/Camera Roll")});
     MediaFeed feed(&source, nullptr);
     source.loadMediaSets(&feed);
+    // The sets join the feed between frames.
+    feed.pumpListener();
 
     std::vector<std::string> names;
     std::vector<std::string> cameraNames;

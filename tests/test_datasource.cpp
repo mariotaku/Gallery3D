@@ -273,3 +273,49 @@ TEST(a_texture_with_no_item_is_never_routed_to_the_network) {
     ResourceTexture resource("icon_home_small", false);
     CHECK(!resource.loadsOverNetwork());
 }
+
+TEST(a_set_joins_the_feed_whole_and_only_between_frames) {
+    // The draw reads sets without a lock while the loader thread builds them,
+    // so a source hands a set over filled, and the feed takes it in from
+    // pumpListener, which runs between frames.
+    ReadOnlySource source;
+    MediaFeed feed(&source, nullptr);
+
+    auto set = std::make_unique<MediaSet>();
+    set->mId = 7;
+    auto first = std::make_unique<MediaItem>();
+    first->mId = 1;
+    set->addItem(std::move(first));
+    MediaSet *handed = set.get();
+    feed.addMediaSet(std::move(set));
+    CHECK(feed.getMediaSets().empty());
+    feed.pumpListener();
+    CHECK(feed.getMediaSets().size() == 1 && feed.getMediaSets()[0] == handed);
+    CHECK(handed->mDataSource == &source);
+
+    // A later page waits for the next frame too, then gets its finishing step.
+    std::vector<std::unique_ptr<MediaItem>> page;
+    page.push_back(std::make_unique<MediaItem>());
+    page.back()->mId = 2;
+    int itemsWhenFinished = 0;
+    feed.addItems(handed, std::move(page), [&itemsWhenFinished](MediaSet &filled) {
+        itemsWhenFinished = filled.getNumItems();
+    });
+    CHECK_EQ(handed->getNumItems(), 1);
+    feed.pumpListener();
+    CHECK_EQ(handed->getNumItems(), 2);
+    CHECK_EQ(itemsWhenFinished, 2);
+    CHECK(handed->getItems()[1]->mParentMediaSet == handed);
+
+    // A page for a set replaced in the meantime is dropped rather than written
+    // into a set the feed no longer has.
+    auto replacement = std::make_unique<MediaSet>();
+    replacement->mId = 7;
+    feed.addMediaSet(std::move(replacement));
+    std::vector<std::unique_ptr<MediaItem>> late;
+    late.push_back(std::make_unique<MediaItem>());
+    feed.addItems(handed, std::move(late));
+    feed.pumpListener();
+    CHECK(feed.getMediaSets().size() == 1);
+    CHECK_EQ(feed.getMediaSets()[0]->getNumItems(), 0);
+}

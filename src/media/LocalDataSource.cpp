@@ -237,7 +237,10 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
     size_t fromFiles = 0;
 
     for (const Folder &folder : folders) {
-        MediaSet *set = feed->addMediaSet(hashPath(folder.path), this);
+        // Filled here and handed to the feed whole once its items are in.
+        auto set = std::make_unique<MediaSet>();
+        set->mId = hashPath(folder.path);
+        set->mDataSource = this;
         set->mName = folder.name;
         set->mType = MediaSet::TYPE_FOLDER;
         set->mIsLocal = true;
@@ -299,7 +302,7 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
         set->sortItemsByDate();
         set->updateNumExpectedItems();
         set->generateTitle(true);
-        feed->updateListener(true);
+        feed->addMediaSet(std::move(set));
     }
     SDL_Log("Read %zu photos in %u ms: %zu from the index, %zu from their files", fromIndex + fromFiles,
             (unsigned)(SDL_GetTicks() - started), fromIndex, fromFiles);

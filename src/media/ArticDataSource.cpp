@@ -280,7 +280,10 @@ void ArticDataSource::loadMediaSets(MediaFeed *feed) {
             }
             // Assign numeric set ids; mAlbumsBySet maps them to string category ids.
             ++setId;
-            MediaSet *set = feed->addMediaSet(setId, this);
+            // Filled here and handed to the feed whole.
+            auto set = std::make_unique<MediaSet>();
+            set->mId = setId;
+            set->mDataSource = this;
             set->mName = page.album.title;
             set->mIsLocal = false;
             for (std::unique_ptr<MediaItem> &cover : page.covers) {
@@ -294,7 +297,7 @@ void ArticDataSource::loadMediaSets(MediaFeed *feed) {
             // Show the category's full count, including items not yet fetched.
             set->setNumExpectedItems(page.album.total);
             set->generateTitle(true);
-            feed->updateListener(true);
+            feed->addMediaSet(std::move(set));
         }
         SDL_Log("artic: %d categories on the wall", (int)pages.size());
         feed->finishLoadingMediaSets();
@@ -342,17 +345,7 @@ void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
                           lastId = items.back()->mId;
                       }
 
-                      for (std::unique_ptr<MediaItem> &item : items) {
-                          parentSet->addItem(std::move(item));
-                      }
-                      if (firstPage) {
-                          // Sort aggregation covers with the first page before scrolling
-                          // begins.
-                          parentSet->sortItemsByDate();
-                      }
-                      // Later pages are already ordered by the server and can be appended.
-                      parentSet->generateTitle(true);
-
+                      bool exhausted = false;
                       {
                           std::lock_guard<std::mutex> lock(mAlbumMutex);
                           auto found = mAlbumsBySet.find(setId);
@@ -363,15 +356,28 @@ void ArticDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
                                   found->second.lastId = lastId;
                               }
                               if (added < kItemsPerPage) {
-                                  // A short page ends the collection; replace the count with
-                                  // the number reached.
+                                  // A short page ends the collection.
                                   found->second.exhausted = true;
-                                  parentSet->setNumExpectedItems(parentSet->getNumItems());
+                                  exhausted = true;
                               }
                           }
                       }
 
-                      feed->updateListener(true);
+                      // The set is on the wall already, so the page joins it
+                      // between frames rather than while the draw reads it.
+                      feed->addItems(parentSet, std::move(items), [firstPage, exhausted](MediaSet &set) {
+                          if (firstPage) {
+                              // Sort aggregation covers with the first page before
+                              // scrolling begins. Later pages are already ordered by the
+                              // server and can be appended.
+                              set.sortItemsByDate();
+                          }
+                          if (exhausted) {
+                              // Replace the category's count with the number reached.
+                              set.setNumExpectedItems(set.getNumItems());
+                          }
+                          set.generateTitle(true);
+                      });
                       feed->finishLoadingItemsForSet(parentSet);
                   });
 }

@@ -52,9 +52,18 @@ class MediaFeed {
         return nullptr;
     }
 
-    // Adds an empty set, replacing any existing id. Records its owning source for
-    // item loads and operations; null uses the feed's source.
-    MediaSet *addMediaSet(int64_t setId, DataSource *source = nullptr);
+    // Hands over a set its source has filled, items and title included. The
+    // feed takes it in between frames, from pumpListener, replacing any set
+    // with the same id. The draw reads sets without a lock, so a set must not
+    // change while the draw can see it. A set with no source of its own gets
+    // the feed's.
+    void addMediaSet(std::unique_ptr<MediaSet> set);
+
+    // A page of items for a set the feed already has, added between frames the
+    // same way. then runs on the set once the items are in, to sort or retitle
+    // it. The page is dropped if the set has left the feed by then.
+    void addItems(MediaSet *set, std::vector<std::unique_ptr<MediaItem>> items,
+                  std::function<void(MediaSet &)> then = nullptr);
 
     // Requests items from the set's source without waiting. Ask even when items
     // exist: only the source knows whether further pages remain.
@@ -128,6 +137,18 @@ class MediaFeed {
     void removeItem(MediaItem *item);
 
   private:
+    // Takes in what addMediaSet and addItems queued. Runs on the render thread,
+    // between frames.
+    void applyPendingChanges();
+
+    // A set to take in, or a page of items for target.
+    struct PendingChange {
+        std::unique_ptr<MediaSet> set;
+        MediaSet *target = nullptr;
+        std::vector<std::unique_ptr<MediaItem>> items;
+        std::function<void(MediaSet &)> then;
+    };
+
     void loaderThread();
     // Hands a job to the loader thread. Ignored once shutdown has begun.
     void postJob(std::function<void()> job);
@@ -139,6 +160,10 @@ class MediaFeed {
 
     std::vector<std::unique_ptr<MediaSet>> mMediaSets;
     std::mutex mSetsMutex;
+
+    // Queued by sources on the loader thread, taken in by pumpListener.
+    std::vector<PendingChange> mPendingChanges;
+    std::mutex mPendingMutex;
 
     int mExpandedMediaSetIndex = Shared::INVALID;
     bool mInClusteringMode = false;
