@@ -5,27 +5,12 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <string>
 #include <unordered_set>
 
 #include "platform/windows/Wic.h"
 
 namespace {
-
-// How far an embedded image's shape may stray from the frame's and still stand
-// in for it. A 4:3 thumbnail with bars stored for a 3:2 photo would squash the
-// wall's copy of it.
-const float kShapeTolerance = 0.02f;
-
-bool sameShape(UINT width, UINT height, UINT frameWidth, UINT frameHeight) {
-    if (width == 0 || height == 0 || frameWidth == 0 || frameHeight == 0) {
-        return false;
-    }
-    const float shape = (float)width / (float)height;
-    const float frameShape = (float)frameWidth / (float)frameHeight;
-    return std::fabs(shape - frameShape) <= kShapeTolerance * frameShape;
-}
 
 UINT longEdge(UINT width, UINT height) {
     return std::max(width, height);
@@ -38,7 +23,7 @@ Wic::Ptr<IWICBitmapSource> embeddedCovering(HRESULT fetched, Wic::Ptr<IWICBitmap
     UINT width = 0;
     UINT height = 0;
     if (FAILED(fetched) || !image || FAILED(image->GetSize(&width, &height)) || longEdge(width, height) < wanted ||
-        !sameShape(width, height, frameWidth, frameHeight)) {
+        !Wic::sameShape(width, height, frameWidth, frameHeight)) {
         image.reset();
     }
     return image;

@@ -178,6 +178,18 @@ bool Bitmap::hasTransparency() const {
     return false;
 }
 
+Bitmap Bitmap::cropped(int x, int y, int width, int height) const {
+    if (!valid() || x < 0 || y < 0 || width <= 0 || height <= 0 || width > mWidth - x || height > mHeight - y) {
+        return Bitmap();
+    }
+    Bitmap result(width, height);
+    for (int row = 0; row < height; ++row) {
+        std::memcpy(result.pixels() + (size_t)row * (size_t)width * 4,
+                    mPixels.data() + ((size_t)(y + row) * (size_t)mWidth + (size_t)x) * 4, (size_t)width * 4);
+    }
+    return result;
+}
+
 Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
     if (!valid() || newWidth <= 0 || newHeight <= 0) {
         return Bitmap();

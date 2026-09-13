@@ -258,6 +258,77 @@ TEST(a_sampled_region_still_lands_on_the_right_part_of_the_picture) {
     fs::remove(path);
 }
 
+#if defined(_WIN32)
+namespace {
+
+// A TIFF, whose codec does not reduce while decoding, as HEIF's does not.
+// Red rises smoothly across it and green down it, so a reduced tile's colour
+// says where in the picture it came from.
+std::string writeRampTiff(const char *name, int width, int height) {
+    const fs::path path = fs::temp_directory_path() / name;
+    IWICImagingFactory *imaging = Wic::factory();
+    Wic::Ptr<IWICStream> stream;
+    Wic::Ptr<IWICBitmapEncoder> encoder;
+    Wic::Ptr<IWICBitmapFrameEncode> frame;
+    WICPixelFormatGUID format = GUID_WICPixelFormat24bppBGR;
+    if (imaging == nullptr || FAILED(imaging->CreateStream(stream.put())) ||
+        FAILED(stream->InitializeFromFilename(path.wstring().c_str(), GENERIC_WRITE)) ||
+        FAILED(imaging->CreateEncoder(GUID_ContainerFormatTiff, nullptr, encoder.put())) ||
+        FAILED(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache)) ||
+        FAILED(encoder->CreateNewFrame(frame.put(), nullptr)) || FAILED(frame->Initialize(nullptr)) ||
+        FAILED(frame->SetSize((UINT)width, (UINT)height)) || FAILED(frame->SetPixelFormat(&format)) ||
+        format != GUID_WICPixelFormat24bppBGR) {
+        return std::string();
+    }
+    std::vector<uint8_t> pixels((size_t)width * (size_t)height * 3);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            uint8_t *pixel = pixels.data() + ((size_t)y * (size_t)width + (size_t)x) * 3;
+            pixel[0] = 128;
+            pixel[1] = (uint8_t)(y * 255 / (height - 1));
+            pixel[2] = (uint8_t)(x * 255 / (width - 1));
+        }
+    }
+    if (FAILED(frame->WritePixels((UINT)height, (UINT)width * 3, (UINT)pixels.size(), pixels.data())) ||
+        FAILED(frame->Commit()) || FAILED(encoder->Commit())) {
+        return std::string();
+    }
+    return path.string();
+}
+
+}  // namespace
+
+TEST(a_reduced_tile_from_a_codec_that_cannot_reduce_lands_on_its_part_of_the_picture) {
+    const std::string path = writeRampTiff("gallery3d_region_ramp.tif", 2048, 1536);
+    CHECK(!path.empty());
+    const Bitmap whole = Bitmap::load(path, 0);
+    const RegionDecoderPtr decoder = RegionDecoder::open(path);
+    CHECK(whole.valid());
+    CHECK(decoder != nullptr);
+    if (!whole.valid() || decoder == nullptr) {
+        return;
+    }
+    // Coarse first, then finer, then coarse again from the finer level kept.
+    for (int sample : {8, 2, 4, 8}) {
+        const int edge = 128 * sample;
+        const Bitmap tile = decoder->decodeRegion(256, 256, edge, edge, 128, 128);
+        CHECK(tile.valid());
+        CHECK_EQ(tile.width(), 128);
+        CHECK_EQ(tile.height(), 128);
+        if (tile.valid() && tile.width() == 128 && tile.height() == 128) {
+            // The tile's centre against the same point of the whole picture.
+            const int x = 256 + edge / 2;
+            const int y = 256 + edge / 2;
+            const uint8_t *expected = whole.pixels() + ((size_t)y * 2048 + (size_t)x) * 4;
+            const uint8_t *actual = tile.pixels() + ((size_t)64 * 128 + 64) * 4;
+            CHECK_NEAR(actual[0], expected[0], 3);
+            CHECK_NEAR(actual[1], expected[1], 3);
+        }
+    }
+    fs::remove(path);
+}
+#endif
+
 TEST(only_a_jpeg_offers_regions) {
     // The cheap check the draw path makes every frame, which must not open
     // anything.

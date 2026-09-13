@@ -80,4 +80,13 @@ Bitmap copy(IWICBitmapSource *source, const WICRect *rect);
 // Whether the source's pixel format carries alpha.
 bool hasAlpha(IWICBitmapSource *source);
 
+// The bitmap resized with WIC's Fant filter, which averages every pixel it
+// shrinks away rather than sampling a few.
+Bitmap scaled(const Bitmap &bitmap, int width, int height);
+
+// Whether an image stored beside a frame, such as its thumbnail, has the
+// frame's shape to within 2%. A 4:3 thumbnail with bars stored for a 3:2 photo
+// would squash the picture it stands in for.
+bool sameShape(UINT width, UINT height, UINT frameWidth, UINT frameHeight);
+
 }  // namespace Wic

@@ -1,6 +1,7 @@
 #include "platform/windows/Wic.h"
 
 #include <climits>
+#include <cmath>
 
 namespace Wic {
 
@@ -113,6 +114,37 @@ bool hasAlpha(IWICBitmapSource *source) {
         return false;
     }
     return transparent != FALSE;
+}
+
+Bitmap scaled(const Bitmap &bitmap, int width, int height) {
+    IWICImagingFactory *imaging = factory();
+    if (imaging == nullptr || !bitmap.valid() || width <= 0 || height <= 0) {
+        return Bitmap();
+    }
+    if (bitmap.width() == width && bitmap.height() == height) {
+        return bitmap;
+    }
+    const UINT stride = (UINT)bitmap.width() * 4;
+    Ptr<IWICBitmap> pixels;
+    Ptr<IWICBitmapScaler> scaler;
+    // CreateBitmapFromMemory copies the pixels, so nothing is written back.
+    if (FAILED(imaging->CreateBitmapFromMemory((UINT)bitmap.width(), (UINT)bitmap.height(),
+                                               GUID_WICPixelFormat32bppPRGBA, stride, stride * (UINT)bitmap.height(),
+                                               const_cast<BYTE *>(bitmap.pixels()), pixels.put())) ||
+        FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
+        FAILED(scaler->Initialize(pixels.get(), (UINT)width, (UINT)height, WICBitmapInterpolationModeFant))) {
+        return Bitmap();
+    }
+    return copy(scaler.get(), nullptr);
+}
+
+bool sameShape(UINT width, UINT height, UINT frameWidth, UINT frameHeight) {
+    if (width == 0 || height == 0 || frameWidth == 0 || frameHeight == 0) {
+        return false;
+    }
+    const double shape = (double)width / (double)height;
+    const double frameShape = (double)frameWidth / (double)frameHeight;
+    return std::fabs(shape - frameShape) <= 0.02 * frameShape;
 }
 
 }  // namespace Wic

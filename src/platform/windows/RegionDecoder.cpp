@@ -1,6 +1,11 @@
-// Regions through WIC. A codec that crops and reduces while decoding, such as
-// JPEG's or HEIF's, does the work. RAW's codec cannot, so a RAW photo's regions
-// come from the full-size JPEG preview the camera stored beside the raw data.
+// Regions through WIC.
+//
+// JPEG's codec crops and reduces while it decodes, so every tile is its own
+// small decode. A RAW photo's tiles come from the full-size JPEG preview the
+// camera stored beside the raw data, which behaves the same. Other codecs,
+// HEIF's among them, decode at full size whatever size is asked for: a reduced
+// tile from the HEIF codec costs as much as the whole picture. For those, a
+// reduced tile is cut from the whole picture decoded once at that level.
 #include "graphics/RegionDecoder.h"
 
 #include <algorithm>
@@ -22,6 +27,14 @@ void RegionDecoder::initAndroid() {
 
 namespace {
 
+// How much narrower than a tile level an image may be and still serve that
+// level. The tile grid picks the level whose width first covers the picture
+// on screen, so an image a little short of it still has about a pixel for
+// every pixel shown.
+bool nearlyCovers(UINT width, UINT wanted) {
+    return (unsigned long long)width * 10 >= (unsigned long long)wanted * 9;
+}
+
 class WicRegionDecoder : public RegionDecoder {
   public:
     ~WicRegionDecoder() override {
@@ -35,6 +48,10 @@ class WicRegionDecoder : public RegionDecoder {
     Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) override;
 
   private:
+    // The whole picture at no less than 1/sample of its size, decoding it if
+    // what is held is too small. Invalid if it cannot be decoded.
+    const Bitmap &levelFor(int sample);
+
     // The encoded file, which the decoder reads in place, so it is declared
     // first to be destroyed last.
     std::vector<uint8_t> mBytes;
@@ -44,6 +61,15 @@ class WicRegionDecoder : public RegionDecoder {
     Wic::Ptr<IWICBitmapSource> mSource;
     UINT mSourceWidth = 0;
     UINT mSourceHeight = 0;
+    // Whether mSource reduces while it decodes, which JPEG does.
+    bool mReducesWhileDecoding = false;
+    // The frame's embedded thumbnail in the frame's shape, if it has one. A
+    // HEIF photo's is about a quarter of its width.
+    Wic::Ptr<IWICBitmapSource> mThumbnail;
+    UINT mThumbnailWidth = 0;
+    // For a codec that does not reduce while decoding: the finest level it has
+    // been decoded at, which serves every coarser one too.
+    Bitmap mLevel;
     // WIC objects are not promised to be safe across threads, and one frame
     // decoding tile after tile continues from where the last tile left off.
     std::mutex mMutex;
@@ -83,6 +109,8 @@ bool WicRegionDecoder::open(const std::string &path) {
             mSource = std::move(preview);
             mSourceWidth = previewWidth;
             mSourceHeight = previewHeight;
+            // A camera's preview is a JPEG.
+            mReducesWhileDecoding = true;
         }
     }
     if (!mSource) {
@@ -91,8 +119,46 @@ bool WicRegionDecoder::open(const std::string &path) {
         }
         mSourceWidth = width;
         mSourceHeight = height;
+        mReducesWhileDecoding = container == GUID_ContainerFormatJpeg;
+    }
+
+    if (!mReducesWhileDecoding) {
+        Wic::Ptr<IWICBitmapSource> thumbnail;
+        UINT thumbnailWidth = 0;
+        UINT thumbnailHeight = 0;
+        if (SUCCEEDED(mFrame->GetThumbnail(thumbnail.put())) &&
+            SUCCEEDED(thumbnail->GetSize(&thumbnailWidth, &thumbnailHeight)) &&
+            Wic::sameShape(thumbnailWidth, thumbnailHeight, width, height)) {
+            mThumbnail = std::move(thumbnail);
+            mThumbnailWidth = thumbnailWidth;
+        }
     }
     return true;
+}
+
+const Bitmap &WicRegionDecoder::levelFor(int sample) {
+    const UINT wantedWidth = std::max(1u, (UINT)mWidth / (UINT)sample);
+    const UINT wantedHeight = std::max(1u, (UINT)mHeight / (UINT)sample);
+    if (mLevel.valid() && nearlyCovers((UINT)mLevel.width(), wantedWidth)) {
+        return mLevel;
+    }
+    // The thumbnail is already decoded and a fraction of the cost, when it is
+    // big enough for the level.
+    if (mThumbnail && nearlyCovers(mThumbnailWidth, wantedWidth)) {
+        Bitmap thumbnail = Wic::copy(mThumbnail.get(), nullptr);
+        if (thumbnail.valid()) {
+            mLevel = std::move(thumbnail);
+            return mLevel;
+        }
+    }
+    Wic::Ptr<IWICBitmapScaler> scaler;
+    if (FAILED(Wic::factory()->CreateBitmapScaler(scaler.put())) ||
+        FAILED(scaler->Initialize(mSource.get(), wantedWidth, wantedHeight, WICBitmapInterpolationModeFant))) {
+        mLevel = Bitmap();
+        return mLevel;
+    }
+    mLevel = Wic::copy(scaler.get(), nullptr);
+    return mLevel;
 }
 
 Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) {
@@ -113,9 +179,28 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
 
     std::lock_guard<std::mutex> lock(mMutex);
 
-    // The whole-number reduction the tile grid asks for, on top of however
-    // much smaller than the frame the source already is.
+    // The whole-number reduction the tile grid asks for.
     const int sample = std::max(1, width / outWidth);
+
+    if (sample > 1 && !mReducesWhileDecoding) {
+        const Bitmap &level = levelFor(sample);
+        if (!level.valid()) {
+            return Bitmap();
+        }
+        const double toLevelX = (double)level.width() / (double)mWidth;
+        const double toLevelY = (double)level.height() / (double)mHeight;
+        const int levelLeft = std::min(level.width() - 1, (int)(left * toLevelX));
+        const int levelTop = std::min(level.height() - 1, (int)(top * toLevelY));
+        const int levelRight = std::min(level.width(), (int)std::ceil(right * toLevelX));
+        const int levelBottom = std::min(level.height(), (int)std::ceil(bottom * toLevelY));
+        const Bitmap part = level.cropped(levelLeft, levelTop, std::max(1, levelRight - levelLeft),
+                                          std::max(1, levelBottom - levelTop));
+        // A level finer than this one, or the thumbnail a little short of it,
+        // leaves the part off the size asked for.
+        return Wic::scaled(part, outWidth, outHeight);
+    }
+
+    // On top of however much smaller than the frame the source already is.
     const UINT scaledWidth = std::max(1u, mSourceWidth / (UINT)sample);
     const UINT scaledHeight = std::max(1u, mSourceHeight / (UINT)sample);
     const double toScaledX = (double)scaledWidth / (double)mWidth;

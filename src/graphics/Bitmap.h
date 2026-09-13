@@ -61,6 +61,9 @@ class Bitmap {
     // for mipmapping to prevent transparent padding bleeding in; avoid it for (1, 1) extents.
     Bitmap paddedTo(int paddedWidth, int paddedHeight, bool clampEdges = false) const;
 
+    // A rectangle of the pixels. Invalid unless the rectangle lies inside.
+    Bitmap cropped(int x, int y, int width, int height) const;
+
     // Scales to cover the box and centre-crops it.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 
