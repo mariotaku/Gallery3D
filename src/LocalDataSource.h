@@ -105,9 +105,6 @@ class LocalDataSource : public DataSource {
     // out the user's folders, so the separator comes off first.
     static std::string folderDisplayName(const std::string &path);
 
-    // Matches the original, which gave the camera folder its own bucket id.
-    static const int64_t CAMERA_BUCKET_ID = 0;
-
     explicit LocalDataSource(std::string rootPath) : mRootPath(std::move(rootPath)) {}
 
     void loadMediaSets(MediaFeed *feed) override;

@@ -88,6 +88,9 @@ void MediaStoreDataSource::loadMediaSets(MediaFeed *feed) {
         set->mName = stringOr(bucket, "name", bucketId.c_str());
         set->mType = MediaSet::TYPE_FOLDER;
         set->mIsLocal = true;
+        // The bridge compares bucket ids, which is what the media store keys a
+        // folder by.
+        set->mIsCameraRoll = bucket.value("camera", false);
         set->setNumExpectedItems((int)intOr(bucket, "count", 0));
 
         // The wall draws a stack from the photos in it, so the items come with

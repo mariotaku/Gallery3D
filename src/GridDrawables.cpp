@@ -186,7 +186,7 @@ const char *GridDrawables::getIconForSet(MediaSet *set, bool scaled) {
         if (set->mPicasaAlbumId != Shared::INVALID) {
             return Res::drawable::icon_picasa_small;
         }
-        if (set->mId == LocalDataSource::CAMERA_BUCKET_ID) {
+        if (set->mIsCameraRoll) {
             return Res::drawable::icon_camera_small;
         }
         return Res::drawable::icon_folder_small;
@@ -197,7 +197,7 @@ const char *GridDrawables::getIconForSet(MediaSet *set, bool scaled) {
     if (set->mPicasaAlbumId != Shared::INVALID) {
         return Res::drawable::icon_picasa_small_unscaled;
     }
-    if (set->mId == LocalDataSource::CAMERA_BUCKET_ID) {
+    if (set->mIsCameraRoll) {
         return Res::drawable::icon_camera_small_unscaled;
     }
     return Res::drawable::icon_folder_small_unscaled;

@@ -48,6 +48,12 @@ class MediaSet {
     int64_t mPicasaAlbumId = Shared::INVALID;
     bool mIsLocal = true;
 
+    // The folder the camera writes to, which the wall marks with its own icon.
+    // Decided by the source, which is the only thing that knows how its folders
+    // are identified: a name would be translated on some devices and taken by
+    // other apps on the rest.
+    bool mIsCameraRoll = false;
+
     // Whoever created this set. The feed routes anything set specific back
     // here rather than to its own source, which is what lets more than one
     // source share a feed.

@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -42,6 +43,22 @@ public final class MediaStoreBridge {
      * One entry per folder holding photos: its id, its name and how many it has.
      * Matches what the wall draws on a stack before it opens.
      */
+    /**
+     * The bucket the camera writes to, by id rather than by name.
+     *
+     * MediaStore derives a bucket's id from the lowercased path of the folder
+     * holding it, so the id for DCIM/Camera can be worked out without reading a
+     * row. Going by the name instead would miss the folder wherever the system
+     * translates it, and would match any other app that made a folder called
+     * Camera.
+     */
+    private static String cameraBucketId() {
+        String path = Environment.getExternalStorageDirectory() + "/DCIM/Camera";
+        // Matches MediaProvider.computeBucketValues, which is what fills the
+        // column being compared against.
+        return String.valueOf(path.toLowerCase().hashCode());
+    }
+
     public static String queryBuckets() {
         ContentResolver resolver = resolver();
         if (resolver == null) {
@@ -90,6 +107,7 @@ public final class MediaStoreBridge {
         }
 
         JSONArray buckets = new JSONArray();
+        final String cameraId = cameraBucketId();
         try {
             for (Map.Entry<String, long[]> entry : counts.entrySet()) {
                 JSONObject bucket = new JSONObject();
@@ -97,6 +115,7 @@ public final class MediaStoreBridge {
                 bucket.put("name", names.get(entry.getKey()));
                 bucket.put("count", entry.getValue()[0]);
                 bucket.put("dateTaken", entry.getValue()[1]);
+                bucket.put("camera", cameraId.equals(entry.getKey()));
                 buckets.put(bucket);
             }
         } catch (JSONException error) {
