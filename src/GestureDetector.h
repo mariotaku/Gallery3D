@@ -14,6 +14,10 @@ class GestureDetector {
         virtual bool onDown(const MotionEvent &event) = 0;
         virtual bool onFling(const MotionEvent &down, const MotionEvent &up, float velocityX, float velocityY) = 0;
         virtual void onLongPress(const MotionEvent &event) = 0;
+
+        // The finger moved on after the long press, so it was a drag starting
+        // slowly rather than a press. Whatever the press did is to be undone.
+        virtual void onLongPressCancelled() {}
         virtual bool onScroll(const MotionEvent &down, const MotionEvent &move, float distanceX, float distanceY) = 0;
         virtual void onShowPress(const MotionEvent &event) = 0;
         virtual bool onSingleTapUp(const MotionEvent &event) = 0;

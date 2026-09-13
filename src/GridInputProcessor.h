@@ -7,6 +7,7 @@
 #include "GridCamera.h"
 #include "IndexRange.h"
 #include "Input.h"
+#include "Shared.h"
 #include "Vector3f.h"
 
 class GridLayer;
@@ -80,6 +81,7 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
     bool onDown(const MotionEvent &event) override;
     bool onFling(const MotionEvent &down, const MotionEvent &up, float velocityX, float velocityY) override;
     void onLongPress(const MotionEvent &event) override;
+    void onLongPressCancelled() override;
     bool onScroll(const MotionEvent &down, const MotionEvent &move, float distanceX, float distanceY) override;
     void onShowPress(const MotionEvent &event) override;
     bool onSingleTapUp(const MotionEvent &event) override;
@@ -107,6 +109,10 @@ class GridInputProcessor : public GestureDetector::Listener, public ScaleGesture
 
     // A wheel scroll has no end of its own, so the lean it can leave the wall
     // in at either end of its travel is released once the ticks stop.
+    // What the last long press selected, so a drag after it can take it back.
+    int mLongPressSlot = Shared::INVALID;
+    bool mLongPressOpenedSelection = false;
+
     bool mWheelScrolling = false;
     float mWheelIdleSeconds = 0.0f;
 

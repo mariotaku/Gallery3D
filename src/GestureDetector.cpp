@@ -35,6 +35,13 @@ bool GestureDetector::onTouchEvent(const MotionEvent &event) {
         if (std::fabs(event.getX() - mDownEvent.getX()) > TOUCH_SLOP ||
             std::fabs(event.getY() - mDownEvent.getY()) > TOUCH_SLOP) {
             mMoved = true;
+            if (mLongPressFired) {
+                // A press that the finger then moved on from was the slow start
+                // of a drag, not a press. Let the listener take it back, and
+                // carry on as the drag it turned out to be.
+                mLongPressFired = false;
+                mListener->onLongPressCancelled();
+            }
         }
         mListener->onScroll(mDownEvent, event, -dx, -dy);
         mLastEvent = event;
@@ -47,6 +54,16 @@ bool GestureDetector::onTouchEvent(const MotionEvent &event) {
         mDown = false;
         if (mLongPressFired) {
             return true;
+        }
+        // Measure the distance again rather than trust that the moves in
+        // between were seen. Android withholds them while it decides whether a
+        // gesture is its own, and a swipe it then declines arrives as a down
+        // and an up with nothing between, which would otherwise read as a tap
+        // on whatever the finger started over.
+        const float upDeltaX = std::fabs(event.getX() - mDownEvent.getX());
+        const float upDeltaY = std::fabs(event.getY() - mDownEvent.getY());
+        if (upDeltaX > TOUCH_SLOP || upDeltaY > TOUCH_SLOP) {
+            mMoved = true;
         }
         if (mMoved) {
             const float kMinFlingVelocity = 120.0f;

@@ -514,9 +514,28 @@ void GridInputProcessor::onLongPress(const MotionEvent &event) {
         if (layer->getState() == GridLayer::STATE_FULL_SCREEN) {
             layer->deselectAll();
         }
+        // Noted so the press can be taken back if the finger moves on. Leaving
+        // selection mode is only ours to undo when the press is what opened it.
+        mLongPressSlot = mCurrentFocusSlot;
+        mLongPressOpenedSelection = layer->getHud()->getMode() != HudLayer::MODE_SELECT;
         layer->getHud()->enterSelectionMode();
         layer->addSlotToSelectedItems(mCurrentFocusSlot, true, true);
     }
+}
+
+void GridInputProcessor::onLongPressCancelled() {
+    if (mLongPressSlot == Shared::INVALID) {
+        return;
+    }
+    GridLayer *layer = mLayer;
+    // Same call as the press made: with removeIfAlreadyAdded it takes the slot
+    // back out again.
+    layer->addSlotToSelectedItems(mLongPressSlot, true, true);
+    if (mLongPressOpenedSelection && layer->getSelectedBuckets().empty()) {
+        layer->getHud()->cancelSelection();
+    }
+    mLongPressSlot = Shared::INVALID;
+    mLongPressOpenedSelection = false;
 }
 
 bool GridInputProcessor::onScroll(const MotionEvent &down, const MotionEvent &move, float distanceX, float distanceY) {
