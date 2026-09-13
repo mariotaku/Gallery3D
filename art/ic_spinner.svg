@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 60 60"
+     g3d:name="ic_spinner{{frame}}" g3d:frames="1..8"
+     g3d:outputs="drawable=60x60 drawable-mdpi=40x40 drawable-hdpi=60x60">
+  <!-- Eight frames of the busy spinner. Eight bars round a ring; each frame
+       lights the next bar clockwise from the top and leaves the one before it
+       half lit. -->
+  <style>
+    .bar { fill: #6c6c6c; opacity: 0.32 }
+    .trail{{frame}} { fill: #bcbcbc; opacity: 0.62 }
+    .lead{{frame}} { fill: #f4f4f4; opacity: 0.92 }
+  </style>
+  <defs>
+    <filter id="edge" filterUnits="userSpaceOnUse" x="0" y="0" width="60" height="60">
+      <feDropShadow dx="0" dy="0.4" stdDeviation="0.6" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#edge)">
+  <g transform="translate(30 30)">
+    <rect class="bar lead1 trail2" x="-2" y="-13" width="4" height="6" rx="0.9"/>
+    <rect class="bar lead2 trail3" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(45)"/>
+    <rect class="bar lead3 trail4" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(90)"/>
+    <rect class="bar lead4 trail5" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(135)"/>
+    <rect class="bar lead5 trail6" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(180)"/>
+    <rect class="bar lead6 trail7" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(225)"/>
+    <rect class="bar lead7 trail8" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(270)"/>
+    <rect class="bar lead8 trail1" x="-2" y="-13" width="4" height="6" rx="0.9" transform="rotate(315)"/>
+  </g>
+  </g>
+</svg>

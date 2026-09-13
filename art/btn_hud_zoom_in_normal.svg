@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 43 43"
+     g3d:outputs="drawable=43x43 drawable-mdpi=43x43 drawable-hdpi=65x65">
+  <!-- The upper half of the zoom rocker at the right edge of the screen: a
+       smoked glass key rounded at its top left, running off the right edge
+       and down into the zoom out key below it. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="6" y1="0" x2="43" y2="0">
+      <stop offset="0" stop-color="#4a4a4a"/>
+      <stop offset="0.17" stop-color="#606060"/>
+      <stop offset="0.92" stop-color="#cacaca"/>
+      <stop offset="1" stop-color="#d0d0d0"/>
+    </linearGradient>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ececec"/>
+      <stop offset="1" stop-color="#d4d4d4"/>
+    </linearGradient>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="0" y="0" width="43" height="43">
+      <rect width="43" height="43" fill="#ffffff"/>
+      <rect x="6.5" y="5.5" width="45" height="45" rx="3.5" fill="#000000"/>
+    </mask>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-10" y="-10" width="70" height="70">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+    <filter id="emboss" filterUnits="userSpaceOnUse" x="0" y="0" width="43" height="43">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="0.8" result="grown"/>
+      <feFlood flood-color="#1c1c1c" flood-opacity="0.45"/>
+      <feComposite in2="grown" operator="in" result="edge"/>
+      <feMerge>
+        <feMergeNode in="edge"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g mask="url(#outside)">
+    <rect x="6.5" y="5.5" width="45" height="45" rx="3.5" fill="#000000" opacity="0.75" filter="url(#shadow)"/>
+  </g>
+  <rect x="6.5" y="5.5" width="45" height="45" rx="3.5" fill="url(#face)" opacity="0.41"/>
+  <rect x="7" y="6" width="44" height="44" rx="3" fill="none" stroke="url(#face)" stroke-width="1" opacity="0.35"/>
+  <!-- Where this key meets the one below. -->
+  <rect x="6.5" y="42" width="37" height="1" fill="#2c2c2c" opacity="0.22"/>
+
+  <g filter="url(#emboss)" opacity="0.8">
+    <circle cx="26" cy="23" r="5.2" fill="none" stroke="url(#glyph)" stroke-width="3.3"/>
+    <rect x="23" y="22" width="6" height="2" fill="#d6d6d6"/>
+    <rect x="25" y="20" width="2" height="6" fill="#d6d6d6"/>
+    <line x1="30.4" y1="27.4" x2="36" y2="33" stroke="#e8e8e8" stroke-width="3.4" stroke-linecap="round"/>
+  </g>
+</svg>

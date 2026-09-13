@@ -100,6 +100,10 @@ rather than once per tile. WIC crops JPEG, HEIF, TIFF, WebP and RAW; libjpeg
 only JPEG. Formats with no region decoder behind them stay on one downscaled
 decode.
 
+The icons, buttons, bars and frames are drawn as SVG in `art/` and rendered to
+the PNGs under `assets/` by `tools/art/render.py`; `art/README.md` describes
+the look they keep.
+
 For scripted screenshots:
 
 ```sh

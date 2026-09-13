@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 64 64"
+     g3d:outputs="drawable=64x64">
+  <!-- stack_frame for the stack with focus: the same texture and insets, the
+       border in the focus orange and a dark orange glow in place of the
+       shadow. The middle stays clear for the photo. -->
+  <defs>
+    <linearGradient id="border" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="52">
+      <stop offset="0" stop-color="#ffa53f"/>
+      <stop offset="0.5" stop-color="#ef750b"/>
+      <stop offset="1" stop-color="#ef8c33"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.2"/>
+    </filter>
+  </defs>
+  <rect x="11.05" y="8.9" width="41.9" height="42" fill="none" stroke="#8f4607" stroke-width="5.5"
+        opacity="1" filter="url(#glow)"/>
+  <rect x="11.05" y="7.95" width="41.9" height="42" fill="none" stroke="url(#border)" stroke-width="3.6"/>
+</svg>

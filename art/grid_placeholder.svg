@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 128 96"
+     g3d:outputs="drawable=128x96">
+  <!-- What a photo shows until its thumbnail arrives: a dark glossy tile,
+       lighter in its upper half. -->
+  <defs>
+    <linearGradient id="upper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a6a6a"/>
+      <stop offset="1" stop-color="#525252"/>
+    </linearGradient>
+    <linearGradient id="lower" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4a4a"/>
+      <stop offset="1" stop-color="#303030"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="128" height="48" fill="url(#upper)"/>
+  <rect x="0" y="48" width="128" height="48" fill="url(#lower)"/>
+</svg>

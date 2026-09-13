@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 66 42"
+     g3d:outputs="drawable=66x42">
+  <!-- gallery_zoom_in while pressed: the tab turns gold with a bright rim and
+       glows, and the magnifier's shadow darkens the gold under it. -->
+  <defs>
+    <path id="tab" d="M 1 7.4 H 49.5 A 9 9 0 0 1 58.5 16.4 V 25.3 A 9 9 0 0 1 49.5 34.3 H 1 Z"/>
+    <clipPath id="inside">
+      <use href="#tab"/>
+    </clipPath>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="8.5" x2="0" y2="32.5">
+      <stop offset="0" stop-color="#fad54f"/>
+      <stop offset="0.167" stop-color="#f6cf4a"/>
+      <stop offset="0.333" stop-color="#f2c43d"/>
+      <stop offset="0.5" stop-color="#edb62d"/>
+      <stop offset="0.667" stop-color="#e8a91e"/>
+      <stop offset="0.833" stop-color="#e39c14"/>
+      <stop offset="1" stop-color="#df910f"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80"
+            color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.8" result="spread"/>
+      <feComponentTransfer in="spread" result="strength">
+        <feFuncA type="linear" slope="2"/>
+      </feComponentTransfer>
+      <feFlood flood-color="#eaae2a"/>
+      <feComposite in2="strength" operator="in"/>
+    </filter>
+    <filter id="drop" filterUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80"
+            color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0.5" stdDeviation="1.1" flood-color="#3a2600" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <use href="#tab" fill="#000000" filter="url(#glow)"/>
+  <use href="#tab" fill="url(#gold)"/>
+  <g clip-path="url(#inside)">
+    <use href="#tab" fill="none" stroke="#f8cb14" stroke-width="2"/>
+  </g>
+  <g filter="url(#drop)" fill="#fcf9ec">
+    <circle cx="39.35" cy="20.9" r="7.05" fill="none" stroke="#fcf9ec" stroke-width="2.9"/>
+    <rect x="35.6" y="19.85" width="7.8" height="2.1"/>
+    <rect x="38.45" y="17.1" width="2.1" height="7.6"/>
+    <line x1="45.8" y1="27.35" x2="51" y2="32.55" stroke="#fcf9ec" stroke-width="2.8" stroke-linecap="round"/>
+  </g>
+</svg>

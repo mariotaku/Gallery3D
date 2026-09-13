@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 21 57"
+     g3d:outputs="drawable=21x57">
+  <!-- The left end of a pressed selection-bar button: selection_menu_bg_pressed's
+       gold from column 12 on, glowing out past its left and top edges and
+       round the corner between them. -->
+  <defs>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="57">
+      <stop offset="0.011" stop-color="#fcdc71"/>
+      <stop offset="0.989" stop-color="#e9a001"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="120" height="140"
+            color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5.5" result="spread"/>
+      <feComponentTransfer in="spread" result="strength">
+        <feFuncA type="linear" slope="1.49"/>
+      </feComponentTransfer>
+      <feFlood flood-color="#ffc000"/>
+      <feComposite in2="strength" operator="in"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="60" height="45" fill="#000000" filter="url(#glow)"/>
+  <rect x="12" y="12" width="60" height="45" fill="url(#gold)"/>
+</svg>

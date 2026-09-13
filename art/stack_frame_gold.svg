@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 64 64"
+     g3d:outputs="drawable=64x64">
+  <!-- stack_frame for a pressed or selected stack: the same texture and
+       insets, a white border glowing gold. The middle stays clear for the
+       photo. -->
+  <defs>
+    <linearGradient id="glowColor" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="64">
+      <stop offset="0" stop-color="#fff000"/>
+      <stop offset="1" stop-color="#ffc000"/>
+    </linearGradient>
+    <linearGradient id="border" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="52">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fffbe8"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+  <rect x="11.1" y="8.6" width="41.8" height="42" fill="none" stroke="url(#glowColor)" stroke-width="5"
+        opacity="0.8" filter="url(#glow)"/>
+  <rect x="11.1" y="7.8" width="41.8" height="42" fill="none" stroke="url(#border)" stroke-width="3.6"/>
+</svg>

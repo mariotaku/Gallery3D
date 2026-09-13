@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 1 57"
+     g3d:outputs="drawable=1x57">
+  <!-- A pressed button in the selection bar: gold from row 12 down, glowing
+       upward for twelve rows. selection_menu_bg_pressed_left and _right cap
+       it with the same glow turned around their outer edges. -->
+  <defs>
+    <linearGradient id="glow" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="12">
+      <stop offset="0.042" stop-color="#ffc000" stop-opacity="0.008"/>
+      <stop offset="0.292" stop-color="#ffc000" stop-opacity="0.086"/>
+      <stop offset="0.542" stop-color="#ffc000" stop-opacity="0.247"/>
+      <stop offset="0.792" stop-color="#ffc000" stop-opacity="0.486"/>
+      <stop offset="0.958" stop-color="#ffc000" stop-opacity="0.686"/>
+    </linearGradient>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="57">
+      <stop offset="0.011" stop-color="#fcdc71"/>
+      <stop offset="0.989" stop-color="#e9a001"/>
+    </linearGradient>
+  </defs>
+  <rect x="-1" y="0" width="3" height="12" fill="url(#glow)"/>
+  <rect x="-1" y="12" width="3" height="45" fill="url(#gold)"/>
+</svg>

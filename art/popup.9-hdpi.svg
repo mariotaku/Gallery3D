@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 93 100"
+     g3d:name="popup.9" g3d:outputs="drawable-hdpi=95x102"
+     g3d:ninepatch="stretch-x=22-70 stretch-y=17-71 pad-x=15-77 pad-y=9-77">
+  <!-- popup.9.svg's box at hdpi, drawn at this size because hdpi's guides and
+       border are not an exact 1.5 times mdpi's. -->
+  <defs>
+    <path id="box" d="M 21.1 6.26 H 71.95 A 9 9 0 0 1 80.95 15.26 V 72.1 A 9 9 0 0 1 71.95 81.1 H 21.1 A 9 9 0 0 1 12.1 72.1 V 15.26 A 9 9 0 0 1 21.1 6.26 Z"/>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="180" height="190">
+      <feGaussianBlur stdDeviation="5.5"/>
+    </filter>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-40" y="-40" width="180" height="190">
+      <rect x="-40" y="-40" width="180" height="190" fill="#ffffff"/>
+      <use href="#box" fill="#000000"/>
+    </mask>
+  </defs>
+  <g mask="url(#outside)">
+    <use href="#box" transform="translate(0 6.9)" fill="#000000" opacity="0.8" filter="url(#shadow)"/>
+  </g>
+  <use href="#box" fill="#262626" fill-opacity="0.9"/>
+  <path d="M 21.1 7.81 H 71.95 A 7.45 7.45 0 0 1 79.4 15.26 V 72.1 A 7.45 7.45 0 0 1 71.95 79.55 H 21.1 A 7.45 7.45 0 0 1 13.65 72.1 V 15.26 A 7.45 7.45 0 0 1 21.1 7.81 Z"
+        fill="none" stroke="#ffffff" stroke-width="3.1"/>
+</svg>

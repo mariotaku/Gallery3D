@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 54 52"
+     g3d:outputs="drawable=54x52">
+  <!-- grid_check_on before the photo is picked: the same tile and check in
+       smoked grey, letting the photo show through. -->
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9b9b9"/>
+      <stop offset="1" stop-color="#474747"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#adadad"/>
+      <stop offset="1" stop-color="#a6a6a6"/>
+    </linearGradient>
+    <filter id="tile" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0.8" stdDeviation="0.6" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="check" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="1" dy="1.4" stdDeviation="0.7" flood-color="#303030" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+  <g filter="url(#tile)">
+    <rect x="5.3" y="3.4" width="43.4" height="42.2" rx="7" fill="url(#rim)"/>
+    <rect x="6.8" y="4.9" width="40.4" height="39.2" rx="5.7" fill="#979797"/>
+    <rect x="7.7" y="5.8" width="38.6" height="37.4" rx="5" fill="url(#fill)"/>
+  </g>
+  <path d="M16.2 24.6 L24 33.4 L40.3 14.3" fill="none" stroke="#c8c8c8" stroke-width="6"
+        stroke-linejoin="miter" stroke-miterlimit="4" filter="url(#check)"/>
+</svg>

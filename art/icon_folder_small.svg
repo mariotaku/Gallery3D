@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:outputs="drawable=39x39 drawable-mdpi=40x40 drawable-hdpi=60x60">
+  <!-- An album that is a folder on the disk. -->
+  <defs>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6e6e6"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <path d="M11.3 27.2 V13.9 Q11.3 13.3 11.9 13.3 H17.3 L18.9 14.9 H28.3 Q28.9 14.9 28.9 15.5 V27.2 Z"
+          fill="url(#glyph)"/>
+    <!-- The fold where the tab meets the front. -->
+    <path d="M11.3 15.6 H28.9" stroke="#bdbdbd" stroke-width="0.35"/>
+  </g>
+</svg>

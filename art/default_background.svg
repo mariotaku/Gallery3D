@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 256 128"
+     g3d:outputs="drawable=256x128">
+  <!-- The backdrop behind a wall with no photo to blur: a warm sky glowing
+       over dark hills, already soft. Its right edge fades out from x 190, as
+       the original's did. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5c4722"/>
+      <stop offset="0.62" stop-color="#8a7844"/>
+      <stop offset="1" stop-color="#6c6242"/>
+    </linearGradient>
+    <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="128" cy="78" r="175"
+                    gradientTransform="translate(128 78) scale(1 0.5) translate(-128 -78)">
+      <stop offset="0" stop-color="#c8c6ad" stop-opacity="1"/>
+      <stop offset="0.18" stop-color="#b6b292" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#a99a66" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#8a7844" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34332a"/>
+      <stop offset="0.45" stop-color="#1b1a13"/>
+      <stop offset="1" stop-color="#0e0e09"/>
+    </linearGradient>
+    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="190" y1="0" x2="255" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="edge" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="128">
+      <rect x="0" y="0" width="256" height="128" fill="url(#fade)"/>
+    </mask>
+    <filter id="haze" x="-10%" y="-40%" width="120%" height="180%">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
+  </defs>
+  <g mask="url(#edge)">
+    <rect x="0" y="0" width="256" height="128" fill="url(#sky)"/>
+    <rect x="0" y="0" width="256" height="128" fill="url(#glow)"/>
+    <path d="M-20 140 V96 C5 89 35 90 62 97 C88 104 108 90 138 88 C164 86 176 98 198 99 C224 100 246 92 276 94 V140 Z"
+          fill="url(#ground)" filter="url(#haze)"/>
+  </g>
+</svg>

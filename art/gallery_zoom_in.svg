@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 66 42"
+     g3d:outputs="drawable=66x42">
+  <!-- The zoom-in half of the fullscreen zoom control: a glass tab, square on
+       the left where it meets gallery_zoom_out and round on the right, with a
+       white magnifier and plus casting a soft shadow. -->
+  <defs>
+    <path id="tab" d="M 1 7.4 H 49.5 A 9 9 0 0 1 58.5 16.4 V 25.3 A 9 9 0 0 1 49.5 34.3 H 1 Z"/>
+    <clipPath id="inside">
+      <use href="#tab"/>
+    </clipPath>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="7.4" x2="0" y2="34.3">
+      <stop offset="0.041" stop-color="#ffffff" stop-opacity="0.216"/>
+      <stop offset="0.19" stop-color="#f5f5f5" stop-opacity="0.204"/>
+      <stop offset="0.375" stop-color="#e4e4e4" stop-opacity="0.188"/>
+      <stop offset="0.524" stop-color="#d9d9d9" stop-opacity="0.157"/>
+      <stop offset="0.561" stop-color="#cbcbcb" stop-opacity="0.133"/>
+      <stop offset="0.673" stop-color="#b0b0b0" stop-opacity="0.114"/>
+      <stop offset="0.933" stop-color="#9e9e9e" stop-opacity="0.082"/>
+    </linearGradient>
+    <filter id="soft" filterUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80">
+      <feGaussianBlur stdDeviation="1.3"/>
+    </filter>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80">
+      <rect x="-20" y="-20" width="110" height="80" fill="#ffffff"/>
+      <use href="#tab" fill="#000000"/>
+    </mask>
+    <filter id="drop" filterUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80"
+            color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0.5" stdDeviation="1.1" flood-color="#000000" flood-opacity="0.85"/>
+    </filter>
+  </defs>
+  <g mask="url(#outside)">
+    <use href="#tab" fill="#000000" opacity="0.25" filter="url(#soft)"/>
+  </g>
+  <use href="#tab" fill="url(#glass)"/>
+  <g clip-path="url(#inside)">
+    <path d="M 49.5 7.4 A 9 9 0 0 1 58.5 16.4 V 25.3 A 9 9 0 0 1 49.5 34.3" fill="none" stroke="#ffffff"
+          stroke-opacity="0.05" stroke-width="2"/>
+    <rect x="-2" y="33" width="70" height="1" fill="#ffffff" fill-opacity="0.056"/>
+  </g>
+  <g filter="url(#drop)" fill="#ffffff">
+    <circle cx="39.35" cy="20.9" r="7.05" fill="none" stroke="#ffffff" stroke-width="2.9"/>
+    <rect x="35.6" y="19.85" width="7.8" height="2.1"/>
+    <rect x="38.45" y="17.1" width="2.1" height="7.6"/>
+    <line x1="45.8" y1="27.35" x2="51" y2="32.55" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
+  </g>
+</svg>

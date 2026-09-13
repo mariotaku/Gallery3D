@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
+     g3d:outputs="drawable=72x72">
+  <!-- Menu: crop. Two crop marks around a portrait, in the Android 2.3 menu
+       style: white, with a soft white glow. -->
+  <defs>
+    <linearGradient id="bright" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="64">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ededed"/>
+    </linearGradient>
+    <linearGradient id="detail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbfbfb"/>
+      <stop offset="1" stop-color="#cbcbcb"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="1.2" result="grown"/>
+      <feGaussianBlur in="grown" stdDeviation="0.9" result="soft"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.3"/>
+      <feComposite in2="soft" operator="in" result="halo"/>
+      <feMerge>
+        <feMergeNode in="halo"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- The photo being cropped, a pale print with a thin white edge. -->
+  <rect x="26.5" y="26.5" width="21" height="21" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff"
+        stroke-opacity="0.35" stroke-width="1.2"/>
+  <g filter="url(#glow)">
+    <g fill="url(#bright)">
+      <rect x="17" y="10" width="7" height="44.2"/>
+      <rect x="10" y="18.4" width="49" height="5.8"/>
+      <rect x="50" y="18.4" width="7" height="43.8"/>
+      <rect x="17" y="48.4" width="48.2" height="5.8"/>
+    </g>
+    <g fill="url(#detail)">
+      <circle cx="37" cy="33" r="6.1"/>
+      <path d="M27 46 V43.2 C27 41 28.4 40 30.6 40 H33.2 C34.4 41.8 35.6 42.4 37 42.4 C38.4 42.4 39.6 41.8 40.8 40
+               H43.4 C45.6 40 47 41 47 43.2 V46 Z"/>
+    </g>
+  </g>
+</svg>

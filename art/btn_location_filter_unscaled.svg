@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 38 38"
+     g3d:outputs="drawable=38x38">
+  <!-- The location badge on a timeline cluster: a white crosshair on a glassy
+       disc, lit from above, with a soft shadow under the disc. -->
+  <defs>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <circle cx="18.8" cy="17" r="15.8" fill="url(#glass)" filter="url(#drop)"/>
+  <circle cx="18.8" cy="17" r="15.3" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1"/>
+  <g fill="#ffffff">
+    <circle cx="19" cy="17.3" r="6.75" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="19" cy="17.3" r="3.1"/>
+    <rect x="18" y="7" width="2" height="3.4"/>
+    <rect x="18" y="24.2" width="2" height="3.4"/>
+    <rect x="8.8" y="16.3" width="3.4" height="2"/>
+    <rect x="25.8" y="16.3" width="3.4" height="2"/>
+  </g>
+</svg>

@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Renders the SVG sources in art/ to the PNG drawables under assets/.
+
+Each SVG names its outputs on its root element, in the urn:gallery3d:art
+namespace:
+
+  g3d:outputs    Space-separated bucket=WIDTHxHEIGHT pairs, such as
+                 "drawable-mdpi=40x40 drawable-hdpi=60x60". The viewBox is
+                 fitted into each size and centred.
+  g3d:name       The drawable's name, when it is not the file's. A nine-patch
+                 keeps its .9, as in popup.9.
+  g3d:frames     A range such as "1..8". The file renders once for each value,
+                 with {{frame}} replaced throughout, the name included.
+  g3d:ninepatch  "stretch-x=A-B stretch-y=A-B pad-x=A-B pad-y=A-B", in viewBox
+                 units, inclusive. The art renders one pixel in from every edge
+                 and the guides go on that border, as a .9.png wants them.
+
+Needs resvg_py and Pillow: pip install resvg_py pillow
+
+  python tools/art/render.py                   renders every drawable
+  python tools/art/render.py --only a,b        renders just these names
+  python tools/art/render.py --sheet out.png --original DIR
+                                               also draws old beside new
+"""
+
+import argparse
+import copy
+import io
+import os
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+import resvg_py
+from PIL import Image, ImageDraw
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ART = os.path.join(ROOT, "art")
+ASSETS = os.path.join(ROOT, "assets")
+
+SVG_NS = "http://www.w3.org/2000/svg"
+ART_NS = "urn:gallery3d:art"
+ET.register_namespace("", SVG_NS)
+ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+ET.register_namespace("g3d", ART_NS)
+
+
+def art_attribute(root, key):
+    return root.get("{%s}%s" % (ART_NS, key))
+
+
+def sources():
+    """Every drawable an SVG describes, as (path, name, root element)."""
+    for file in sorted(os.listdir(ART)):
+        if not file.endswith(".svg"):
+            continue
+        path = os.path.join(ART, file)
+        with open(path, encoding="utf-8") as handle:
+            template = handle.read()
+        frames = art_attribute(ET.fromstring(template), "frames")
+        values = [None]
+        if frames:
+            first, last = frames.split("..")
+            values = [str(value) for value in range(int(first), int(last) + 1)]
+        for value in values:
+            text = template if value is None else template.replace("{{frame}}", value)
+            root = ET.fromstring(text)
+            yield path, art_attribute(root, "name") or file[: -len(".svg")], root
+
+
+def view_box(root):
+    box = root.get("viewBox")
+    if box:
+        return [float(value) for value in re.split(r"[\s,]+", box.strip())]
+    return [0.0, 0.0, float(root.get("width")), float(root.get("height"))]
+
+
+def rasterize(path, root, width, height):
+    sized = copy.deepcopy(root)
+    sized.set("width", str(width))
+    sized.set("height", str(height))
+    data = resvg_py.svg_to_bytes(svg_string=ET.tostring(sized, encoding="unicode"))
+    image = Image.open(io.BytesIO(bytes(data))).convert("RGBA")
+    if image.size != (width, height):
+        sys.exit(f"{path}: rendered {image.size[0]}x{image.size[1]}, wanted {width}x{height}")
+    return image
+
+
+def with_guides(path, root, width, height, spec):
+    """The art one pixel in from each edge, with nine-patch guides around it."""
+    content_width = width - 2
+    content_height = height - 2
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    image.paste(rasterize(path, root, content_width, content_height), (1, 1))
+
+    left, top, box_width, box_height = view_box(root)
+    scale_x = content_width / box_width
+    scale_y = content_height / box_height
+    guides = dict(item.split("=") for item in spec.split())
+
+    def pixels(key, origin, scale, limit):
+        first, last = (float(value) for value in guides[key].split("-"))
+        start = max(0, int(round((first - origin) * scale)))
+        end = min(limit, int(round((last + 1 - origin) * scale)))
+        return range(start + 1, end + 1)
+
+    pixel = image.load()
+    black = (0, 0, 0, 255)
+    for x in pixels("stretch-x", left, scale_x, content_width):
+        pixel[x, 0] = black
+    for y in pixels("stretch-y", top, scale_y, content_height):
+        pixel[0, y] = black
+    for x in pixels("pad-x", left, scale_x, content_width):
+        pixel[x, height - 1] = black
+    for y in pixels("pad-y", top, scale_y, content_height):
+        pixel[width - 1, y] = black
+    return image
+
+
+def write_sheet(rendered, target, original):
+    """Pages of old and new side by side, on mid grey and on near black."""
+    cell = 300
+    per_page = 12
+    columns = 4
+    backgrounds = [(128, 128, 128, 255), (24, 24, 24, 255)]
+    base, extension = os.path.splitext(target)
+    for page_index in range(0, len(rendered), per_page):
+        page = rendered[page_index : page_index + per_page]
+        rows = (len(page) + 1) // 2
+        sheet = Image.new("RGBA", (cell * columns * 2, cell * rows), (60, 0, 60, 255))
+        draw = ImageDraw.Draw(sheet)
+        for index, (bucket, name, path) in enumerate(page):
+            x0 = (index % 2) * cell * columns
+            y0 = (index // 2) * cell
+            old_path = os.path.join(original, bucket, name + ".png") if original else None
+            images = [Image.open(old_path).convert("RGBA") if old_path and os.path.exists(old_path) else None,
+                      Image.open(path).convert("RGBA")]
+            for column in range(columns):
+                background = backgrounds[column // 2]
+                picture = images[column % 2]
+                x = x0 + column * cell
+                draw.rectangle([x, y0, x + cell - 1, y0 + cell - 1], fill=background)
+                if picture is None:
+                    continue
+                scale = max(1, min(6, (cell - 24) // max(picture.width, picture.height)))
+                if max(picture.width, picture.height) * scale > cell - 24:
+                    picture = picture.resize(((cell - 24), max(1, picture.height * (cell - 24) // picture.width)))
+                else:
+                    picture = picture.resize((picture.width * scale, picture.height * scale), Image.NEAREST)
+                sheet.alpha_composite(picture, (x + 4, y0 + 4))
+            draw.text((x0 + 4, y0 + cell - 16), f"{bucket}/{name}  old | new | old | new", fill=(255, 0, 255, 255))
+        page_path = f"{base}-{page_index // per_page + 1}{extension}"
+        sheet.save(page_path)
+        print(f"sheet {page_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--only", help="comma-separated drawable names")
+    parser.add_argument("--sheet", help="where to write comparison sheets")
+    parser.add_argument("--original", help="a copy of assets/ to compare against")
+    args = parser.parse_args()
+
+    wanted = set(args.only.split(",")) if args.only else None
+    rendered = []
+    for path, name, root in sources():
+        if wanted is not None and name not in wanted:
+            continue
+        outputs = art_attribute(root, "outputs")
+        if not outputs:
+            sys.exit(f"{path}: no g3d:outputs")
+        spec = art_attribute(root, "ninepatch")
+        for output in outputs.split():
+            bucket, size = output.split("=")
+            width, height = (int(value) for value in size.split("x"))
+            if spec:
+                image = with_guides(path, root, width, height, spec)
+            else:
+                image = rasterize(path, root, width, height)
+            target = os.path.join(ASSETS, bucket, name + ".png")
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            image.save(target, optimize=True)
+            rendered.append((bucket, name, target))
+            print(f"{bucket}/{name}.png {width}x{height}")
+
+    if wanted is not None:
+        missing = wanted - {name for _, name, _ in rendered}
+        if missing:
+            sys.exit("no SVG renders " + ", ".join(sorted(missing)))
+    if args.sheet:
+        write_sheet(rendered, args.sheet, args.original)
+
+
+if __name__ == "__main__":
+    main()

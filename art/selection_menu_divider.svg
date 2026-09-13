@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 1 2"
+     g3d:outputs="drawable=1x2">
+  <!-- The faint line MenuBar stretches between two buttons. -->
+  <rect x="-1" y="-1" width="3" height="4" fill="#ffffff" fill-opacity="0.204"/>
+</svg>

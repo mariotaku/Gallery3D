@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 43 45"
+     g3d:outputs="drawable=43x45 drawable-mdpi=43x45 drawable-hdpi=65x68">
+  <!-- The zoom out key held down: gold, edged in bright yellow, glowing. -->
+  <defs>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="6" y1="0" x2="43" y2="0">
+      <stop offset="0" stop-color="#e7a004"/>
+      <stop offset="0.25" stop-color="#edad17"/>
+      <stop offset="0.52" stop-color="#f2bf34"/>
+      <stop offset="0.79" stop-color="#f8d152"/>
+      <stop offset="1" stop-color="#fbdc63"/>
+    </linearGradient>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdefc0"/>
+      <stop offset="1" stop-color="#ead49a"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-10" y="-20" width="70" height="80">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+    <filter id="emboss" filterUnits="userSpaceOnUse" x="0" y="0" width="43" height="45">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="0.8" result="grown"/>
+      <feFlood flood-color="#8a5a00" flood-opacity="0.45"/>
+      <feComposite in2="grown" operator="in" result="edge"/>
+      <feMerge>
+        <feMergeNode in="edge"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="5.5" y="-9" width="46" height="48.5" rx="4" fill="#f2bd39" filter="url(#glow)"/>
+  <rect x="5.5" y="-9" width="46" height="48.5" rx="4" fill="#ffe400"/>
+  <rect x="6.6" y="-8" width="45" height="46.4" rx="3" fill="url(#gold)"/>
+
+  <g filter="url(#emboss)">
+    <circle cx="26" cy="17" r="5.2" fill="none" stroke="url(#glyph)" stroke-width="3.3"/>
+    <rect x="23" y="16" width="6" height="2" fill="#e8d39a"/>
+    <line x1="30.4" y1="21.4" x2="36" y2="27" stroke="#fcebb5" stroke-width="3.4" stroke-linecap="round"/>
+  </g>
+</svg>

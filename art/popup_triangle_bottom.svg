@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 28"
+     g3d:outputs="drawable-mdpi=40x28 drawable-hdpi=60x42">
+  <!-- The point under a popup. Its top rows carry on the popup's bottom border,
+       which dips into a V around the smoked glass, and the popup's shadow
+       falls below it. The fallback folder's wider point is
+       popup_triangle_bottom-small.svg. -->
+  <defs>
+    <path id="glass" d="M -20 -10 H 60 V 1.05 H 34.55 L 20 15.6 L 5.45 1.05 H -20 Z"/>
+    <path id="line" d="M -20 1.05 H 5.45 L 20 15.6 L 34.55 1.05 H 60" fill="none" stroke-width="1.95"/>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="120" height="110">
+      <feGaussianBlur stdDeviation="3.2"/>
+    </filter>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-40" y="-40" width="120" height="110">
+      <rect x="-40" y="-40" width="120" height="110" fill="#ffffff"/>
+      <use href="#glass" fill="#000000"/>
+      <use href="#line" stroke="#000000"/>
+    </mask>
+  </defs>
+  <g mask="url(#outside)">
+    <g transform="translate(0 4)" filter="url(#shadow)" opacity="0.91">
+      <use href="#glass" fill="#000000"/>
+      <use href="#line" stroke="#000000"/>
+    </g>
+  </g>
+  <use href="#glass" fill="#262626" fill-opacity="0.9"/>
+  <use href="#line" stroke="#ffffff"/>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 18 40"
+     g3d:outputs="drawable=20x42"
+     g3d:ninepatch="stretch-x=7-10 stretch-y=6-33 pad-x=1-17 pad-y=0-39">
+  <!-- The highlighted row of a popup: a gold bar with rounded corners, a light
+       top edge, darker sides and a dark bottom lip. -->
+  <defs>
+    <path id="bar" d="M 5 0 H 13.5 A 4.5 4.5 0 0 1 18 4.5 V 35.5 A 4.5 4.5 0 0 1 13.5 40 H 5 A 4.5 4.5 0 0 1 0.5 35.5 V 4.5 A 4.5 4.5 0 0 1 5 0 Z"/>
+    <clipPath id="inside">
+      <use href="#bar"/>
+    </clipPath>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="1" x2="0" y2="39">
+      <stop offset="0.039" stop-color="#ffe07d"/>
+      <stop offset="0.118" stop-color="#fedd77"/>
+      <stop offset="0.908" stop-color="#eba810"/>
+      <stop offset="1" stop-color="#eaa307"/>
+    </linearGradient>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="40">
+      <stop offset="0" stop-color="#fff0bf"/>
+      <stop offset="0.06" stop-color="#eccc6d"/>
+      <stop offset="0.85" stop-color="#d79a0f"/>
+      <stop offset="0.93" stop-color="#a07006"/>
+      <stop offset="1" stop-color="#4f3702"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#inside)">
+    <rect x="-2" y="-2" width="22" height="44" fill="url(#gold)"/>
+    <use href="#bar" fill="none" stroke="url(#edge)" stroke-width="2"/>
+    <rect x="-2" y="0" width="22" height="1" fill="#fff0bf"/>
+    <rect x="-2" y="39" width="22" height="1" fill="#4f3702"/>
+  </g>
+</svg>

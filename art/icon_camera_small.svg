@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:outputs="drawable=39x39 drawable-mdpi=40x40 drawable-hdpi=60x60">
+  <!-- Marks the camera's own album: a compact camera seen from the front. -->
+  <defs>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e4"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <!-- Body, with the viewfinder hump and the flash on top. -->
+    <path d="M11.8 15.1 H16.9 L17.5 13.3 H22.3 L22.9 15.1 H27.6 Q28.3 15.1 28.3 15.8 V26.5 Q28.3 27.2 27.6 27.2
+             H11.8 Q11.1 27.2 11.1 26.5 V15.8 Q11.1 15.1 11.8 15.1 Z" fill="url(#glyph)"/>
+    <path d="M11.9 14.4 L14.8 13.5 L15.1 14.6 Z" fill="url(#glyph)"/>
+    <circle cx="20.1" cy="21.3" r="3.3" fill="none" stroke="#3c3c3c" stroke-width="1.3"/>
+  </g>
+</svg>

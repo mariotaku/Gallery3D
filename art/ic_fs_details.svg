@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:outputs="drawable=40x40 drawable-mdpi=40x40 drawable-hdpi=60x60">
+  <!-- The fullscreen crumb: a landscape print, which toggles the caption. -->
+  <defs>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6e6e6"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <rect x="11.1" y="13.3" width="17.6" height="13.4" rx="0.3" fill="url(#glyph)"/>
+    <rect x="12.5" y="14.7" width="14.8" height="10.6" fill="#3c3c3c"/>
+    <path d="M13.1 24.7 V20.8 L14.9 19.1 L16.9 20.6 L19.9 17.9 L22.6 20.3 L24.1 19.3 L26.7 21.1 V24.7 Z"
+          fill="url(#glyph)"/>
+  </g>
+</svg>

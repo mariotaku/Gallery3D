@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
+     g3d:outputs="drawable=72x72">
+  <!-- Menu: map. A framed map of the world centred on the Atlantic, in the
+       Android 2.3 menu style: white, with a soft white glow. -->
+  <defs>
+    <linearGradient id="bright" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="60">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f2f2f2"/>
+    </linearGradient>
+    <linearGradient id="land" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="51">
+      <stop offset="0" stop-color="#f4f4f4"/>
+      <stop offset="1" stop-color="#c8c8c8"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="1.2" result="grown"/>
+      <feGaussianBlur in="grown" stdDeviation="0.9" result="soft"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.3"/>
+      <feComposite in2="soft" operator="in" result="halo"/>
+      <feMerge>
+        <feMergeNode in="halo"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="18" y="20" width="38" height="31" fill="#ffffff" opacity="0.1"/>
+  <g filter="url(#glow)">
+    <path fill="url(#bright)" fill-rule="evenodd"
+          d="M11 14.3 Q11 13.3 12 13.3 H62 Q63 13.3 63 14.3 V56.7 Q63 57.7 62 57.7 H12 Q11 57.7 11 56.7 Z
+             M18 20 V51 H56 V20 Z"/>
+    <g fill="url(#land)">
+      <!-- The Americas. -->
+      <path d="M19 23 L22.5 22.8 L24.5 25 L22.5 26.5 L21.6 28.5 L19.6 28 Z"/>
+      <path d="M19.5 34 L23 33.8 L25.6 35 L28 37 L28.4 39 L27 41 L25.5 43 L23.6 45 L22 47.6 L21 46 L20.5 42
+               L20.2 38 Z"/>
+      <!-- Europe, Africa and Asia, with the Mediterranean cut out of them. -->
+      <path fill-rule="evenodd"
+            d="M41 20.8 L45 21 L50 21.8 L52 22.4 L54.5 23 L54.5 30.8 L54 33.5 L52.5 34.2 L50.6 31.2 L48.2 31
+               L47.8 34 L46.8 35.2 L45.6 37 L44.6 39.5 L43.6 41.8 L42.2 44 L40.2 43.6 L39.4 41 L38.6 38
+               L37.5 35.6 L35.5 35 L33 34.6 L32.8 31 L33.8 28.8 L33.6 26.6 L35.5 25.6 L37.8 25 L38 22.6 Z
+               M37.6 26.9 H43.8 V28.8 H37.6 Z"/>
+      <circle cx="35.4" cy="23.5" r="0.9"/>
+      <ellipse cx="46.5" cy="40" rx="0.7" ry="1.6"/>
+      <!-- Australia. -->
+      <path d="M48.5 47.5 Q49.5 45 51.5 44.8 Q53.8 46 54.5 48.5 Q53 49.8 50 49.6 Z"/>
+    </g>
+  </g>
+</svg>

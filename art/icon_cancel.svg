@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
+     g3d:outputs="drawable-hdpi=45x45">
+  <!-- The selection bar's cancel: a no-entry sign. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f4f4"/>
+      <stop offset="1" stop-color="#b3b3b3"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0.8" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.75"/>
+    </filter>
+  </defs>
+  <!-- Ring and bar as one shape, so the gradient and the shadow run across both. -->
+  <g filter="url(#drop)" fill="url(#face)">
+    <path d="M15 4.7 A10.3 10.3 0 1 1 14.99 4.7 Z M15 8.3 A6.7 6.7 0 1 0 15.01 8.3 Z" fill-rule="evenodd"/>
+    <rect x="7.4" y="13.1" width="15.2" height="3.8" transform="rotate(45 15 15)"/>
+  </g>
+</svg>

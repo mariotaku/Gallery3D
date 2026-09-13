@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 100 100"
+     preserveAspectRatio="xMaxYMin slice"
+     g3d:outputs="drawable=100x94 drawable-mdpi=100x100 drawable-hdpi=150x150">
+  <!-- The shutter button: a pane of smoked glass tucked into the top right
+       corner, with the camera on it. The fallback drawable is six pixels
+       shorter, which crops the empty bottom rather than moving the pane off
+       the corner. -->
+  <defs>
+    <clipPath id="pane">
+      <ellipse cx="100" cy="-6" rx="72" ry="70"/>
+    </clipPath>
+    <linearGradient id="gloss" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="80" y2="60">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbfbfb"/>
+      <stop offset="1" stop-color="#d2d2d2"/>
+    </linearGradient>
+    <filter id="rim" filterUnits="userSpaceOnUse" x="0" y="-20" width="120" height="120">
+      <feGaussianBlur stdDeviation="0.7"/>
+    </filter>
+    <filter id="cast" filterUnits="userSpaceOnUse" x="40" y="0" width="70" height="60">
+      <feGaussianBlur stdDeviation="2.2"/>
+    </filter>
+    <filter id="drop" filterUnits="userSpaceOnUse" x="40" y="0" width="70" height="60">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.6" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- A dark line just outside the pane's edge, and the pane itself. -->
+  <ellipse cx="100" cy="-6" rx="73" ry="71" fill="none" stroke="#000000" stroke-width="2" opacity="0.28"
+           filter="url(#rim)"/>
+  <g clip-path="url(#pane)">
+    <rect width="100" height="100" fill="#cfcfcf" opacity="0.3"/>
+    <rect width="100" height="100" fill="url(#gloss)"/>
+    <!-- The camera's shadow on the glass. -->
+    <rect x="61" y="18" width="35" height="23" rx="3" fill="#000000" opacity="0.32" filter="url(#cast)"/>
+  </g>
+  <ellipse cx="100" cy="-6" rx="71.4" ry="69.4" fill="none" stroke="#f0f0f0" stroke-width="1.1" opacity="0.45"/>
+
+  <g filter="url(#drop)" opacity="0.88">
+    <path d="M62 15.3 L63.9 12.2 H69.4 L68.2 15.3 Z" fill="url(#body)"/>
+    <rect x="73.5" y="10.4" width="11.5" height="6" rx="1.4" fill="url(#body)"/>
+    <rect x="60.3" y="14.3" width="35.4" height="23.2" rx="2.2" fill="url(#body)"/>
+    <circle cx="76.5" cy="26.2" r="6" fill="none" stroke="#353535" stroke-width="2.3" opacity="0.85"/>
+  </g>
+</svg>

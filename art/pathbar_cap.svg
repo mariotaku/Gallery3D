@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 22 39"
+     g3d:outputs="drawable=22x39">
+  <!-- The rounded end of the last crumb. Its left column is pathbar_bg's, and
+       the glass ends in a curve with a faint rim, casting the bar's shadow
+       around it. -->
+  <defs>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="31">
+      <stop offset="0.02" stop-color="#fdfdfd" stop-opacity="0.267"/>
+      <stop offset="0.30" stop-color="#eeeeee" stop-opacity="0.243"/>
+      <stop offset="0.54" stop-color="#dedede" stop-opacity="0.204"/>
+      <stop offset="0.58" stop-color="#d6d6d6" stop-opacity="0.180"/>
+      <stop offset="0.62" stop-color="#cdcdcd" stop-opacity="0.161"/>
+      <stop offset="0.78" stop-color="#bebebe" stop-opacity="0.133"/>
+      <stop offset="0.98" stop-color="#b1b1b1" stop-opacity="0.110"/>
+    </linearGradient>
+    <path id="shape" d="M -60 5 H 8.2 C 11.8 5.4 16.8 11.5 17 16 V 21 C 17 27 11.8 33 9.3 33 H -60 Z"/>
+    <clipPath id="inside">
+      <use href="#shape"/>
+    </clipPath>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-80" y="-10" width="160" height="60">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-80" y="-10" width="160" height="60">
+      <rect x="-80" y="-10" width="160" height="60" fill="#ffffff"/>
+      <use href="#shape" fill="#000000"/>
+    </mask>
+  </defs>
+  <g mask="url(#outside)">
+    <use href="#shape" transform="translate(0 -0.25)" fill="#000000" opacity="0.205" filter="url(#shadow)"/>
+  </g>
+  <g clip-path="url(#inside)">
+    <rect x="-60" y="5" width="120" height="1" fill="#ffffff" fill-opacity="0.349"/>
+    <rect x="-60" y="6" width="120" height="25" fill="url(#glass)"/>
+    <rect x="-60" y="31" width="120" height="1" fill="#dbdbdb" fill-opacity="0.141"/>
+    <rect x="-60" y="32" width="120" height="1" fill="#b4b4b4" fill-opacity="0.161"/>
+    <path d="M 8.2 5 C 11.8 5.4 16.8 11.5 17 16 V 21 C 17 27 11.8 33 9.3 33" fill="none" stroke="#ffffff"
+          stroke-opacity="0.06" stroke-width="2.4"/>
+  </g>
+</svg>

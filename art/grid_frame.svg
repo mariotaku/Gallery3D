@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 64 64"
+     g3d:outputs="drawable=64x64">
+  <!-- The frame around a photo in an open album. A texture cut up by
+       GridQuadFrame like stack_frame, so its edges sit where the original's
+       did: a light outer pixel and a dark inner one, 10 to 12 from the left
+       and 52 to 54 on the right, 6 to 8 from the top and 49 to 51 at the
+       bottom. The bevel is lit from above, and its shadow falls below. -->
+  <defs>
+    <linearGradient id="outer" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="51">
+      <stop offset="0" stop-color="#ebebeb"/>
+      <stop offset="1" stop-color="#6e6e6e"/>
+    </linearGradient>
+    <linearGradient id="inner" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="50">
+      <stop offset="0" stop-color="#8c8c8c"/>
+      <stop offset="1" stop-color="#434343"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.3"/>
+    </filter>
+  </defs>
+  <rect x="10.5" y="8.2" width="43" height="43" fill="none" stroke="#000000" stroke-width="3.5"
+        opacity="0.85" filter="url(#soft)"/>
+  <rect x="10.5" y="6.5" width="43" height="44" fill="none" stroke="url(#outer)" stroke-width="1"/>
+  <rect x="11.5" y="7.5" width="41" height="42" fill="none" stroke="url(#inner)" stroke-width="1"/>
+</svg>

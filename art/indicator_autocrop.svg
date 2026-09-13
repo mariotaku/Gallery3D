@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 42 42"
+     g3d:outputs="drawable=42x42">
+  <!-- The badge on a face the crop box found by itself: a white button in a
+       glowing magenta ring, with a diagonal resize arrow. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8f4f8"/>
+      <stop offset="1" stop-color="#ebebeb"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-10" y="-10" width="62" height="62">
+      <feGaussianBlur stdDeviation="2.4"/>
+    </filter>
+  </defs>
+  <circle cx="21" cy="21" r="17.5" fill="#e72c8c" filter="url(#glow)"/>
+  <circle cx="21" cy="21" r="16" fill="#e7308c"/>
+  <circle cx="21" cy="21" r="12.5" fill="url(#face)"/>
+  <g fill="#e030ad">
+    <path d="M21 13.5 H29.5 V22 Z"/>
+    <path d="M13.5 20 V28.5 H22 Z"/>
+    <line x1="16.5" y1="25.5" x2="26.5" y2="15.5" stroke="#e030ad" stroke-width="4"/>
+  </g>
+</svg>

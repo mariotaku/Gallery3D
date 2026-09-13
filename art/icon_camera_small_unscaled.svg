@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 78 78"
+     g3d:outputs="drawable=78x78">
+  <!-- The camera badge on a camera roll's stack, drawn at the size the wall
+       samples it. A white glyph ringed by a dark halo so it reads on any
+       photo. -->
+  <defs>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eeeeee"/>
+    </linearGradient>
+    <filter id="halo" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0.4" stdDeviation="2.5" flood-color="#000000" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <g filter="url(#halo)">
+    <path d="M23 33.6 L29.6 30 H34 V27.4 Q34 26.2 35.2 26.2 H41.8 Q43 26.2 43 27.4 V30 H55 V52.4 H23 Z"
+          fill="url(#glyph)"/>
+    <path d="M23 28.3 H27.6 L28.8 28.9 L23 32 Z" fill="url(#glyph)"/>
+    <circle cx="38.5" cy="41.7" r="7" fill="none" stroke="#3c3c3c" stroke-width="3"/>
+  </g>
+</svg>

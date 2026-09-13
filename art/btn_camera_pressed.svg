@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 100 100"
+     preserveAspectRatio="xMaxYMin slice"
+     g3d:outputs="drawable=100x94 drawable-mdpi=100x100 drawable-hdpi=150x150">
+  <!-- The shutter button held down: the pane lit gold, glowing past its edge. -->
+  <defs>
+    <clipPath id="pane">
+      <ellipse cx="100" cy="-6" rx="71" ry="69"/>
+    </clipPath>
+    <radialGradient id="gold" gradientUnits="userSpaceOnUse" cx="100" cy="-6" r="71">
+      <stop offset="0" stop-color="#ffe07a"/>
+      <stop offset="0.3" stop-color="#fdd063"/>
+      <stop offset="0.7" stop-color="#f6ae22"/>
+      <stop offset="0.9" stop-color="#f5a816"/>
+      <stop offset="0.965" stop-color="#ffdf8a"/>
+      <stop offset="1" stop-color="#fff0c0"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff5de"/>
+      <stop offset="1" stop-color="#e5c98f"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-40" width="140" height="160">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+    <filter id="near" filterUnits="userSpaceOnUse" x="-20" y="-40" width="140" height="160">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <filter id="cast" filterUnits="userSpaceOnUse" x="40" y="0" width="70" height="60">
+      <feGaussianBlur stdDeviation="2.2"/>
+    </filter>
+    <filter id="drop" filterUnits="userSpaceOnUse" x="40" y="0" width="70" height="60">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.6" flood-color="#7a4a00" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="100" cy="-6" rx="78" ry="76" fill="#ffdc55" filter="url(#glow)"/>
+  <ellipse cx="100" cy="-6" rx="73" ry="71" fill="#ffe45e" opacity="0.8" filter="url(#near)"/>
+  <ellipse cx="100" cy="-6" rx="71" ry="69" fill="url(#gold)"/>
+  <g clip-path="url(#pane)">
+    <rect x="61" y="18" width="35" height="23" rx="3" fill="#8a4a00" opacity="0.35" filter="url(#cast)"/>
+  </g>
+
+  <g filter="url(#drop)">
+    <path d="M62 15.3 L63.9 12.2 H69.4 L68.2 15.3 Z" fill="url(#body)"/>
+    <rect x="73.5" y="10.4" width="11.5" height="6" rx="1.4" fill="url(#body)"/>
+    <rect x="60.3" y="14.3" width="35.4" height="23.2" rx="2.2" fill="url(#body)"/>
+    <circle cx="76.5" cy="26.2" r="6" fill="none" stroke="#a87b20" stroke-width="2.3"/>
+  </g>
+</svg>

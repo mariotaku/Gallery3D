@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
+     g3d:outputs="drawable=72x72">
+  <!-- Menu: set as. A curved arrow sweeping out of a picture frame and back
+       down into it, in the Android 2.3 menu style: white, with a soft white
+       glow. The frame is cut away where the arrow passes over it. -->
+  <defs>
+    <linearGradient id="bright" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="60">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f0f0f0"/>
+    </linearGradient>
+    <path id="arrow"
+          d="M29 41.5 C29 33 31 25 37 21.5 C42 18.5 49 19.5 52.5 23.5 C54.5 26 55.2 28.5 55.5 31.5 L63.5 30.8
+             L56.8 46.5 L42.5 35.2 L48.7 33.9 C47.5 30.5 45.5 27.8 41.5 27.8 C36.5 27.8 32.2 32 31 41.5 Z"/>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <rect width="72" height="72" fill="#ffffff"/>
+      <use href="#arrow" fill="#000000" stroke="#000000" stroke-width="6.5" stroke-linejoin="round"/>
+    </mask>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="1.2" result="grown"/>
+      <feGaussianBlur in="grown" stdDeviation="0.9" result="soft"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.3"/>
+      <feComposite in2="soft" operator="in" result="halo"/>
+      <feMerge>
+        <feMergeNode in="halo"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)" fill="url(#bright)">
+    <g mask="url(#cut)">
+      <path d="M11.8 12.5 H52 V20.2 H19.3 V48.2 H52 V58.5 H11.8 Q11 58.5 11 57.7 V13.3 Q11 12.5 11.8 12.5 Z"/>
+      <path d="M44.6 41.6 L52 47.4 V48.6 H44.6 Z"/>
+    </g>
+    <use href="#arrow"/>
+  </g>
+</svg>

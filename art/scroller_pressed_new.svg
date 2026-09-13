@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
+     g3d:outputs="drawable-mdpi=163x48 drawable-hdpi=244x72">
+  <!-- scroller_new while dragged: the pill turns gold, lit from inside along
+       its edges, and glows around. scroller_pressed_new-small.svg is the
+       fallback folder's. -->
+  <defs>
+    <rect id="pill" x="11.8" y="12.3" width="139.1" height="35.3" rx="13"/>
+    <clipPath id="inside">
+      <use href="#pill"/>
+    </clipPath>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="12.3" x2="0" y2="47.6">
+      <stop offset="0.232" stop-color="#fdd66a"/>
+      <stop offset="0.345" stop-color="#fdce5c"/>
+      <stop offset="0.459" stop-color="#fdc74d"/>
+      <stop offset="0.544" stop-color="#fec243"/>
+      <stop offset="0.571" stop-color="#fec040"/>
+      <stop offset="0.572" stop-color="#feba30"/>
+      <stop offset="0.686" stop-color="#feb21e"/>
+      <stop offset="0.771" stop-color="#fead14"/>
+      <stop offset="1" stop-color="#feaa10"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+            color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4.5" result="spread"/>
+      <feComponentTransfer in="spread" result="strength">
+        <feFuncA type="linear" slope="1.72"/>
+      </feComponentTransfer>
+      <feFlood flood-color="#ffdb55"/>
+      <feComposite in2="strength" operator="in"/>
+    </filter>
+    <filter id="light" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
+      <feGaussianBlur stdDeviation="2.2"/>
+    </filter>
+    <filter id="emboss" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+            color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="#8a6000" flood-opacity="0.9"/>
+    </filter>
+    <g id="dots">
+      <rect x="-1.4" y="0" width="2.85" height="2.4"/>
+      <rect x="7.35" y="0" width="2.85" height="2.4"/>
+      <rect x="16.1" y="0" width="2.85" height="2.4"/>
+      <rect x="24.85" y="0" width="2.85" height="2.4"/>
+      <rect x="33.6" y="0" width="2.85" height="2.4"/>
+      <rect x="42.35" y="0" width="2.85" height="2.4"/>
+      <rect x="51.1" y="0" width="2.85" height="2.4"/>
+      <rect x="59.85" y="0" width="2.85" height="2.4"/>
+      <rect x="68.6" y="0" width="2.85" height="2.4"/>
+    </g>
+  </defs>
+  <use href="#pill" fill="#000000" filter="url(#glow)"/>
+  <use href="#pill" fill="url(#gold)"/>
+  <g clip-path="url(#inside)">
+    <use href="#pill" fill="none" stroke="#fff6c0" stroke-width="6" filter="url(#light)"/>
+    <use href="#pill" fill="none" stroke="#fff0aa" stroke-width="2"/>
+  </g>
+  <g fill="#000000" fill-opacity="0.19">
+    <use href="#dots" transform="translate(46.15 21.9)"/>
+    <use href="#dots" transform="translate(46.15 29.1)"/>
+    <use href="#dots" transform="translate(46.15 36.95)"/>
+  </g>
+  <g filter="url(#emboss)" fill="#ffe1a3" stroke="#c38c22" stroke-opacity="0.8" stroke-width="1" stroke-linejoin="round">
+    <path d="M 21 32 L 32 25 V 36.8 Z"/>
+    <path d="M 142 32 L 131 25 V 36.8 Z"/>
+  </g>
+</svg>

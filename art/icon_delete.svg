@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
+     g3d:outputs="drawable=34x34 drawable-mdpi=30x30 drawable-hdpi=45x45">
+  <!-- The selection bar's delete: a bin with a lid and handle. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f4f4"/>
+      <stop offset="1" stop-color="#b3b3b3"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fafafa"/>
+      <stop offset="1" stop-color="#cfcfcf"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0.8" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop)" stroke="#2a2a2a" stroke-opacity="0.45" stroke-width="0.4">
+    <path d="M10.6 8.2 V5.6 Q10.6 4.7 11.5 4.7 H18.5 Q19.4 4.7 19.4 5.6 V8.2 H17.9 V6.2 H12.1 V8.2 Z" fill="url(#lid)"/>
+    <rect x="5.6" y="7.9" width="18.8" height="3.7" rx="0.6" fill="url(#lid)"/>
+    <path d="M7.4 11.6 H22.6 L22 25.1 Q21.95 25.9 21.1 25.9 H8.9 Q8.05 25.9 8 25.1 Z" fill="url(#face)"/>
+  </g>
+  <!-- Slots, cut in with a lit lower edge. -->
+  <g fill="#3a3a3a">
+    <rect x="10.4" y="13.6" width="1.5" height="9.8" rx="0.5"/>
+    <rect x="14.25" y="13.6" width="1.5" height="9.8" rx="0.5"/>
+    <rect x="18.1" y="13.6" width="1.5" height="9.8" rx="0.5"/>
+  </g>
+</svg>

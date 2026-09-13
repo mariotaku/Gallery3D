@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
+     g3d:outputs="drawable=34x34 drawable-mdpi=30x30 drawable-hdpi=45x45">
+  <!-- The selection bar's slideshow: play. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f4f4"/>
+      <stop offset="1" stop-color="#b3b3b3"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0.8" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <path d="M6.3 5.2 Q6.3 4.2 7.2 4.7 L24.1 14.1 Q24.9 14.8 24.1 15.5 L7.2 25 Q6.3 25.5 6.3 24.5 Z"
+          fill="url(#face)" stroke="#2a2a2a" stroke-opacity="0.45" stroke-width="0.4" stroke-linejoin="round"/>
+  </g>
+</svg>
