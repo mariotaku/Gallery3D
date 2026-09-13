@@ -6,7 +6,10 @@
 # with the same find_package call the desktop build uses, and the
 # org.libsdl.app Java classes that MainActivity extends.
 #
-# Versions match the ones CMakeLists pins for the web build.
+# Newer than the versions CMakeLists pins for the web build, and deliberately:
+# these are the first releases built for a 16 KB page. A library that is not
+# makes the whole apk one that a device with 16 KB pages will not load, and
+# every Pixel from the 8 onwards can be put in that mode.
 #
 # No SDL_ttf: android.graphics.Paint draws the text here, which also draws the
 # system's own font and falls back for glyphs it has no answer for. Its
@@ -14,8 +17,8 @@
 # the whole apk one that a 16 KB page device will not load.
 set -e
 
-SDL_VERSION=3.2.24
-SDL_IMAGE_VERSION=3.2.4
+SDL_VERSION=3.4.16
+SDL_IMAGE_VERSION=3.4.6
 
 libs="$(dirname "$0")/app/libs"
 mkdir -p "$libs"
