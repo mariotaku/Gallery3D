@@ -410,7 +410,7 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         if (item != nullptr && item->hasFullSize()) {
             imageWidth = (float)item->mFullWidth;
             imageHeight = (float)item->mFullHeight;
-        } else if (fsTexture && fsTexture->isLoaded()) {
+        } else if (fsTexture && fsTexture != thumbnailTexture && fsTexture->isLoaded()) {
             imageWidth = (float)fsTexture->getWidth();
             imageHeight = (float)fsTexture->getHeight();
         }
@@ -430,8 +430,9 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         // A thumbnail is a centre crop of the picture, so it covers only part
         // of it. Draw it at the size that part occupies rather than stretched
         // over the whole, and leave the rest empty until the screennail fills
-        // it in.
-        if (texture != fsTexture && texture->getHeight() > 0) {
+        // it in. The thumbnail also stands in as fsTexture while the camera
+        // zooms, so compare against the thumbnail itself.
+        if (texture == thumbnailTexture && texture->getHeight() > 0) {
             const float cropAspect = (float)texture->getWidth() / (float)texture->getHeight();
             float cropWidth = pictureWidth;
             float cropHeight = (cropAspect > 0.0f) ? (pictureWidth / cropAspect) : pictureHeight;
@@ -461,8 +462,8 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             quad->unbindArrays(view);
         }
         if (i == 0 || slideshowMode) {
-            mCurrentFocusItemWidth = quad->getWidth();
-            mCurrentFocusItemHeight = quad->getHeight();
+            mCurrentFocusItemWidth = pictureWidth;
+            mCurrentFocusItemHeight = pictureHeight;
             if (portrait) {
                 std::swap(mCurrentFocusItemWidth, mCurrentFocusItemHeight);
             }
