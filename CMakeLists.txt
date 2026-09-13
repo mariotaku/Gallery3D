@@ -51,7 +51,8 @@ elseif(ANDROID)
     # desktop uses works here too. android/fetch-deps.sh puts them in app/libs.
     find_package(SDL3 CONFIG REQUIRED)
     find_package(SDL3_image CONFIG REQUIRED)
-    find_package(SDL3_ttf CONFIG REQUIRED)
+    # No SDL_ttf: android.graphics.Paint draws the text, which also keeps the
+    # one library in the apk that is not aligned for a 16 KB page out of it.
     # No curl: Http.cpp goes through the platform instead. No libjpeg either,
     # because cropping a region is BitmapRegionDecoder's job here.
     # nlohmann/json is a header, so it comes from source as it does on the web.
@@ -143,8 +144,10 @@ target_include_directories(gallery3d PRIVATE "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(gallery3d PRIVATE
     SDL3::SDL3
     SDL3_image::SDL3_image
-    SDL3_ttf::SDL3_ttf
     nlohmann_json::nlohmann_json)
+if(NOT ANDROID)
+    target_link_libraries(gallery3d PRIVATE SDL3_ttf::SDL3_ttf)
+endif()
 if(NOT EMSCRIPTEN AND NOT ANDROID)
     target_link_libraries(gallery3d PRIVATE CURL::libcurl JPEG::JPEG)
     target_compile_definitions(gallery3d PRIVATE GALLERY3D_HAVE_JPEG)

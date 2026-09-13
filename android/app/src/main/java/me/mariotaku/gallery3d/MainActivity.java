@@ -135,7 +135,7 @@ public class MainActivity extends SDLActivity {
         return new String[] {
             "SDL3",
             "SDL3_image",
-            "SDL3_ttf",
+            // No SDL3_ttf: TextBridge draws the text through the platform.
             "main",
         };
     }

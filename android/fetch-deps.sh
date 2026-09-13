@@ -7,11 +7,15 @@
 # org.libsdl.app Java classes that MainActivity extends.
 #
 # Versions match the ones CMakeLists pins for the web build.
+#
+# No SDL_ttf: android.graphics.Paint draws the text here, which also draws the
+# system's own font and falls back for glyphs it has no answer for. Its
+# releases are also still built for a 4 KB page, and one library that is makes
+# the whole apk one that a 16 KB page device will not load.
 set -e
 
 SDL_VERSION=3.2.24
 SDL_IMAGE_VERSION=3.2.4
-SDL_TTF_VERSION=3.2.2
 
 libs="$(dirname "$0")/app/libs"
 mkdir -p "$libs"
@@ -37,7 +41,5 @@ fetch SDL "release-$SDL_VERSION" \
     "SDL3-devel-$SDL_VERSION-android.zip" "SDL3-$SDL_VERSION.aar"
 fetch SDL_image "release-$SDL_IMAGE_VERSION" \
     "SDL3_image-devel-$SDL_IMAGE_VERSION-android.zip" "SDL3_image-$SDL_IMAGE_VERSION.aar"
-fetch SDL_ttf "release-$SDL_TTF_VERSION" \
-    "SDL3_ttf-devel-$SDL_TTF_VERSION-android.zip" "SDL3_ttf-$SDL_TTF_VERSION.aar"
 
 ls -la "$libs"
