@@ -38,11 +38,18 @@ class DisplayItem {
     void commit();
 
     void setHasFocus(bool hasFocus, bool pushDown);
+    // Under a mouse that is only passing over: a fraction of what focus does.
+    // Taking the hover away puts the item back where it rests.
+    void setHovered(bool hovered, bool pushDown);
     void setSingleOffset(bool useOffset, bool pushAway, float x, float y, float z, float spreadValue);
     void setOffset(bool useOffset, bool pushDown, float span, float dx1, float dy1, float dx2, float dy2);
 
     bool getHasFocus() const {
         return mHasFocus;
+    }
+
+    bool isHovered() const {
+        return mHovered;
     }
 
     bool isAlive() const {
@@ -67,6 +74,7 @@ class DisplayItem {
     Vector3f mStacktopPosition{-1.0f, -1.0f, -1.0f};
     Vector3f mJitteredPosition;
     bool mHasFocus = false;
+    bool mHovered = false;
     Vector3f mTargetPosition;
     float mTargetTheta = 0.0f;
     float mImageTheta = 0.0f;

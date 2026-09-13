@@ -774,6 +774,8 @@ void GridLayer::requestMoreItemsIfNearTheEnd() {
 
 void GridLayer::onPointerMoved(float x, float y) {
     mHud.onPointerMoved(x, y);
+    mPointerX = x;
+    mPointerY = y;
 }
 
 void GridLayer::onAccelerometer(float x, float y, float z) {
@@ -833,9 +835,18 @@ void GridLayer::renderOpaque(RenderView *view) {
     }
     mTargetAlpha = (selectedSlotIndex != Shared::INVALID) ? 0.0f : 1.0f;
 
+    // The stack or photo under a mouse that is only passing over. Worked out
+    // every frame, since the wall scrolls under a pointer that stays still.
+    // Not while a press or drag is under way, over the bar, or in fullscreen.
+    int hoverSlot = Shared::INVALID;
+    if (mPointerX >= 0.0f && mPointerY >= 0.0f && mState != STATE_FULL_SCREEN &&
+        selectedSlotIndex == Shared::INVALID && !mInputProcessor->touchPressed() &&
+        !mHud.containsPoint(mPointerX, mPointerY)) {
+        hoverSlot = getSlotIndexForScreenPosition((int)mPointerX, (int)mPointerY);
+    }
     mDrawManager->prepareDraw(mBufferedVisibleRange, mVisibleRange, selectedSlotIndex,
                               mInputProcessor->getCurrentFocusSlot(), mInputProcessor->getCurrentScaledSlot(),
-                              mInputProcessor->isFocusItemPressed(), mInputProcessor->getScale(),
+                              mInputProcessor->isFocusItemPressed(), hoverSlot, mInputProcessor->getScale(),
                               mInputProcessor->getScaleGestureDetector(), mFeedAboutToChange);
     if (mSelectedAlpha != 0.0f) {
         mDrawManager->drawThumbnails(view, mState);

@@ -965,6 +965,10 @@ int main(int argc, char **argv) {
                 renderView.onSurfaceChanged(pixelWidth, pixelHeight);
                 renderView.requestRender();
                 break;
+            case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+                // Off the window, where it hovers over nothing.
+                renderView.queuePointerMove(-1.0f, -1.0f);
+                break;
             case SDL_EVENT_MOUSE_MOTION:
                 // Pressing and dragging arrives as a finger, so the only thing
                 // wanted from the mouse itself is where it is hovering, which

@@ -33,8 +33,8 @@ class GridDrawManager {
                     DisplaySlot *displaySlots);
 
     void prepareDraw(const IndexRange &bufferedVisibleRange, const IndexRange &visibleRange, int selectedSlot,
-                     int currentFocusSlot, int currentScaleSlot, bool currentFocusIsPressed, float spreadValue,
-                     ScaleGestureDetector *scaleGestureDetector, bool holdPosition);
+                     int currentFocusSlot, int currentScaleSlot, bool currentFocusIsPressed, int hoverSlot,
+                     float spreadValue, ScaleGestureDetector *scaleGestureDetector, bool holdPosition);
 
     bool update(float timeElapsed);
 
@@ -98,6 +98,8 @@ class GridDrawManager {
     float mCurrentFocusItemHeight = 0.0f;
     FocusShadow mFocusShadows[3];
     bool mCurrentFocusIsPressed = false;
+    // The slot under a mouse that is only passing over, or -1.
+    int mHoverSlot = -1;
     TexturePtr mNoItemsTexture;
     int mCurrentScaleSlot = -1;
     float mSpreadValue = 0.0f;

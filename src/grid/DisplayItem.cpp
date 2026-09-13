@@ -157,9 +157,39 @@ void DisplayItem::commit() {
     mAnimatedImageTheta = mImageTheta;
 }
 
+void DisplayItem::setHovered(bool hovered, bool pushDown) {
+    if (!hovered && !mHovered) {
+        return;
+    }
+    mHovered = hovered;
+    mConvergenceSpeed = 2.0f;
+    int seed = mStackId;
+    if (seed > 3) {
+        seed = 3;
+    }
+    mTargetPosition.set(mStacktopPosition);
+    mTargetPosition.add(mJitteredPosition);
+    mTargetPosition.z = seed * STACK_SPACING;
+    if (!hovered) {
+        return;
+    }
+    // Focus, which a press shows, doubles a stack's jitter to spread it and
+    // brings a photo on the grid half a unit forward. A hover goes this much
+    // of the way.
+    const float fraction = 0.4f;
+    if (pushDown) {
+        mTargetPosition.add(mJitteredPosition.x * fraction, mJitteredPosition.y * fraction, 0.0f);
+    } else {
+        mTargetPosition.z -= 0.5f * fraction;
+    }
+}
+
 void DisplayItem::setHasFocus(bool hasFocus, bool pushDown) {
     mConvergenceSpeed = 2.0f;
     mHasFocus = hasFocus;
+    // Focus takes the place of a hover. setHovered puts the hover back once
+    // focus has gone, if the mouse is still there.
+    mHovered = false;
     int seed = mStackId;
     if (seed > 3) {
         seed = 3;

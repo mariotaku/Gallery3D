@@ -32,6 +32,13 @@ void DisplayList::setHasFocus(DisplayItem *item, bool hasFocus, bool pushDown) {
     }
 }
 
+void DisplayList::setHovered(DisplayItem *item, bool hovered, bool pushDown) {
+    if (hovered || item->isHovered()) {
+        item->setHovered(hovered, pushDown);
+        markIfDirty(item);
+    }
+}
+
 void DisplayList::setOffset(DisplayItem *item, bool useOffset, bool pushDown, float span, float dx1, float dy1,
                             float dx2, float dy2) {
     item->setOffset(useOffset, pushDown, span, dx1, dy1, dx2, dy2);

@@ -39,13 +39,14 @@ GridDrawManager::GridDrawManager(GridCamera *camera, GridDrawables *drawables, D
 
 void GridDrawManager::prepareDraw(const IndexRange &bufferedVisibleRange, const IndexRange &visibleRange,
                                   int selectedSlot, int currentFocusSlot, int currentScaleSlot,
-                                  bool currentFocusIsPressed, float spreadValue,
+                                  bool currentFocusIsPressed, int hoverSlot, float spreadValue,
                                   ScaleGestureDetector *scaleGestureDetector, bool holdPosition) {
     mBufferedVisibleRange = bufferedVisibleRange;
     mVisibleRange = visibleRange;
     mSelectedSlot = selectedSlot;
     mCurrentFocusSlot = currentFocusSlot;
     mCurrentFocusIsPressed = currentFocusIsPressed;
+    mHoverSlot = hoverSlot;
     mCurrentScaleSlot = currentScaleSlot;
     mScaleGestureDetector = scaleGestureDetector;
     mSpreadValue = spreadValue;
@@ -190,6 +191,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 mTargetFocusMixRatio = 1.0f;
             } else {
                 displayList->setHasFocus(displayItem, false, pushDown);
+                displayList->setHovered(displayItem, mHoverSlot == index, pushDown);
             }
             if (j >= maxDisplayedItemsPerSlot) {
                 continue;

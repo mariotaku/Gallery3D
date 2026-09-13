@@ -16,6 +16,9 @@ class DisplayList {
 
     void setPositionAndStackIndex(DisplayItem *item, const Vector3f &position, int stackId, bool performTransition);
     void setHasFocus(DisplayItem *item, bool hasFocus, bool pushDown);
+    // Every frame for every item without focus. Hovering is reapplied each
+    // time, since a stack's offsets are reset every frame.
+    void setHovered(DisplayItem *item, bool hovered, bool pushDown);
     void setOffset(DisplayItem *item, bool useOffset, bool pushDown, float span, float dx1, float dy1, float dx2,
                    float dy2);
     void setSingleOffset(DisplayItem *item, bool useOffset, bool pushAway, float x, float y, float z,

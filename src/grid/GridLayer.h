@@ -294,6 +294,10 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     LoadingLayer mLoading;
     bool mLocationFilter = false;
     float mZoomValue = 1.0f;
+    // Where the mouse last was, for the hover effect. Negative once it has
+    // left the window.
+    float mPointerX = -1.0f;
+    float mPointerY = -1.0f;
     float mCurrentFocusItemWidth = 1.0f;
     float mCurrentFocusItemHeight = 1.0f;
     float mTimeElapsedSinceGridViewReady = 0.0f;
