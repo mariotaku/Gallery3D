@@ -65,14 +65,22 @@ std::string LocalDataSource::mimeTypeForPath(const std::string &path) {
     return "image/jpeg";
 }
 
+std::string LocalDataSource::folderDisplayName(const std::string &path) {
+    fs::path trimmed(path);
+    if (!trimmed.has_filename()) {
+        // Ends in a separator, so its last component is the parent's filename.
+        trimmed = trimmed.parent_path();
+    }
+    const std::string name = trimmed.filename().string();
+    // A root has no component of its own to be named after.
+    return name.empty() ? path : name;
+}
+
 void LocalDataSource::scan(const std::string &path, std::vector<Folder> &folders) const {
     std::error_code error;
     Folder folder;
     folder.path = path;
-    folder.name = fs::path(path).filename().string();
-    if (folder.name.empty()) {
-        folder.name = path;
-    }
+    folder.name = folderDisplayName(path);
 
     std::vector<std::string> subdirectories;
     for (const fs::directory_entry &entry : fs::directory_iterator(path, error)) {

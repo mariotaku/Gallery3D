@@ -100,6 +100,11 @@ class DataSource {
 
 class LocalDataSource : public DataSource {
   public:
+    // What to call a folder on the wall: its own last component. A path that
+    // ends in a separator has no filename of its own, and that is how SDL hands
+    // out the user's folders, so the separator comes off first.
+    static std::string folderDisplayName(const std::string &path);
+
     // Matches the original, which gave the camera folder its own bucket id.
     static const int64_t CAMERA_BUCKET_ID = 0;
 
