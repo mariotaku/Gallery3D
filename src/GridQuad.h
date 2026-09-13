@@ -40,12 +40,11 @@ class GridQuad {
     // Fits the image inside a box of this aspect that is fitHeight tall, where
     // one is the whole viewport. Less than one keeps a picture inside the safe
     // area rather than under the system bars.
-    //
-    // Easing lets the shape travel to the new one over a few frames instead of
-    // arriving in a single one, which is what a picture wants when it turns out
-    // to be a different shape than the thumbnail it grew from.
-    void resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight, float fitHeight,
-                    bool ease = false);
+    void resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight, float fitHeight);
+
+    // The size to draw at, given outright. Used to put a thumbnail inside the
+    // picture it is a crop of, at the size that crop occupies there.
+    void setShape(float width, float height, float u, float v);
 
     // Moves the quad off the middle of the screen. The safe area is rarely
     // centred on it: a cutout takes more from the top than the gesture bar
