@@ -70,6 +70,11 @@ elseif(IOS)
     # No curl, which the SDK does not include, and no libjpeg: ImageIO decodes
     # for SDL_image, and a zoomed photo stays on its screennail as it does in
     # the browser.
+    #
+    # Objective-C is enabled here rather than left to SDL_image. The Xcode
+    # generator decides a source file's type from the languages the top level
+    # knows, and without this it compiles IMG_ImageIO.m as C.
+    enable_language(OBJC)
     include(FetchContent)
     set(FETCHCONTENT_QUIET OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -102,6 +107,11 @@ elseif(IOS)
     FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
                               GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(SDL3 SDL3_image SDL3_ttf nlohmann_json)
+    # SDL passes -x objective-c on each of its own .m files for the same reason;
+    # SDL_image does not, and Xcode would otherwise hand this one to clang as C.
+    set_property(SOURCE "${sdl3_image_SOURCE_DIR}/src/IMG_ImageIO.m"
+        DIRECTORY "${sdl3_image_SOURCE_DIR}"
+        APPEND_STRING PROPERTY COMPILE_FLAGS " -x objective-c")
 else()
     find_package(SDL3 CONFIG REQUIRED)
     find_package(SDL3_image CONFIG REQUIRED)
