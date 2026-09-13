@@ -673,6 +673,15 @@ int main(int argc, char **argv) {
     SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
 #endif
 
+    // One pointer path, in one direction. A mouse is reported as a finger as
+    // well, and a finger is not reported as a mouse, so everything that drags
+    // the wall arrives as a touch and is read in one place. Left at their
+    // defaults, a touchscreen arrives twice: the second copy resets where the
+    // gesture began, and a swipe the length of the screen measures a few
+    // pixels and lands as a tap.
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+
     // Sensors are asked for but not required: a machine with none still runs,
     // it just never leans.
     if (!SDL_InitSubSystem(SDL_INIT_SENSOR)) {
@@ -830,7 +839,6 @@ int main(int argc, char **argv) {
     // Pointer state, turned into the MotionEvents the ported gesture code wants.
     // SDL reports pointer positions in window units; the renderer works in
     // pixels, so scale on the way in.
-    bool mouseDown = false;
     MotionEvent event;
 
     // Track SDL fingers in press order and combine them into Android-style multi-pointer
@@ -920,39 +928,12 @@ int main(int argc, char **argv) {
                 renderView.onSurfaceChanged(pixelWidth, pixelHeight);
                 renderView.requestRender();
                 break;
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
-                if (sdlEvent.button.button == SDL_BUTTON_LEFT) {
-                    mouseDown = true;
-                    event = MotionEvent();
-                    event.action = MotionEvent::ACTION_DOWN;
-                    event.xs[0] = sdlEvent.button.x * pointerScale();
-                    event.ys[0] = sdlEvent.button.y * pointerScale();
-                    event.eventTime = SDL_GetTicks();
-                    renderView.queueTouchEvent(event);
-                }
-                break;
-            case SDL_EVENT_MOUSE_BUTTON_UP:
-                if (sdlEvent.button.button == SDL_BUTTON_LEFT && mouseDown) {
-                    mouseDown = false;
-                    event.action = MotionEvent::ACTION_UP;
-                    event.xs[0] = sdlEvent.button.x * pointerScale();
-                    event.ys[0] = sdlEvent.button.y * pointerScale();
-                    event.eventTime = SDL_GetTicks();
-                    renderView.queueTouchEvent(event);
-                }
-                break;
             case SDL_EVENT_MOUSE_MOTION:
-                // Always, so chrome that lights under the pointer hears about
-                // it. The touch queue below still only sees a drag.
+                // Pressing and dragging arrives as a finger, so the only thing
+                // wanted from the mouse itself is where it is hovering, which
+                // is what lights the chrome under it.
                 renderView.queuePointerMove(sdlEvent.motion.x * pointerScale(),
                                             sdlEvent.motion.y * pointerScale());
-                if (mouseDown) {
-                    event.action = MotionEvent::ACTION_MOVE;
-                    event.xs[0] = sdlEvent.motion.x * pointerScale();
-                    event.ys[0] = sdlEvent.motion.y * pointerScale();
-                    event.eventTime = SDL_GetTicks();
-                    renderView.queueTouchEvent(event);
-                }
                 break;
             case SDL_EVENT_FINGER_CANCELED: {
                 // The platform has taken the gesture over, a system back swipe
