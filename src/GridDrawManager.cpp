@@ -401,8 +401,22 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         GridQuad *quad = GridDrawables::sFullscreenGrid[vboIndex];
         float u = texture->getNormalizedWidth();
         float v = texture->getNormalizedHeight();
+        // One shape for both halves of the crossfade. Taking each from its own
+        // texture draws the cropped thumbnail and the whole picture at
+        // different aspects in the same frame, which is what shows when a
+        // portrait photo is opened from a landscape crop of its middle.
         float imageWidth = (float)texture->getWidth();
         float imageHeight = (float)texture->getHeight();
+        if (fsTexture && fsTexture->isLoaded()) {
+            imageWidth = (float)fsTexture->getWidth();
+            imageHeight = (float)fsTexture->getHeight();
+        }
+        // Walk to the new shape rather than jump to it, but only while this
+        // quad is still showing the same picture. Stepping to the next photo
+        // reuses the quad, and one picture must not be seen turning into the
+        // next.
+        const bool sameItem = (mQuadItem[vboIndex] == displayItem);
+        mQuadItem[vboIndex] = displayItem;
         bool portrait = ((theta / 90) % 2 == 1);
         if (portrait) {
             viewAspect = 1.0f / viewAspect;
@@ -412,7 +426,7 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         // centre.
         quad->setCenterOffset((zoomValue == 1.0f) ? safeOffsetX : 0.0f,
                               (zoomValue == 1.0f) ? safeOffsetY : 0.0f);
-        quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight);
+        quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight, sameItem);
         quad->bindArrays(view);
         drawDisplayItem(view, displayItem, texture, PASS_FOCUS_CONTENT, nullptr, 0.0f);
         quad->unbindArrays(view);
@@ -424,11 +438,10 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
 
         if (selectedMixRatio != 0.0f && selectedMixRatio != 1.0f && fsTexture) {
             view->setAlpha(alpha * selectedMixRatio);
+            // Same shape as the half below it, only the texture differs.
             u = fsTexture->getNormalizedWidth();
             v = fsTexture->getNormalizedHeight();
-            imageWidth = (float)fsTexture->getWidth();
-            imageHeight = (float)fsTexture->getHeight();
-            quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight);
+            quad->resizeQuad(viewAspect, u, v, imageWidth, imageHeight, fitHeight, sameItem);
             quad->bindArrays(view);
             drawDisplayItem(view, displayItem, fsTexture, PASS_FOCUS_CONTENT, nullptr, 1.0f);
             quad->unbindArrays(view);

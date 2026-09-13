@@ -113,7 +113,7 @@ void GridQuad::setCorners(float xMin, float yMin, float xMax, float yMax, float 
 }
 
 void GridQuad::resizeQuad(float viewAspect, float u, float v, float imageWidth, float imageHeight,
-                          float fitHeight) {
+                          float fitHeight, bool ease) {
     // Given u and v we know the aspect ratio of the image, so one axis has to
     // move depending on the image and viewport aspect ratios.
     mU = u;
@@ -142,7 +142,15 @@ void GridQuad::resizeQuad(float viewAspect, float u, float v, float imageWidth, 
     // clamp above works the same at any size.
     mWidth = width * fitHeight;
     mHeight = height * fitHeight;
-    commit();
+    if (ease) {
+        // Leave the drawn size where it is and let update() walk it over. The
+        // texture extents still snap: they belong to whichever image is being
+        // drawn this frame, not to the shape it is drawn at.
+        mAnimU = mU;
+        mAnimV = mV;
+    } else {
+        commit();
+    }
     recomputeQuad();
 }
 

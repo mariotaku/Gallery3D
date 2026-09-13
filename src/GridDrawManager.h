@@ -75,6 +75,11 @@ class GridDrawManager {
     float mTargetFocusMixRatio = 0.0f;
     float mFocusMixRatio = 0.0f;
     FloatAnim mSelectedMixRatio{0.0f};
+    // Which picture each fullscreen quad last drew. A quad is reused for
+    // whatever is in that position, so this is what tells a shape settling on
+    // one picture apart from a quad being handed the next one.
+    DisplayItem *mQuadItem[3] = {nullptr, nullptr, nullptr};
+
     float mCurrentFocusItemWidth = 0.0f;
     float mCurrentFocusItemHeight = 0.0f;
     bool mCurrentFocusIsPressed = false;
