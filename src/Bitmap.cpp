@@ -293,6 +293,19 @@ Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
     return result;
 }
 
+float Bitmap::degreesForOrientation(unsigned orientation) {
+    switch (orientation) {
+    case 6:
+        return 90.0f;
+    case 3:
+        return 180.0f;
+    case 8:
+        return 270.0f;
+    default:
+        return 0.0f;
+    }
+}
+
 Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
     // Read JPEG APP1 orientation (IFD0 0x0112), date (Exif IFD via 0x8769, tag 0x9003),
     // and GPS (IFD via 0x8825). Bounds-check all reads; malformed data keeps defaults.
@@ -398,21 +411,7 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                 }
                 unsigned tag = read16(entry);
                 if (tag == 0x0112) {
-                    unsigned orientation = read16(entry + 8);
-                    switch (orientation) {
-                    case 6:
-                        info.rotationDegrees = 90.0f;
-                        break;
-                    case 3:
-                        info.rotationDegrees = 180.0f;
-                        break;
-                    case 8:
-                        info.rotationDegrees = 270.0f;
-                        break;
-                    default:
-                        info.rotationDegrees = 0.0f;
-                        break;
-                    }
+                    info.rotationDegrees = degreesForOrientation(read16(entry + 8));
                 } else if (tag == 0x0132) {
                     // DateTime is when the file was last written, so it is only
                     // a fallback for the shot time below.

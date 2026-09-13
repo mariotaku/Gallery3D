@@ -80,6 +80,10 @@ class Bitmap {
     // one pass over its header.
     static ExifInfo readExif(const std::string &path);
 
+    // The EXIF orientation value as a clockwise turn. Only the three plain
+    // rotations; mirrored ones and anything unknown count as upright.
+    static float degreesForOrientation(unsigned orientation);
+
   private:
     int mWidth = 0;
     int mHeight = 0;

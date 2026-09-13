@@ -1,5 +1,7 @@
 #include "LocalDataSource.h"
 
+#include <SDL3/SDL.h>
+
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -135,10 +137,17 @@ void LocalDataSource::scan(const std::string &path, std::vector<Folder> &folders
 }
 
 void LocalDataSource::loadMediaSets(MediaFeed *feed) {
+    const Uint64 started = SDL_GetTicks();
+    const std::vector<std::string> roots = PhotoLibrary::withoutNested(mRoots);
     std::vector<Folder> folders;
-    for (const std::string &root : PhotoLibrary::withoutNested(mRoots)) {
+    for (const std::string &root : roots) {
         scan(root, folders);
     }
+    // One question to the platform for every photo at once, instead of
+    // opening each file for its EXIF.
+    const PhotoIndex::Entries index = mMetadataLookup ? mMetadataLookup(roots) : PhotoIndex::Entries();
+    size_t fromIndex = 0;
+    size_t fromFiles = 0;
 
     for (const Folder &folder : folders) {
         MediaSet *set = feed->addMediaSet(hashPath(folder.path), this);
@@ -158,7 +167,17 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
             item->mScreennailUri = file;
             item->mMimeType = mimeTypeForPath(file);
             item->mCaption = utf8Of(pathOf(file).filename());
-            Bitmap::ExifInfo exif = Bitmap::readExif(file);
+            // The index's answer when it has one worth using. Without a pixel
+            // size it has not read the picture, and the file is read instead.
+            Bitmap::ExifInfo exif;
+            const auto indexed = index.find(PhotoIndex::key(file));
+            if (indexed != index.end() && indexed->second.pixelWidth > 0 && indexed->second.pixelHeight > 0) {
+                exif = indexed->second;
+                ++fromIndex;
+            } else {
+                exif = Bitmap::readExif(file);
+                ++fromFiles;
+            }
             item->mRotation = exif.rotationDegrees;
             item->mLatitude = exif.latitude;
             item->mLongitude = exif.longitude;
@@ -194,6 +213,8 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
         set->generateTitle(true);
         feed->updateListener(true);
     }
+    SDL_Log("Read %zu photos in %u ms: %zu from the index, %zu from their files", fromIndex + fromFiles,
+            (unsigned)(SDL_GetTicks() - started), fromIndex, fromFiles);
     // Everything is on this disk, so the page is complete the moment the scan
     // is.
     feed->finishLoadingMediaSets();

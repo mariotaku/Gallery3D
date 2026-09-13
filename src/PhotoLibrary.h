@@ -26,6 +26,10 @@ Locations systemLocations();
 // ignores case, as its file systems do, and either slash separates.
 bool isWithin(const std::string &path, const std::string &root);
 
+// The one spelling isWithin compares: forward slashes, no trailing separator,
+// and on Windows lower case. Two spellings of one file give the same string.
+std::string comparable(const std::string &path);
+
 // The folders without duplicates and without any that lies inside another,
 // in the order given. A library may name a folder and one of its subfolders
 // as well, and walking both would put every album under it on the wall twice.

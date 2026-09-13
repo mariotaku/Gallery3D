@@ -86,6 +86,10 @@ void appendLibraryFolders(REFKNOWNFOLDERID library, std::vector<std::string> &ou
 
 namespace PhotoLibrary {
 
+std::string comparable(const std::string &path) {
+    return normalized(path);
+}
+
 bool isWithin(const std::string &path, const std::string &root) {
     const std::string normalizedPath = normalized(path);
     const std::string normalizedRoot = normalized(root);

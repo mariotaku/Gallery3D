@@ -20,7 +20,10 @@ On Windows that is the whole Pictures library, which can include folders on
 other drives, and albums inside the Camera Roll get the camera icon. Cloud
 placeholders kept online only, such as Dropbox or OneDrive files not on this
 disk, are left off the wall: opening one to read it would download the whole
-file. `library.photos` names one directory instead.
+file. `library.photos` names one directory instead. Dates, sizes, orientation
+and position come from the Windows Search index for every photo it has
+indexed, so only photos it has not are opened for their EXIF. Other platforms
+read EXIF from each file.
 `--help` lists all settings and run options. Videos open in the desktop's default
 player. Delete uses the recycle bin on Windows and the freedesktop.org trash on
 Linux. Rotation persists when an EXIF orientation tag can be rewritten. Crop,

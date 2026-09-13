@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Bitmap.h"
+#include "PhotoIndex.h"
 #include "RegionDecoder.h"
 
 class MediaFeed;
@@ -124,6 +125,14 @@ class LocalDataSource : public DataSource {
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);
 
+    // Where a scan gets what is already known about each photo, before it
+    // falls back to reading the file. PhotoIndex::query unless replaced, which
+    // a test does to stand in for the platform's index.
+    using MetadataLookup = std::function<PhotoIndex::Entries(const std::vector<std::string> &folders)>;
+    void setMetadataLookup(MetadataLookup lookup) {
+        mMetadataLookup = std::move(lookup);
+    }
+
   private:
     struct Folder {
         std::string path;
@@ -135,5 +144,6 @@ class LocalDataSource : public DataSource {
 
     std::vector<std::string> mRoots;
     std::vector<std::string> mCameraRolls;
+    MetadataLookup mMetadataLookup = PhotoIndex::query;
     RegionDecoderCache mDecoders;
 };
