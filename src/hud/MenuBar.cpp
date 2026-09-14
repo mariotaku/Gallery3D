@@ -10,6 +10,11 @@ namespace {
 
 // selection_menu_bg ships as a single 58 tall column, stretched across.
 const float ART_HEIGHT = 58.0f;
+// The bar itself: the 45 rows of glass at the bottom of that column. The 13
+// above them, the shadow and the highlight along the bar's edge, are drawn
+// above the bar, as the original drew them, so the highlight lies on the bar's
+// edge and the dividers and buttons cover only the glass.
+const float HEIGHT = 45.0f;
 const float ICON_SIZE = 34.0f;
 const float FONT_SIZE = 17.0f;
 // Highlight inset and cap overhang, in Java layout units.
@@ -31,6 +36,10 @@ MenuBar::MenuBar() {
 MenuBar::~MenuBar() = default;
 
 float MenuBar::preferredHeight() {
+    return scaled(HEIGHT);
+}
+
+float MenuBar::drawnHeight() {
     return scaled(ART_HEIGHT);
 }
 
@@ -77,7 +86,7 @@ void MenuBar::onSizeChanged() {
 void MenuBar::layout() {
     mNeedsLayout = false;
     int barWidth = (int)(mWidth + 0.5f);
-    int barHeight = (int)(preferredHeight() + 0.5f);
+    int barHeight = (int)(drawnHeight() + 0.5f);
     if (barWidth <= 0 || barHeight <= 0 || mButtons.empty()) {
         mTexture->setSize(0, 0);
         return;
@@ -109,11 +118,14 @@ void MenuBar::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
 
     int iconSize = (int)scaled(ICON_SIZE);
     float fontSize = scaled(FONT_SIZE);
+    // Where the bar starts in the canvas, below the shadow and highlight rows.
+    int glassTop = std::max(0, height - (int)(preferredHeight() + 0.5f));
+    int glassHeight = height - glassTop;
     for (size_t i = 0; i < buttons.size(); ++i) {
         const Button &button = buttons[i];
         if (i > 0 && divider.valid()) {
             int dividerWidth = std::max(1, (int)scaled(1.0f));
-            Canvas::blitScaled(canvas, divider, (int)button.x, 0, dividerWidth, height);
+            Canvas::blitScaled(canvas, divider, (int)button.x, glassTop, dividerWidth, glassHeight);
         }
         Bitmap icon = button.icon.empty() ? Bitmap() : DrawableLoad::load(button.icon).bitmap;
         int iconWidth = icon.valid() ? iconSize : 0;
@@ -127,11 +139,11 @@ void MenuBar::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
         int contentWidth = iconWidth + labelWidth;
         int x = (int)(button.x + (button.width - (float)contentWidth) * 0.5f);
         if (icon.valid()) {
-            Canvas::blitScaled(canvas, icon, x, (height - iconSize) / 2, iconSize, iconSize);
+            Canvas::blitScaled(canvas, icon, x, glassTop + (glassHeight - iconSize) / 2, iconSize, iconSize);
             x += iconWidth;
         }
         if (labelWidth > 0) {
-            Canvas::drawText(canvas, button.label, x, (height - labelHeight) / 2, fontSize, false, 1.0f, 1.0f,
+            Canvas::drawText(canvas, button.label, x, glassTop + (glassHeight - labelHeight) / 2, fontSize, false, 1.0f, 1.0f,
                              1.0f, 1.0f, 0);
         }
     }
@@ -187,7 +199,10 @@ void MenuBar::renderBlended(RenderView *view) {
     }
     // The colour is left as HudLayer set it, so the bar fades with the rest.
     view->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    view->draw2D(mTexture, mX, mY, (float)mTexture->getCanvasWidth(), (float)mTexture->getCanvasHeight());
+    // The canvas starts above the bar by the shadow and highlight rows.
+    const float canvasHeight = (float)mTexture->getCanvasHeight();
+    const float above = canvasHeight - (float)(int)(preferredHeight() + 0.5f);
+    view->draw2D(mTexture, mX, mY - above, (float)mTexture->getCanvasWidth(), canvasHeight);
 }
 
 bool MenuBar::containsPoint(float x, float y) {

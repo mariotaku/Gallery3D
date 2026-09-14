@@ -167,7 +167,11 @@ void HudLayer::onSizeChanged() {
     mZoomOutButton.setPosition(safeRightEdge - zoomWidth * 2.0f, zoomY);
 
     // Selection replaces the path bar across the full width, below the caption buttons.
-    const float captionHeight = WindowFrame::isExtended() ? WindowFrame::captionHeight() : 0.0f;
+    // Those are taller than the system's caption strip, and the bar's glass
+    // starts at its top edge, so it clears whichever of the two is lower.
+    const float captionHeight = WindowFrame::isExtended()
+                                    ? std::max(WindowFrame::captionHeight(), CaptionButtons::preferredHeight())
+                                    : 0.0f;
     mSelectionMenuTop.setPosition(safeLeft, selectionBarTop(safeTop, captionHeight));
     mSelectionMenuTop.setSize(safeWidth, MenuBar::preferredHeight());
 

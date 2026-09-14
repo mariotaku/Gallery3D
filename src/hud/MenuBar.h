@@ -36,7 +36,11 @@ class MenuBar : public Layer {
     // Change a label without rebuilding, preserving the current press.
     void setButtonLabel(size_t index, const std::string &label);
 
+    // The bar's own height, the glass that takes touches and holds the buttons.
     static float preferredHeight();
+    // The height it draws, which adds the shadow and highlight rows above the
+    // bar. compose() returns a bitmap this tall.
+    static float drawnHeight();
 
     // Where a button sits, in window coordinates. A button that opens a popup
     // needs this to point the popup back at itself.

@@ -168,7 +168,9 @@ TEST(menu_bar_lays_buttons_across_its_width) {
         return;
     }
     CHECK_EQ(composed.width(), 600);
-    CHECK_EQ(composed.height(), (int)(MenuBar::preferredHeight() + 0.5f));
+    // Taller than the bar: the shadow and highlight rows draw above it.
+    CHECK_EQ(composed.height(), (int)(MenuBar::drawnHeight() + 0.5f));
+    CHECK(MenuBar::drawnHeight() > MenuBar::preferredHeight());
     // The fill stretches the whole way, so every column carries something.
     CHECK_EQ(interiorGaps(composed), 0);
     // Each button gets its own half, and both draw an icon and a label into it.
