@@ -86,7 +86,11 @@ TexturePtr DisplayItem::getThumbnailImage(const MediaItemTexture::Config *config
 }
 
 TexturePtr DisplayItem::getScreennailImage() {
-    if (!mScreennailImage || mScreennailImage->mState == Texture::STATE_ERROR) {
+    // A screennail that failed to decode stays failed. Making a new one here
+    // would decode it again every frame for as long as the photo is open.
+    // clearScreennailImage still lets a photo try once more after it leaves
+    // the fullscreen neighbourhood.
+    if (!mScreennailImage) {
         if (mItemRef && !mItemRef->mScreennailUri.empty()) {
             mScreennailImage = std::make_shared<MediaItemTexture>(nullptr, mItemRef);
         }

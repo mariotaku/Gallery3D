@@ -53,6 +53,14 @@ void GridDrawManager::prepareDraw(const IndexRange &bufferedVisibleRange, const 
     mHoldPosition = holdPosition;
 }
 
+TexturePtr GridDrawManager::thumbnailOf(DisplayItem *displayItem) const {
+    TexturePtr thumbnail = displayItem->getThumbnailImage(&sThumbnailConfig);
+    if (thumbnail && thumbnail->getState() == Texture::STATE_ERROR && mDrawables->mTextureBroken) {
+        return mDrawables->mTextureBroken;
+    }
+    return thumbnail;
+}
+
 bool GridDrawManager::update(float timeElapsed) {
     mFocusMixRatio = FloatUtils::animate(mFocusMixRatio, mTargetFocusMixRatio, timeElapsed);
     mTargetFocusMixRatio = 0.0f;
@@ -91,7 +99,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 if (displayItem == nullptr) {
                     continue;
                 }
-                TexturePtr texture = displayItem->getThumbnailImage(&sThumbnailConfig);
+                TexturePtr texture = thumbnailOf(displayItem);
                 if (texture && !texture->isLoaded()) {
                     startSlotIndex = j;
                     break;
@@ -111,7 +119,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 (index <= selectedSlotIndex - 2 || index >= selectedSlotIndex + 2)) {
                 displayItem->clearScreennailImage();
             }
-            TexturePtr texture = displayItem->getThumbnailImage(&sThumbnailConfig);
+            TexturePtr texture = thumbnailOf(displayItem);
             if (index == mCurrentScaleSlot && texture && !texture->isLoaded()) {
                 view->prime(texture, true);
                 view->bind(texture);
@@ -137,7 +145,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
             if (displayItem == nullptr) {
                 continue;
             }
-            TexturePtr texture = displayItem->getThumbnailImage(&sThumbnailConfig);
+            TexturePtr texture = thumbnailOf(displayItem);
             if (!texture || !texture->isLoaded()) {
                 if (currentScaleSlot != index) {
                     if (j == 0) {
@@ -196,7 +204,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
             if (j >= maxDisplayedItemsPerSlot) {
                 continue;
             }
-            TexturePtr texture = displayItem->getThumbnailImage(&sThumbnailConfig);
+            TexturePtr texture = thumbnailOf(displayItem);
             if (!texture) {
                 // Move on to the next stack.
                 break;
@@ -311,7 +319,7 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             continue;
         }
         MediaItem *item = displayItem->mItemRef;
-        const TexturePtr thumbnailTexture = displayItem->getThumbnailImage(&sThumbnailConfig);
+        const TexturePtr thumbnailTexture = thumbnailOf(displayItem);
         TexturePtr texture = displayItem->getScreennailImage();
         if (isCameraZAnimating && (!texture || !texture->isLoaded())) {
             // Start the decode as the camera starts to move in, so the
@@ -360,8 +368,16 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
             }
             texture = thumbnailTexture;
             if (i == 0) {
-                mSelectedMixRatio.setValue(0.0f);
-                mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
+                if (fsTexture && fsTexture->getState() == Texture::STATE_ERROR) {
+                    // A screennail that failed to decode is not coming, so the
+                    // thumbnail stays at full strength. Fading it out toward
+                    // the screennail would leave it dim for the fade, and
+                    // restarting the fade would redraw every frame.
+                    mSelectedMixRatio.setValue(1.0f);
+                } else {
+                    mSelectedMixRatio.setValue(0.0f);
+                    mSelectedMixRatio.animateValue(1.0f, 0.75f, view->getFrameTime());
+                }
             }
         }
         if (camera->isAnimating() || slideshowMode) {

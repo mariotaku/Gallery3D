@@ -86,6 +86,8 @@ class GridDrawables {
     TexturePtr mTexturePicasaSmall;
     TexturePtr mTextureTransparent;
     TexturePtr mTexturePlaceholder;
+    // Drawn in place of a photo whose thumbnail or screennail failed to decode.
+    TexturePtr mTextureBroken;
     TexturePtr mTextureShadow;
     TexturePtr mTextureChecker;
 

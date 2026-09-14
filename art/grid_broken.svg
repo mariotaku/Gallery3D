@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 128 96"
+     g3d:outputs="drawable=512x384">
+  <!-- What a photo shows once its decode has failed: grid_placeholder's dark
+       tile, with a white picture on it torn in two. The right half tips away
+       from the tear, and each half casts the chrome's halo, so the tear shows
+       as a dark gap. Rendered at four times the placeholder, as it also fills
+       the screen fullscreen. -->
+  <defs>
+    <linearGradient id="upper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a6a6a"/>
+      <stop offset="1" stop-color="#525252"/>
+    </linearGradient>
+    <linearGradient id="lower" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4a4a"/>
+      <stop offset="1" stop-color="#303030"/>
+    </linearGradient>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+      <feOffset dx="0.2" dy="0.5"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.844 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.7"/>
+      <feOffset dx="0.2" dy="1"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="left">
+      <polygon points="0,0 66,0 66,26 60,37 68,46 59,56 65,70 65,96 0,96"/>
+    </clipPath>
+    <clipPath id="right">
+      <polygon points="66,0 128,0 128,96 65,96 65,70 59,56 68,46 60,37 66,26"/>
+    </clipPath>
+    <g id="picture" fill="#ffffff">
+      <path fill-rule="evenodd"
+            d="M38 28 H90 V68 H38 Z M41.5 31.5 V64.5 H86.5 V31.5 Z"/>
+      <circle cx="77" cy="40" r="4.5"/>
+      <path d="M41.5 66 V64.5 L55 47 L63 56 L71 48 L86.5 64.5 V66 Z"/>
+    </g>
+  </defs>
+  <rect x="0" y="0" width="128" height="48" fill="url(#upper)"/>
+  <rect x="0" y="48" width="128" height="48" fill="url(#lower)"/>
+  <g filter="url(#halo)">
+    <g clip-path="url(#left)">
+      <use href="#picture"/>
+    </g>
+  </g>
+  <g filter="url(#halo)" transform="translate(2.5 0.5) rotate(7 65 70)">
+    <g clip-path="url(#right)">
+      <use href="#picture"/>
+    </g>
+  </g>
+</svg>

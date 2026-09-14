@@ -107,6 +107,7 @@ const char *const icon_location_small = "icon_location_small";
 const char *const ic_fs_details = "ic_fs_details";
 const char *const transparent = "transparent";
 const char *const grid_placeholder = "grid_placeholder";
+const char *const grid_broken = "grid_broken";
 const char *const default_background = "default_background";
 }  // namespace drawable
 

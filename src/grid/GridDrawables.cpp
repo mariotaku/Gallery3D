@@ -245,11 +245,13 @@ void GridDrawables::onSurfaceCreated(RenderView *view) {
     mTexturePicasaSmall = view->getResource(Res::drawable::icon_picasa_small_unscaled, false);
     mTextureTransparent = view->getResource(Res::drawable::transparent, false);
     mTexturePlaceholder = view->getResource(Res::drawable::grid_placeholder, false);
+    mTextureBroken = view->getResource(Res::drawable::grid_broken, false);
 
     view->loadTexture(mTextureFrame);
     view->loadTexture(mTextureGridFrame);
     view->loadTexture(mTextureFrameFocus);
     view->loadTexture(mTextureFramePressed);
+    view->loadTexture(mTextureBroken);
 
     // Light enough that the shadow lifts the picture off the backdrop without
     // drawing a line around it.
