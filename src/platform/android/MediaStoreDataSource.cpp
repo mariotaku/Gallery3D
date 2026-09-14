@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <memory>
+#include <unordered_set>
 
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
 
 #include "platform/android/AndroidBridge.h"
 #include "core/JsonValue.h"
+#include "media/LocalDataSource.h"
 #include "media/MediaFeed.h"
 #include "media/MediaItem.h"
 #include "media/MediaSet.h"
@@ -116,9 +118,21 @@ void MediaStoreDataSource::loadBucketItems(MediaSet &set, const std::string &buc
     }
 
     const nlohmann::json photos = parse(AndroidBridge::queryBucket(bucketId), "photo list");
+    // A bucket is one folder, so names alone find a RAW and the JPEG or HEIF
+    // beside it, which the desktop shows as one photo.
+    std::vector<std::string> names;
+    names.reserve(photos.size());
+    for (const nlohmann::json &photo : photos) {
+        names.push_back(stringOr(photo, "name", ""));
+    }
+    std::unordered_set<std::string> kept;
+    for (std::string &name : LocalDataSource::withoutRawDuplicates(std::move(names))) {
+        kept.insert(std::move(name));
+    }
+
     for (const nlohmann::json &photo : photos) {
         const int64_t id = intOr(photo, "id", -1);
-        if (id < 0) {
+        if (id < 0 || kept.count(stringOr(photo, "name", "")) == 0) {
             continue;
         }
         auto item = std::make_unique<MediaItem>();
