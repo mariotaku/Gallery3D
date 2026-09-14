@@ -20,7 +20,7 @@ const float GLYPH_SIZE = 10.0f;
 // one pixel white stroke readable on a bright photo. A stroke that thin covers
 // little of the blur, hence the strength.
 const float HALO_RADIUS = 1.4f;
-const float HALO_OPACITY = 2.1f;
+const float HALO_OPACITY = 1.05f;
 
 // Close goes red, the other two take a plain wash. These are the system's own
 // colours for a dark window.
