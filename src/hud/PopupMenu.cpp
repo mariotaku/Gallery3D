@@ -33,8 +33,11 @@ const float POPUP_TRIANGLE_EXTRA_HEIGHT = 14.0f;
 const float OPEN_SECONDS = 0.4f;
 const float CLOSE_SECONDS = 0.3f;
 
+// In whole pixels, rounded as the art's sizes are, so the icons and the
+// triangle are drawn at exactly the size they were rendered at, and the panel
+// is a whole number of pixels wide.
 float scaled(float value) {
-    return value * App::UI_DENSITY;
+    return (float)App::uiPixels(value);
 }
 
 }  // namespace

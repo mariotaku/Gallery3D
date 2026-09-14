@@ -101,20 +101,21 @@ TEST(the_chrome_does_not_take_the_walls_enlargement) {
 TEST(the_drawable_bucket_follows_the_chrome_density) {
     DensityGuard guard;
 
-    // Art is shipped at 1x and 1.5x. A display between them takes the higher
-    // bucket and scales down, which is what keeps an icon from going blocky.
+    // Chrome ships in Android's buckets, mdpi to xxxhdpi. A display at one of
+    // their densities takes it; one between takes the one above and scales
+    // down, so an icon is never enlarged.
     App::UI_DENSITY = 1.0f;
     CHECK_NEAR(App::drawableBucketDensity(), 1.0f, 0.001f);
 
-    App::UI_DENSITY = 1.5f;
-    CHECK_NEAR(App::drawableBucketDensity(), 1.5f, 0.001f);
+    App::UI_DENSITY = 2.0f;
+    CHECK_NEAR(App::drawableBucketDensity(), 2.0f, 0.001f);
 
-    App::UI_DENSITY = 1.25f;
-    CHECK_NEAR(App::drawableBucketDensity(), 1.5f, 0.001f);
+    App::UI_DENSITY = 1.75f;
+    CHECK_NEAR(App::drawableBucketDensity(), 2.0f, 0.001f);
 
     // And past the top bucket there is nothing better to pick, so it stays.
-    App::UI_DENSITY = 2.0f;
-    CHECK_NEAR(App::drawableBucketDensity(), 1.5f, 0.001f);
+    App::UI_DENSITY = 5.0f;
+    CHECK_NEAR(App::drawableBucketDensity(), 4.0f, 0.001f);
 }
 
 TEST(a_thumbnail_texture_takes_the_nearer_power_of_two) {

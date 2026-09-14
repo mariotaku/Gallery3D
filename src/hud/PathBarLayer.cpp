@@ -20,8 +20,10 @@ const float FONT_SIZE = 18.0f;
 const float TEXT_GAP = 4.0f;
 const float TRAILING_PAD = 10.0f;
 
+// In whole pixels, rounded as the art's sizes are, so the crumb icons, the join
+// and the cap are drawn at exactly the size they were rendered at.
 float scaled(float value) {
-    return value * App::UI_DENSITY;
+    return (float)App::uiPixels(value);
 }
 
 }  // namespace

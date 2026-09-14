@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Renders the SVG sources in art/ to the PNG drawables under assets/.
 
-Each SVG names its outputs on its root element, in the urn:gallery3d:art
+Each SVG names what it renders on its root element, in the urn:gallery3d:art
 namespace:
 
   g3d:outputs    Space-separated bucket=WIDTHxHEIGHT pairs, such as
-                 "drawable-mdpi=40x40 drawable-hdpi=60x60". The viewBox is
-                 fitted into each size and centred.
+                 "drawable-mdpi=40x40 drawable-hdpi=60x60". A drawable= pair is
+                 the plain folder, where the wall's textures and anything drawn
+                 at a fixed size come from. For chrome, the mdpi and hdpi pairs
+                 are not written as given: they say the SVG was traced at 1x or
+                 1.5x, and the density buckets below render from the SVG traced
+                 nearest to them.
   g3d:name       The drawable's name, when it is not the file's. A nine-patch
                  keeps its .9, as in popup.9.
   g3d:frames     A range such as "1..8". The file renders once for each value,
@@ -14,6 +18,11 @@ namespace:
   g3d:ninepatch  "stretch-x=A-B stretch-y=A-B pad-x=A-B pad-y=A-B", in viewBox
                  units, inclusive. The art renders one pixel in from every edge
                  and the guides go on that border, as a .9.png wants them.
+
+The chrome in CHROME is rendered into every bucket in BUCKETS, mdpi through
+xxxhdpi, at the size its code draws it at. The app takes the bucket for the
+display's density, or the one above it and scales down, so chrome is never
+enlarged.
 
 Needs resvg_py and Pillow: pip install resvg_py pillow
 
@@ -26,6 +35,7 @@ Needs resvg_py and Pillow: pip install resvg_py pillow
 import argparse
 import copy
 import io
+import math
 import os
 import re
 import sys
@@ -43,6 +53,71 @@ ART_NS = "urn:gallery3d:art"
 ET.register_namespace("", SVG_NS)
 ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
 ET.register_namespace("g3d", ART_NS)
+
+# Android's density buckets, as App.cpp loads them.
+BUCKETS = {
+    "drawable-mdpi": 1.0,
+    "drawable-hdpi": 1.5,
+    "drawable-xhdpi": 2.0,
+    "drawable-xxhdpi": 3.0,
+    "drawable-xxxhdpi": 4.0,
+}
+
+FIT = "fit"
+STRETCH = "stretch"
+
+# Chrome, in density-independent pixels: the box the code draws each drawable
+# into. A nine-patch's size leaves out its one pixel guide border. A STRETCH
+# drawable fills its box exactly, as the bars that use it stretch it anyway; a
+# FIT one keeps its shape, centred in the box.
+CHROME = {
+    # PathBarLayer: ART_HEIGHT, JOIN_WIDTH and CAP_WIDTH, and ICON_SIZE for the
+    # crumbs' icons.
+    "pathbar_bg": (1, 39, STRETCH),
+    "pathbar_cap": (22, 39, STRETCH),
+    "pathbar_join": (21, 39, STRETCH),
+    "icon_home_small": (39, 39, FIT),
+    "icon_folder_small": (39, 39, FIT),
+    "icon_camera_small": (39, 39, FIT),
+    "icon_picasa_small": (39, 39, FIT),
+    "icon_location_small": (39, 39, FIT),
+    "ic_fs_details": (39, 39, FIT),
+    # MenuBar: ART_HEIGHT and HIGHLIGHT_EDGE_WIDTH, and ICON_SIZE for the
+    # buttons' icons, which PopupMenu's rows share.
+    "selection_menu_bg": (1, 58, STRETCH),
+    "selection_menu_divider": (1, 2, STRETCH),
+    "selection_menu_bg_pressed": (1, 58, STRETCH),
+    "selection_menu_bg_pressed_left": (21, 58, STRETCH),
+    "selection_menu_bg_pressed_right": (21, 58, STRETCH),
+    "icon_delete": (34, 34, FIT),
+    "icon_cancel": (34, 34, FIT),
+    "icon_more": (34, 34, FIT),
+    "icon_play": (34, 34, FIT),
+    # PopupMenu: ICON_SIZE for the rows' icons, TRIANGLE_WIDTH and
+    # TRIANGLE_HEIGHT, and the panel and highlight nine-patches at the sizes
+    # they were traced at. TimeBar's date popup uses the same panel.
+    "ic_menu_rotate_left": (34, 34, FIT),
+    "ic_menu_rotate_right": (34, 34, FIT),
+    "ic_menu_view_details": (34, 34, FIT),
+    "popup_triangle_bottom": (43, 28, STRETCH),
+    "popup.9": (62, 67, STRETCH),
+    "popup_option_selected.9": (18, 40, STRETCH),
+    # Drawn at their own size: the zoom and mode buttons by ImageButton, the
+    # knob by TimeBar.
+    "gallery_zoom_in": (66, 42, FIT),
+    "gallery_zoom_in_touch": (66, 42, FIT),
+    "gallery_zoom_out": (66, 42, FIT),
+    "gallery_zoom_out_touch": (66, 42, FIT),
+    "mode_grid": (100, 93, FIT),
+    "mode_stack": (100, 93, FIT),
+    "scroller_new": (163, 48, FIT),
+    "scroller_pressed_new": (163, 48, FIT),
+}
+
+
+def pixels(dp, density):
+    """A length in whole pixels, rounded as App::uiPixels rounds it."""
+    return int(math.floor(dp * density + 0.5))
 
 
 def art_attribute(root, key):
@@ -75,10 +150,12 @@ def view_box(root):
     return [0.0, 0.0, float(root.get("width")), float(root.get("height"))]
 
 
-def rasterize(path, root, width, height):
+def rasterize(path, root, width, height, stretch):
     sized = copy.deepcopy(root)
     sized.set("width", str(width))
     sized.set("height", str(height))
+    if stretch:
+        sized.set("preserveAspectRatio", "none")
     data = resvg_py.svg_to_bytes(svg_string=ET.tostring(sized, encoding="unicode"))
     image = Image.open(io.BytesIO(bytes(data))).convert("RGBA")
     if image.size != (width, height):
@@ -86,19 +163,19 @@ def rasterize(path, root, width, height):
     return image
 
 
-def with_guides(path, root, width, height, spec):
+def with_guides(path, root, width, height, spec, stretch):
     """The art one pixel in from each edge, with nine-patch guides around it."""
     content_width = width - 2
     content_height = height - 2
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    image.paste(rasterize(path, root, content_width, content_height), (1, 1))
+    image.paste(rasterize(path, root, content_width, content_height, stretch), (1, 1))
 
     left, top, box_width, box_height = view_box(root)
     scale_x = content_width / box_width
     scale_y = content_height / box_height
     guides = dict(item.split("=") for item in spec.split())
 
-    def pixels(key, origin, scale, limit):
+    def guide_pixels(key, origin, scale, limit):
         first, last = (float(value) for value in guides[key].split("-"))
         start = max(0, int(round((first - origin) * scale)))
         end = min(limit, int(round((last + 1 - origin) * scale)))
@@ -106,15 +183,22 @@ def with_guides(path, root, width, height, spec):
 
     pixel = image.load()
     black = (0, 0, 0, 255)
-    for x in pixels("stretch-x", left, scale_x, content_width):
+    for x in guide_pixels("stretch-x", left, scale_x, content_width):
         pixel[x, 0] = black
-    for y in pixels("stretch-y", top, scale_y, content_height):
+    for y in guide_pixels("stretch-y", top, scale_y, content_height):
         pixel[0, y] = black
-    for x in pixels("pad-x", left, scale_x, content_width):
+    for x in guide_pixels("pad-x", left, scale_x, content_width):
         pixel[x, height - 1] = black
-    for y in pixels("pad-y", top, scale_y, content_height):
+    for y in guide_pixels("pad-y", top, scale_y, content_height):
         pixel[width - 1, y] = black
     return image
+
+
+def render(path, root, width, height, stretch):
+    spec = art_attribute(root, "ninepatch")
+    if spec:
+        return with_guides(path, root, width, height, spec, stretch)
+    return rasterize(path, root, width, height, stretch)
 
 
 def write_sheet(rendered, target, original):
@@ -163,25 +247,46 @@ def main():
 
     wanted = set(args.only.split(",")) if args.only else None
     rendered = []
+
+    def write(bucket, name, image):
+        target = os.path.join(ASSETS, bucket, name + ".png")
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        image.save(target, optimize=True)
+        rendered.append((bucket, name, target))
+        print(f"{bucket}/{name}.png {image.width}x{image.height}")
+
+    # Which SVGs can draw each chrome name, and the density each was traced
+    # at. Preferred where two are equally near: one traced for a density bucket
+    # over one drawn for the plain folder.
+    traced = {}
     for path, name, root in sources():
-        if wanted is not None and name not in wanted:
-            continue
         outputs = art_attribute(root, "outputs")
         if not outputs:
             sys.exit(f"{path}: no g3d:outputs")
-        spec = art_attribute(root, "ninepatch")
         for output in outputs.split():
             bucket, size = output.split("=")
             width, height = (int(value) for value in size.split("x"))
-            if spec:
-                image = with_guides(path, root, width, height, spec)
-            else:
-                image = rasterize(path, root, width, height)
-            target = os.path.join(ASSETS, bucket, name + ".png")
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            image.save(target, optimize=True)
-            rendered.append((bucket, name, target))
-            print(f"{bucket}/{name}.png {width}x{height}")
+            if bucket != "drawable" and bucket not in BUCKETS:
+                sys.exit(f"{path}: {bucket} is not a bucket this tool knows")
+            density = BUCKETS.get(bucket, 1.0)
+            traced.setdefault(name, []).append((density, bucket != "drawable", path, root))
+            if name in CHROME and bucket != "drawable":
+                continue
+            if wanted is None or name in wanted:
+                write(bucket, name, render(path, root, width, height, False))
+
+    for name, (dp_width, dp_height, fit) in CHROME.items():
+        if wanted is not None and name not in wanted:
+            continue
+        options = traced.get(name)
+        if not options:
+            sys.exit(f"no SVG draws the chrome drawable {name}")
+        for bucket, density in BUCKETS.items():
+            _, _, path, root = min(options, key=lambda option: (abs(option[0] - density), not option[1], -option[0]))
+            border = 2 if art_attribute(root, "ninepatch") else 0
+            width = pixels(dp_width, density) + border
+            height = pixels(dp_height, density) + border
+            write(bucket, name, render(path, root, width, height, fit == STRETCH))
 
     if wanted is not None:
         missing = wanted - {name for _, name, _ in rendered}

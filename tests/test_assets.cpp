@@ -5,6 +5,7 @@
 #include <string>
 
 #include "app/App.h"
+#include "graphics/Bitmap.h"
 #include "graphics/Canvas.h"
 
 namespace {
@@ -36,30 +37,83 @@ struct ScopedAssetRoot {
     std::string previous;
 };
 
+struct Bucket {
+    const char *directory;
+    float density;
+};
+
+const Bucket kBuckets[] = {
+    {"drawable-mdpi", 1.0f},   {"drawable-hdpi", 1.5f},    {"drawable-xhdpi", 2.0f},
+    {"drawable-xxhdpi", 3.0f}, {"drawable-xxxhdpi", 4.0f},
+};
+
 }  // namespace
 
-TEST(density_one_takes_the_mdpi_bucket) {
+TEST(each_bucket_density_takes_its_own_bucket) {
     ScopedAssetRoot root;
-    ScopedDensity density(1.0f);
-    App::Drawable drawable = App::findDrawable("icon_home_small");
-    CHECK(endsWith(drawable.path, "drawable-mdpi/icon_home_small.png"));
-    CHECK_NEAR(drawable.density, 1.0, 0.001);
+    for (const Bucket &bucket : kBuckets) {
+        ScopedDensity density(bucket.density);
+        App::Drawable drawable = App::findDrawable("icon_home_small");
+        CHECK(endsWith(drawable.path, std::string(bucket.directory) + "/icon_home_small.png"));
+        CHECK_NEAR(drawable.density, bucket.density, 0.001);
+    }
 }
 
-TEST(a_higher_density_takes_hdpi) {
+TEST(a_density_between_buckets_takes_the_one_above) {
     ScopedAssetRoot root;
-    ScopedDensity density(2.625f);
-    App::Drawable drawable = App::findDrawable("icon_home_small");
-    CHECK(endsWith(drawable.path, "drawable-hdpi/icon_home_small.png"));
-    CHECK_NEAR(drawable.density, 1.5, 0.001);
+    {
+        ScopedDensity density(1.75f);
+        CHECK(endsWith(App::findDrawable("icon_home_small").path, "drawable-xhdpi/icon_home_small.png"));
+    }
+    {
+        // A common phone density.
+        ScopedDensity density(2.625f);
+        CHECK(endsWith(App::findDrawable("icon_home_small").path, "drawable-xxhdpi/icon_home_small.png"));
+    }
+}
+
+TEST(chrome_is_never_enlarged_up_to_the_top_bucket) {
+    ScopedAssetRoot root;
+    for (int hundredths = 100; hundredths <= 400; hundredths += 5) {
+        ScopedDensity density((float)hundredths / 100.0f);
+        CHECK(App::drawableBucketDensity() >= App::UI_DENSITY - 0.001f);
+        CHECK(App::findDrawable("pathbar_cap").density >= App::UI_DENSITY - 0.001f);
+    }
+}
+
+TEST(chrome_art_is_the_size_its_code_draws_it_at) {
+    ScopedAssetRoot root;
+    // The sizes the path bar, menu bar and popup draw these into. At a bucket's
+    // density they have to match to the pixel, or the art is resampled and
+    // goes soft.
+    struct Expected {
+        const char *name;
+        float width;
+        float height;
+    };
+    const Expected expected[] = {
+        {"pathbar_cap", 22.0f, 39.0f},         {"pathbar_join", 21.0f, 39.0f},
+        {"icon_home_small", 39.0f, 39.0f},     {"icon_more", 34.0f, 34.0f},
+        {"ic_menu_rotate_left", 34.0f, 34.0f}, {"popup_triangle_bottom", 43.0f, 28.0f},
+        {"selection_menu_bg_pressed_left", 21.0f, 58.0f},
+    };
+    for (const Bucket &bucket : kBuckets) {
+        ScopedDensity density(bucket.density);
+        for (const Expected &art : expected) {
+            Bitmap bitmap = Bitmap::load(App::drawablePath(art.name), 0);
+            CHECK(bitmap.valid());
+            CHECK_EQ(bitmap.width(), App::uiPixels(art.width));
+            CHECK_EQ(bitmap.height(), App::uiPixels(art.height));
+        }
+    }
 }
 
 TEST(art_with_no_bucket_falls_back_to_the_plain_folder) {
     ScopedAssetRoot root;
     ScopedDensity density(2.625f);
-    // pathbar_bg ships only in the unqualified folder.
-    App::Drawable drawable = App::findDrawable("pathbar_bg");
-    CHECK(endsWith(drawable.path, "drawable/pathbar_bg.png"));
+    // The wall's own textures ship only in the unqualified folder.
+    App::Drawable drawable = App::findDrawable("stack_frame");
+    CHECK(endsWith(drawable.path, "drawable/stack_frame.png"));
     CHECK_NEAR(drawable.density, 1.0, 0.001);
 }
 
@@ -85,9 +139,9 @@ TEST(the_reported_bucket_matches_what_is_chosen) {
         CHECK_NEAR(App::drawableBucketDensity(), 1.5, 0.001);
     }
     {
-        ScopedDensity density(4.0f);
+        ScopedDensity density(4.5f);
         // Past every bucket, so the densest available and an accepted upscale.
-        CHECK_NEAR(App::drawableBucketDensity(), 1.5, 0.001);
+        CHECK_NEAR(App::drawableBucketDensity(), 4.0, 0.001);
     }
 }
 

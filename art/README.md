@@ -16,9 +16,16 @@ also writes pages of the old PNGs beside the new ones, on grey and on black.
 
 ## Sizes
 
-An output keeps the pixel size of the PNG it replaced, because the code lays
-out around those sizes. Draw in mdpi pixels where a drawable has an mdpi size,
-and in the fallback drawable's pixels where it has only that one. Some
+Chrome is drawn at the display's density and never enlarged: the path bar,
+the selection bar, popups, the time bar and the buttons. `tools/art/render.py`
+renders each chrome drawable into Android's density buckets, `drawable-mdpi`
+through `drawable-xxxhdpi`, at the size its code draws it at. The sizes are
+listed there, beside the constants they come from. The app takes the bucket
+for the display's density, or the one above it and scales down.
+
+For chrome, an SVG's `drawable-mdpi` and `drawable-hdpi` outputs say it was
+traced at 1x or 1.5x, and each bucket renders from the SVG traced nearest to
+its density. Everything else keeps the pixel size of the PNG it replaced. Some
 drawables are textures rather than pictures, and their geometry is part of
 how they are drawn:
 

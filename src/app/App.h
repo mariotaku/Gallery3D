@@ -58,7 +58,8 @@ extern std::string ASSET_ROOT;
 // leading slash that reads as an absolute path instead.
 std::string assetPath(const std::string &relative);
 
-// Drawable path and source density: baseline = 1x, hdpi = 1.5x.
+// Drawable path and the density its bucket was rendered for. The plain
+// drawable folder counts as 1x.
 struct Drawable {
     std::string path;
     float density = 1.0f;
@@ -67,13 +68,20 @@ struct Drawable {
 // Pass false for baseline art drawn at its native pixel dimensions.
 Drawable findDrawable(const std::string &name, bool allowHigherDensity = true);
 
-// The density of the bucket the current PIXEL_DENSITY selects, ignoring whether
+// The density of the bucket the current UI_DENSITY selects, ignoring whether
 // any particular file exists in it. For reporting what the loader settled on.
 float drawableBucketDensity();
 
 // The path alone, for callers that resample to a size of their own choosing
 // and so only want the best source available.
 std::string drawablePath(const std::string &name);
+
+// A chrome length in whole pixels at UI_DENSITY. tools/art/render.py rounds the
+// chrome's sizes the same way, so art drawn into a box of this size lands on it
+// pixel for pixel.
+inline int uiPixels(float dp) {
+    return (int)(dp * UI_DENSITY + 0.5f);
+}
 
 }  // namespace App
 

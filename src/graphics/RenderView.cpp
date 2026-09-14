@@ -1062,6 +1062,16 @@ void RenderView::drawElements(GLenum mode, GLsizei count, size_t byteOffset) {
 // 2D drawing, replacing OES_draw_texture
 
 void RenderView::draw2D(float x, float y, float z, float width, float height) {
+    // Art drawn a whole number of pixels wide and tall is drawn at the size it
+    // was rendered, so it goes on whole pixels too. Half a pixel off, linear
+    // filtering blends every texel with its neighbour and the art goes soft.
+    const float roundedWidth = (float)(long)(width + 0.5f);
+    const float roundedHeight = (float)(long)(height + 0.5f);
+    if (width - roundedWidth < 0.001f && roundedWidth - width < 0.001f && height - roundedHeight < 0.001f &&
+        roundedHeight - height < 0.001f) {
+        x = (float)(long)(x + (x < 0.0f ? -0.5f : 0.5f));
+        y = (float)(long)(y + (y < 0.0f ? -0.5f : 0.5f));
+    }
     // Six floats per vertex: position then texture coordinate, in two arrays
     // because the attributes read from separate buffers.
     float u = 1.0f;

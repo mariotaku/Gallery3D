@@ -33,15 +33,17 @@ std::string ASSET_ROOT = "assets";
 
 namespace {
 
-// Ascending Android density buckets: mdpi = 1x, hdpi = 1.5x.
 struct Bucket {
     const char *directory;
     float density;
 };
 
+// Android's density buckets, ascending. Chrome is rendered from SVG into every
+// one by tools/art/render.py, so a display at one of these densities draws its
+// chrome exactly and one between them scales it down from the bucket above.
 const Bucket kBuckets[] = {
-    {"drawable-mdpi", 1.0f},
-    {"drawable-hdpi", 1.5f},
+    {"drawable-mdpi", 1.0f},  {"drawable-hdpi", 1.5f},    {"drawable-xhdpi", 2.0f},
+    {"drawable-xxhdpi", 3.0f}, {"drawable-xxxhdpi", 4.0f},
 };
 
 // Fallback folder; some assets differ from mdpi. Unscaled callers use its exact pixel sizes.

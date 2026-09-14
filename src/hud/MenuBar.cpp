@@ -15,8 +15,10 @@ const float FONT_SIZE = 17.0f;
 const float HIGHLIGHT_INSET = 9.0f;
 const float HIGHLIGHT_EDGE_WIDTH = 21.0f;
 
+// In whole pixels, rounded as the art's sizes are, so the icons and the
+// highlight's edges are drawn at exactly the size they were rendered at.
 float scaled(float value) {
-    return value * App::UI_DENSITY;
+    return (float)App::uiPixels(value);
 }
 
 }  // namespace
