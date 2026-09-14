@@ -76,6 +76,19 @@ void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
     });
 }
 
+// The source's own thumbnail when it keeps one that reaches maxEdge, and a
+// decode of the item's bytes otherwise.
+void decodeThumbnail(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
+    MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
+    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
+    Bitmap thumbnail;
+    if (source != nullptr && source->readThumbnail(item, maxEdge, &thumbnail)) {
+        done(std::move(thumbnail));
+        return;
+    }
+    decodeItem(item, maxEdge, std::move(done));
+}
+
 // Whether the item's owning source loads over the network.
 bool itemLoadsOverNetwork(const MediaItem *item) {
     if (item == nullptr) {
@@ -94,7 +107,7 @@ const std::string &cacheIdentity(const MediaItem *item) {
 }  // namespace
 
 void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
-    decodeItem(item, maxEdge, std::move(done));
+    decodeThumbnail(item, maxEdge, std::move(done));
 }
 
 void Texture::startLoad(RenderView *view, const TexturePtr &self) {
@@ -225,8 +238,8 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     // completion.
     const int thumbnailWidth = mConfig->thumbnailWidth;
     const int thumbnailHeight = mConfig->thumbnailHeight;
-    decodeItem(mItem, std::max(side, height) * 2,
-               [view, self, side, height, key, thumbnailWidth, thumbnailHeight](Bitmap decoded) {
+    decodeThumbnail(mItem, std::max(side, height) * 2,
+                    [view, self, side, height, key, thumbnailWidth, thumbnailHeight](Bitmap decoded) {
         if (!decoded.valid()) {
             view->finishLoad(self, std::move(decoded));
             return;

@@ -6,6 +6,7 @@ target_sources(gallery3d_core PRIVATE
     PhotoIndex.cpp
     PhotoLibrary.cpp
     RegionDecoder.cpp
+    SystemThumbnail.cpp
     TextBackend.cpp
     Wic.cpp
     Wic.h

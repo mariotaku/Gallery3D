@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "graphics/Bitmap.h"
+#include "graphics/SystemThumbnail.h"
 #include "media/FileOperations.h"
 #include "media/MediaFeed.h"
 #include "media/MediaItem.h"
@@ -372,4 +373,17 @@ void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, in
     // The decode pool already runs this off the render thread, so it answers
     // before returning rather than queueing work of its own.
     done(decoder->decodeRegion(x, y, width, height, outWidth, outHeight));
+}
+
+bool LocalDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) {
+    if (item == nullptr || item->mFilePath.empty() || bitmap == nullptr) {
+        return false;
+    }
+    // A picture no larger than the request decodes whole, and a thumbnail of
+    // it could only match that or be enlarged.
+    if (item->hasFullSize() && std::max(item->mFullWidth, item->mFullHeight) <= maxEdge) {
+        return false;
+    }
+    *bitmap = SystemThumbnail::load(item->mFilePath, maxEdge);
+    return bitmap->valid();
 }

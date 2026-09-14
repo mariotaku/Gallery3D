@@ -25,6 +25,7 @@ add_executable(gallery3d_tests
     test_regiondecoder.cpp
     test_safearea.cpp
     test_settings.cpp
+    test_systemthumbnail.cpp
     test_tiles.cpp
     test_tilt.cpp
     test_timebarpopup.cpp

@@ -64,6 +64,15 @@ void ConcatenatedDataSource::requestItemBytes(MediaItem *item, BytesCallback don
     owner->requestItemBytes(item, std::move(done));
 }
 
+bool ConcatenatedDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) {
+    MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
+    DataSource *owner = (set != nullptr) ? set->mDataSource : nullptr;
+    if (owner == nullptr || owner == this) {
+        return false;
+    }
+    return owner->readThumbnail(item, maxEdge, bitmap);
+}
+
 void ConcatenatedDataSource::shutdown() {
     if (mFirst != nullptr) {
         mFirst->shutdown();

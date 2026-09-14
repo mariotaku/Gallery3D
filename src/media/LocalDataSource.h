@@ -70,6 +70,17 @@ class DataSource {
         return false;
     }
 
+    // A thumbnail the source already keeps for the item, scaled so its long
+    // edge is maxEdge and in the orientation the item's pixels are stored in.
+    // False when it has none, and the caller decodes the item's bytes instead.
+    // Blocks, like readItemBytes.
+    virtual bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) {
+        (void)item;
+        (void)maxEdge;
+        (void)bitmap;
+        return false;
+    }
+
     // Whether this item can be drawn from cropped regions rather than one
     // downscaled decode. It takes the item because a local source answers per
     // file: only some formats have a region decoder behind them.
@@ -123,6 +134,7 @@ class LocalDataSource : public DataSource {
     bool supportsRegions(const MediaItem *item) const override;
     void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
                        RegionCallback done) override;
+    bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) override;
 
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);

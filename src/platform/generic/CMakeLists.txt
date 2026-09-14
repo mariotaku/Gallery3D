@@ -41,11 +41,12 @@ if(NOT WIN32 AND NOT ANDROID)
     target_link_libraries(gallery3d_core PUBLIC SDL3_ttf::SDL3_ttf)
 endif()
 
-# The Windows shell's library, its search index and its window frame have no
-# counterpart elsewhere.
+# The Windows shell's library, its search index, its thumbnails and its window
+# frame have no counterpart elsewhere.
 if(NOT WIN32)
     target_sources(gallery3d_core PRIVATE
         PhotoIndex.cpp
         PhotoLibrary.cpp
+        SystemThumbnail.cpp
         WindowFrame.cpp)
 endif()

@@ -14,7 +14,8 @@ class MediaItem;
 class Texture;
 using TexturePtr = std::shared_ptr<Texture>;
 
-// Decode source bytes or a local file with maxEdge downscaling (0 = unlimited).
+// Decode source bytes or a local file with maxEdge downscaling (0 = unlimited),
+// or take the source's own thumbnail when it keeps one that large.
 // May answer inline or later; pixel consumers use this instead of Texture::load.
 void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done);
 

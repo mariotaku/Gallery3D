@@ -16,6 +16,7 @@ target_sources(gallery3d_core PRIVATE
     RenderView.cpp
     RenderView.h
     SubsampledDecode.h
+    SystemThumbnail.h
     TextBackend.h
     Texture.cpp
     Texture.h
