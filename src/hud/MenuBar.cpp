@@ -4,6 +4,7 @@
 
 #include "app/App.h"
 #include "graphics/Canvas.h"
+#include "graphics/DrawableLoad.h"
 
 namespace {
 
@@ -92,8 +93,8 @@ void MenuBar::layout() {
 }
 
 void MenuBar::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
-    Bitmap fill = Bitmap::load(App::drawablePath("selection_menu_bg"), 0);
-    Bitmap divider = Bitmap::load(App::drawablePath("selection_menu_divider"), 0);
+    Bitmap fill = DrawableLoad::load("selection_menu_bg").bitmap;
+    Bitmap divider = DrawableLoad::load("selection_menu_divider").bitmap;
 
     if (fill.valid()) {
         Canvas::blitScaled(canvas, fill, 0, 0, width, height);
@@ -114,7 +115,7 @@ void MenuBar::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
             int dividerWidth = std::max(1, (int)scaled(1.0f));
             Canvas::blitScaled(canvas, divider, (int)button.x, 0, dividerWidth, height);
         }
-        Bitmap icon = button.icon.empty() ? Bitmap() : Bitmap::load(App::drawablePath(button.icon), 0);
+        Bitmap icon = button.icon.empty() ? Bitmap() : DrawableLoad::load(button.icon).bitmap;
         int iconWidth = icon.valid() ? iconSize : 0;
         int labelWidth = 0;
         int labelHeight = 0;
@@ -137,9 +138,9 @@ void MenuBar::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
 }
 
 void MenuBar::BarTexture::drawHighlight(Bitmap &canvas, const Button &button, int height) {
-    Bitmap left = Bitmap::load(App::drawablePath("selection_menu_bg_pressed_left"), 0);
-    Bitmap middle = Bitmap::load(App::drawablePath("selection_menu_bg_pressed"), 0);
-    Bitmap right = Bitmap::load(App::drawablePath("selection_menu_bg_pressed_right"), 0);
+    Bitmap left = DrawableLoad::load("selection_menu_bg_pressed_left").bitmap;
+    Bitmap middle = DrawableLoad::load("selection_menu_bg_pressed").bitmap;
+    Bitmap right = DrawableLoad::load("selection_menu_bg_pressed_right").bitmap;
     if (!middle.valid()) {
         return;
     }

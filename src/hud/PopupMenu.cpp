@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include "app/App.h"
+#include "graphics/DrawableLoad.h"
 
 namespace {
 
@@ -59,7 +60,7 @@ void PopupMenu::ensureArt() {
     // Resized on load, because it is stamped rather than stretched: its top row
     // is opaque and full width so that it merges with the bottom of the panel,
     // and showAtPoint needs its width before anything has been drawn.
-    Bitmap triangle = Bitmap::load(App::drawablePath("popup_triangle_bottom"), 0);
+    Bitmap triangle = DrawableLoad::load("popup_triangle_bottom").bitmap;
     if (triangle.valid()) {
         mTriangle = triangle.scaled((int)scaled(TRIANGLE_WIDTH), (int)scaled(TRIANGLE_HEIGHT));
     }
@@ -255,7 +256,7 @@ void PopupMenu::PopupTexture::renderCanvas(Bitmap &canvas, int width, int height
         }
 
         if (!row.option.icon.empty()) {
-            Bitmap icon = Bitmap::load(App::drawablePath(row.option.icon), 0);
+            Bitmap icon = DrawableLoad::load(row.option.icon).bitmap;
             if (icon.valid()) {
                 Canvas::blitScaled(canvas, icon, iconLeft, top + (rowHeight - iconSize) / 2, iconSize, iconSize);
             }

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "app/App.h"
+#include "graphics/DrawableLoad.h"
 #include "graphics/TextBackend.h"
 
 namespace {
@@ -308,16 +309,27 @@ static void readGuide(const Bitmap &raw, bool horizontal, int *begin, int *end) 
 
 NinePatch loadNinePatch(const std::string &name) {
     NinePatch patch;
-    App::Drawable drawable = App::findDrawable(name);
-    Bitmap raw = Bitmap::load(drawable.path, 0);
-    if (!raw.valid() || raw.width() < 3 || raw.height() < 3) {
-        return patch;
+    DrawableLoad::NinePatchSource source = DrawableLoad::loadNinePatch(name);
+    const Bitmap &raw = source.bitmap;
+    if (source.hasGuides) {
+        if (!raw.valid() || raw.width() < 3 || raw.height() < 3) {
+            return patch;
+        }
+        readGuide(raw, true, &patch.stretchX0, &patch.stretchX1);
+        readGuide(raw, false, &patch.stretchY0, &patch.stretchY1);
+        patch.image = subImage(raw, 1, 1, raw.width() - 2, raw.height() - 2);
+    } else {
+        if (!raw.valid()) {
+            return patch;
+        }
+        patch.image = raw;
+        patch.stretchX0 = source.stretchX0;
+        patch.stretchX1 = source.stretchX1;
+        patch.stretchY0 = source.stretchY0;
+        patch.stretchY1 = source.stretchY1;
     }
-    readGuide(raw, true, &patch.stretchX0, &patch.stretchX1);
-    readGuide(raw, false, &patch.stretchY0, &patch.stretchY1);
-    patch.image = subImage(raw, 1, 1, raw.width() - 2, raw.height() - 2);
 
-    float factor = App::UI_DENSITY / drawable.density;
+    float factor = App::UI_DENSITY / source.density;
     if (factor > 0.99f && factor < 1.01f) {
         return patch;
     }

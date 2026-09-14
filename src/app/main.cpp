@@ -46,6 +46,7 @@
 #include "hud/PopupMenu.h"
 #include "graphics/RenderView.h"
 #include "core/Shared.h"
+#include "graphics/DrawableLoad.h"
 #include "graphics/SubsampledDecode.h"
 #include "hud/CaptionButtons.h"
 #include "hud/HudLayer.h"
@@ -481,6 +482,7 @@ int main(int argc, char **argv) {
     RegionDecoder::initAndroid();
 #endif
     SubsampledDecode::init();
+    DrawableLoad::init();
 
     // Read --config before loading settings, then process run arguments.
     std::string configPath;

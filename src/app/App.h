@@ -51,6 +51,8 @@ struct SafeAreaInsets {
 extern SafeAreaInsets SAFE_AREA;
 
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
+// Android packs only the fonts there. Its drawables are resources, which
+// DrawableLoad reads.
 extern std::string ASSET_ROOT;
 
 // Joins a path under the asset root. The root is empty on Android, where the

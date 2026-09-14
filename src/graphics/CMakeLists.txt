@@ -9,6 +9,7 @@ target_sources(gallery3d_core PRIVATE
     CanvasTexture.h
     CrossFadingTexture.cpp
     CrossFadingTexture.h
+    DrawableLoad.h
     ImageDecode.h
     Layer.h
     RegionDecoder.cpp

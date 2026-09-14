@@ -4,6 +4,7 @@
 
 #include "app/App.h"
 #include "graphics/Canvas.h"
+#include "graphics/DrawableLoad.h"
 
 namespace {
 
@@ -131,9 +132,9 @@ void PathBarLayer::layout() {
 }
 
 void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int height) {
-    Bitmap fill = Bitmap::load(App::drawablePath("pathbar_bg"), 0);
-    Bitmap cap = Bitmap::load(App::drawablePath("pathbar_cap"), 0);
-    Bitmap join = Bitmap::load(App::drawablePath("pathbar_join"), 0);
+    Bitmap fill = DrawableLoad::load("pathbar_bg").bitmap;
+    Bitmap cap = DrawableLoad::load("pathbar_cap").bitmap;
+    Bitmap join = DrawableLoad::load("pathbar_join").bitmap;
 
     // Fill only crumb spans; joins and caps occupy gaps to avoid double blending.
     // Start each span at the previous endpoint to prevent fractional-density rounding gaps.
@@ -168,7 +169,7 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
         spanStart = componentEnd;
 
         if (!component.icon.empty()) {
-            Bitmap icon = Bitmap::load(App::drawablePath(component.icon), 0);
+            Bitmap icon = DrawableLoad::load(component.icon).bitmap;
             if (icon.valid()) {
                 int iconSize = (int)scaled(ICON_SIZE);
                 Canvas::blitScaled(canvas, icon, x, (height - iconSize) / 2, iconSize, iconSize);

@@ -1,6 +1,7 @@
 target_sources(gallery3d_core PRIVATE
     AndroidBridge.cpp
     AndroidBridge.h
+    DrawableLoad.cpp
     MediaStoreDataSource.cpp
     MediaStoreDataSource.h
     RegionDecoder.cpp

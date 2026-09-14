@@ -11,6 +11,7 @@
 #include "graphics/Canvas.h"
 #include "core/DiskCache.h"
 #include "media/LocalDataSource.h"
+#include "graphics/DrawableLoad.h"
 #include "graphics/ImageDecode.h"
 #include "media/MediaItem.h"
 #include "media/MediaSet.h"
@@ -126,8 +127,8 @@ Bitmap ResourceTexture::load(RenderView *view) {
     (void)view;
     // An unscaled texture is drawn at whatever size it loads at, and its
     // callers were written against the baseline art, so it has to stay there.
-    App::Drawable drawable = App::findDrawable(mName, mScaled);
-    Bitmap bitmap = Bitmap::load(drawable.path, 0);
+    DrawableLoad::Result drawable = DrawableLoad::load(mName, mScaled);
+    Bitmap bitmap = std::move(drawable.bitmap);
     if (!mScaled || !bitmap.valid()) {
         return bitmap;
     }

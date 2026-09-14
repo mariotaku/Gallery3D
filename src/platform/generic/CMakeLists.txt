@@ -8,6 +8,13 @@ if(NOT WIN32)
     target_link_libraries(gallery3d_core PUBLIC SDL3_image::SDL3_image)
 endif()
 
+# Drawables from the assets folder. Android resolves them through its
+# resources instead.
+if(NOT ANDROID)
+    target_sources(gallery3d_core PRIVATE
+        DrawableLoad.cpp)
+endif()
+
 # No network, where neither libcurl nor the browser's fetch is there.
 if(NOT GALLERY3D_DESKTOP AND NOT EMSCRIPTEN)
     target_sources(gallery3d_core PRIVATE

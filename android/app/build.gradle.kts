@@ -1,5 +1,70 @@
+import javax.inject.Inject
+
 plugins {
     id("com.android.application")
+}
+
+// The drawables as Android resources. assets/drawable-*dpi goes to
+// res/drawable-*dpi under the same names, so Android picks the bucket for the
+// display and scales the art to its density. assets/drawable goes to
+// res/drawable-nodpi with "nodpi_" in front: that folder's art is drawn at its
+// own pixel size, and several of its names are different art in a bucket.
+// DrawableBridge reads both.
+abstract class DrawableResources : DefaultTask() {
+    @get:InputDirectory
+    abstract val art: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val files: FileSystemOperations
+
+    @TaskAction
+    fun copy() {
+        files.sync {
+            into(outputDir)
+            from(art) {
+                include("drawable-*dpi/**")
+            }
+            from(art.dir("drawable")) {
+                into("drawable-nodpi")
+                rename { "nodpi_$it" }
+            }
+        }
+    }
+}
+
+// Everything in assets apart from the drawables, which are resources.
+abstract class PlainAssets : DefaultTask() {
+    @get:InputDirectory
+    abstract val art: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val files: FileSystemOperations
+
+    @TaskAction
+    fun copy() {
+        files.sync {
+            into(outputDir)
+            from(art) {
+                exclude("drawable/**", "drawable-*/**")
+            }
+        }
+    }
+}
+
+val drawableResources = tasks.register<DrawableResources>("drawableResources") {
+    art.set(rootProject.file("../assets"))
+    outputDir.set(layout.buildDirectory.dir("generated/drawables/res"))
+}
+
+val plainAssets = tasks.register<PlainAssets>("plainAssets") {
+    art.set(rootProject.file("../assets"))
+    outputDir.set(layout.buildDirectory.dir("generated/drawables/assets"))
 }
 
 android {
@@ -43,15 +108,6 @@ android {
         }
     }
 
-    sourceSets {
-        getByName("main") {
-            // The wall's art and fonts, packed straight into the apk. Its
-            // assets folder is what the asset manager reads from, which is
-            // where App::ASSET_ROOT points on Android.
-            assets.srcDir(rootProject.file("../assets"))
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -71,6 +127,16 @@ android {
 
     lint {
         abortOnError = false
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.res?.addGeneratedSourceDirectory(drawableResources, DrawableResources::outputDir)
+        // The fonts, packed straight into the apk. Its assets folder is what
+        // the asset manager reads from, which is where App::ASSET_ROOT points
+        // on Android.
+        variant.sources.assets?.addGeneratedSourceDirectory(plainAssets, PlainAssets::outputDir)
     }
 }
 
