@@ -2,6 +2,8 @@ package me.mariotaku.gallery3d;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ColorSpace;
+import android.os.Build;
 import android.util.Log;
 
 /**
@@ -51,6 +53,12 @@ public final class ImageDecodeBridge {
             options.inSampleSize = sample;
             options.inPreferredConfig = Bitmap.Config.ARGB_8888;
             options.inPremultiplied = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Otherwise the decoder can keep the photo's own colour space,
+                // such as Display P3, whose values the native side reads as
+                // sRGB.
+                options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
+            }
             return BitmapFactory.decodeByteArray(encoded, 0, encoded.length, options);
         } catch (Exception | OutOfMemoryError error) {
             Log.w(TAG, "Could not decode a photo", error);

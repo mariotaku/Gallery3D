@@ -2,6 +2,7 @@
 
 #include <climits>
 #include <cmath>
+#include <vector>
 
 namespace Wic {
 
@@ -114,6 +115,66 @@ bool hasAlpha(IWICBitmapSource *source) {
         return false;
     }
     return transparent != FALSE;
+}
+
+Ptr<IWICColorContext> colorProfileOf(IWICBitmapFrameDecode *frame) {
+    Ptr<IWICColorContext> profile;
+    IWICImagingFactory *imaging = factory();
+    UINT count = 0;
+    // A codec that keeps no colour information, such as the RAW one, fails
+    // here rather than answering none.
+    if (imaging == nullptr || frame == nullptr || FAILED(frame->GetColorContexts(0, nullptr, &count)) ||
+        count == 0) {
+        return profile;
+    }
+    std::vector<Ptr<IWICColorContext>> contexts(count);
+    std::vector<IWICColorContext *> slots(count, nullptr);
+    for (UINT i = 0; i < count; ++i) {
+        if (FAILED(imaging->CreateColorContext(contexts[i].put()))) {
+            return profile;
+        }
+        slots[i] = contexts[i].get();
+    }
+    if (FAILED(frame->GetColorContexts(count, slots.data(), &count))) {
+        return profile;
+    }
+    // An ICC profile says the most. EXIF only tells sRGB, 1, from Adobe RGB, 2,
+    // and a camera writes 1 beside a profile it also embeds.
+    for (Ptr<IWICColorContext> &context : contexts) {
+        WICColorContextType type;
+        if (context && SUCCEEDED(context->GetType(&type)) && type == WICColorContextProfile) {
+            return std::move(context);
+        }
+    }
+    for (Ptr<IWICColorContext> &context : contexts) {
+        WICColorContextType type;
+        UINT space = 0;
+        if (context && SUCCEEDED(context->GetType(&type)) && type == WICColorContextExifColorSpace &&
+            SUCCEEDED(context->GetExifColorSpace(&space)) && space == 2) {
+            return std::move(context);
+        }
+    }
+    return profile;
+}
+
+Ptr<IWICBitmapSource> inSrgb(IWICBitmapSource *source, IWICColorContext *profile) {
+    Ptr<IWICBitmapSource> result;
+    IWICImagingFactory *imaging = factory();
+    Ptr<IWICColorContext> srgb;
+    Ptr<IWICColorTransform> transform;
+    if (source != nullptr && profile != nullptr && imaging != nullptr &&
+        SUCCEEDED(imaging->CreateColorContext(srgb.put())) && SUCCEEDED(srgb->InitializeFromExifColorSpace(1)) &&
+        SUCCEEDED(imaging->CreateColorTransformer(transform.put())) &&
+        SUCCEEDED(transform->Initialize(source, profile, srgb.get(), GUID_WICPixelFormat32bppBGRA)) &&
+        SUCCEEDED(transform->QueryInterface(IID_PPV_ARGS(result.put())))) {
+        return result;
+    }
+    result.reset();
+    if (source != nullptr) {
+        source->AddRef();
+        *result.put() = source;
+    }
+    return result;
 }
 
 Bitmap scaled(const Bitmap &bitmap, int width, int height) {

@@ -80,6 +80,15 @@ Bitmap copy(IWICBitmapSource *source, const WICRect *rect);
 // Whether the source's pixel format carries alpha.
 bool hasAlpha(IWICBitmapSource *source);
 
+// The colour profile a frame's pixels are stored in, for inSrgb. Null when the
+// frame names none or names sRGB, and either way its pixels are taken as sRGB.
+Ptr<IWICColorContext> colorProfileOf(IWICBitmapFrameDecode *frame);
+
+// The source converted from profile to sRGB, as straight BGRA. The source
+// itself when profile is null or WIC cannot convert from it, so a photo whose
+// profile WIC does not understand still shows.
+Ptr<IWICBitmapSource> inSrgb(IWICBitmapSource *source, IWICColorContext *profile);
+
 // The bitmap resized with WIC's Fant filter, which averages every pixel it
 // shrinks away rather than sampling a few.
 Bitmap scaled(const Bitmap &bitmap, int width, int height);

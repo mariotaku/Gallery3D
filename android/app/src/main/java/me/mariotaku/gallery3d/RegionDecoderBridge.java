@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
+import android.graphics.ColorSpace;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
@@ -75,6 +76,10 @@ public final class RegionDecoderBridge {
         // the photo below it rather than blended into it.
         options.inPreferredConfig = Bitmap.Config.ARGB_8888;
         options.inPremultiplied = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // In sRGB, the same as the screennail under it.
+            options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
+        }
         try {
             return ((BitmapRegionDecoder) decoder)
                 .decodeRegion(new Rect(x, y, x + width, y + height), options);

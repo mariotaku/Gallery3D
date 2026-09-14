@@ -57,6 +57,9 @@ class WicRegionDecoder : public RegionDecoder {
     std::vector<uint8_t> mBytes;
     Wic::Ptr<IWICBitmapDecoder> mDecoder;
     Wic::Ptr<IWICBitmapFrameDecode> mFrame;
+    // What the frame's colours mean, so every level and tile is converted to
+    // sRGB the way the screennail is. Null for a frame already in sRGB.
+    Wic::Ptr<IWICColorContext> mProfile;
     // The frame, or for RAW its preview.
     Wic::Ptr<IWICBitmapSource> mSource;
     UINT mSourceWidth = 0;
@@ -95,6 +98,7 @@ bool WicRegionDecoder::open(const std::string &path) {
     }
     mWidth = (int)width;
     mHeight = (int)height;
+    mProfile = Wic::colorProfileOf(mFrame.get());
 
     Wic::Ptr<IWICBitmapSourceTransform> transform;
     if (FAILED(mFrame->QueryInterface(IID_PPV_ARGS(transform.put())))) {
@@ -145,7 +149,7 @@ const Bitmap &WicRegionDecoder::levelFor(int sample) {
     // The thumbnail is already decoded and a fraction of the cost, when it is
     // big enough for the level.
     if (mThumbnail && nearlyCovers(mThumbnailWidth, wantedWidth)) {
-        Bitmap thumbnail = Wic::copy(mThumbnail.get(), nullptr);
+        Bitmap thumbnail = Wic::copy(Wic::inSrgb(mThumbnail.get(), mProfile.get()).get(), nullptr);
         if (thumbnail.valid()) {
             mLevel = std::move(thumbnail);
             return mLevel;
@@ -157,7 +161,7 @@ const Bitmap &WicRegionDecoder::levelFor(int sample) {
         mLevel = Bitmap();
         return mLevel;
     }
-    mLevel = Wic::copy(scaler.get(), nullptr);
+    mLevel = Wic::copy(Wic::inSrgb(scaler.get(), mProfile.get()).get(), nullptr);
     return mLevel;
 }
 
@@ -216,7 +220,7 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
 
     Bitmap tile;
     if (scaledWidth == (UINT)mWidth && scaledHeight == (UINT)mHeight) {
-        tile = Wic::copy(mSource.get(), &rect);
+        tile = Wic::copy(Wic::inSrgb(mSource.get(), mProfile.get()).get(), &rect);
     } else {
         // Scaling the whole source and copying the rectangle out of it is what
         // lets WIC pass both the reduction and the crop to the codec.
@@ -225,7 +229,7 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
             FAILED(scaler->Initialize(mSource.get(), scaledWidth, scaledHeight, WICBitmapInterpolationModeFant))) {
             return Bitmap();
         }
-        tile = Wic::copy(scaler.get(), &rect);
+        tile = Wic::copy(Wic::inSrgb(scaler.get(), mProfile.get()).get(), &rect);
     }
     if (!tile.valid()) {
         return Bitmap();

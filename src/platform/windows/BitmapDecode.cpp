@@ -40,6 +40,9 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     if (FAILED(frame->GetSize(&width, &height)) || width == 0 || height == 0) {
         return Bitmap();
     }
+    // What the pixels' colours mean. Every picture leaves here in sRGB, which
+    // is what the wall draws in.
+    const Wic::Ptr<IWICColorContext> profile = Wic::colorProfileOf(frame.get());
 
     // The size asked for, in the frame's shape and never larger than it.
     UINT targetWidth = width;
@@ -79,30 +82,33 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     UINT sourceHeight = 0;
     source->GetSize(&sourceWidth, &sourceHeight);
     if (sourceWidth == targetWidth && sourceHeight == targetHeight) {
-        return Wic::copy(source.get(), nullptr);
+        return Wic::copy(Wic::inSrgb(source.get(), profile.get()).get(), nullptr);
     }
 
-    // With alpha, scaled once premultiplied, so a transparent pixel lends no
-    // colour to its neighbours. Without, the scaler sits straight on the
-    // source, which is what lets WIC hand the reduction to the codec.
-    Wic::Ptr<IWICBitmapSource> input;
+    // With alpha, converted to sRGB while the colour is still straight, which
+    // is what a profile describes, then scaled once premultiplied, so a
+    // transparent pixel lends no colour to its neighbours.
+    Wic::Ptr<IWICBitmapScaler> scaler;
     if (Wic::hasAlpha(source.get())) {
+        const Wic::Ptr<IWICBitmapSource> straight = Wic::inSrgb(source.get(), profile.get());
         Wic::Ptr<IWICFormatConverter> premultiplied;
-        if (FAILED(imaging->CreateFormatConverter(premultiplied.put())) ||
-            FAILED(premultiplied->Initialize(source.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone,
+        if (!straight || FAILED(imaging->CreateFormatConverter(premultiplied.put())) ||
+            FAILED(premultiplied->Initialize(straight.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone,
                                              nullptr, 0.0, WICBitmapPaletteTypeCustom)) ||
-            FAILED(premultiplied->QueryInterface(IID_PPV_ARGS(input.put())))) {
+            FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
+            FAILED(scaler->Initialize(premultiplied.get(), targetWidth, targetHeight,
+                                      WICBitmapInterpolationModeFant))) {
             return Bitmap();
         }
-    } else {
-        input = std::move(source);
+        return Wic::copy(scaler.get(), nullptr);
     }
-    Wic::Ptr<IWICBitmapScaler> scaler;
+    // Without, the scaler sits straight on the source, which is what lets WIC
+    // hand the reduction to the codec, and only the pixels kept are converted.
     if (FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
-        FAILED(scaler->Initialize(input.get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant))) {
+        FAILED(scaler->Initialize(source.get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant))) {
         return Bitmap();
     }
-    return Wic::copy(scaler.get(), nullptr);
+    return Wic::copy(Wic::inSrgb(scaler.get(), profile.get()).get(), nullptr);
 }
 
 std::unordered_set<std::string> installedExtensions() {
