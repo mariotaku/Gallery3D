@@ -6,6 +6,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <unordered_set>
 
 #include "graphics/Bitmap.h"
 #include "graphics/SystemThumbnail.h"
@@ -24,6 +25,15 @@ std::string toLower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(),
                    [](unsigned char c) { return (char)std::tolower(c); });
     return text;
+}
+
+// The extension with its dot, in lower case, or empty for a name without one.
+std::string extensionOf(const std::string &path) {
+    const size_t dot = path.find_last_of("./\\");
+    if (dot == std::string::npos || path[dot] != '.') {
+        return std::string();
+    }
+    return toLower(path.substr(dot));
 }
 
 // A stable id per path, so a set keeps its identity across rescans.
@@ -67,6 +77,37 @@ std::string LocalDataSource::mimeTypeForPath(const std::string &path) {
     // PNG, GIF, WebP, BMP, AVIF and the camera RAW formats go by the extension,
     // which is also how the details sheet names them: image/arw reads ARW.
     return "image/" + extension.substr(1);
+}
+
+std::vector<std::string> LocalDataSource::withoutRawDuplicates(std::vector<std::string> files) {
+    static const std::unordered_set<std::string> raws = {
+        ".3fr", ".ari", ".arw", ".bay", ".cr2", ".cr3", ".crw", ".dcr", ".dng", ".erf",
+        ".fff", ".iiq", ".k25", ".kdc", ".mef", ".mos", ".mrw", ".nef", ".nrw", ".orf",
+        ".ori", ".pef", ".raf", ".raw", ".rw2", ".rwl", ".sr2", ".srf", ".srw", ".x3f",
+    };
+    static const std::unordered_set<std::string> developed = {".jpg", ".jpeg", ".jpe", ".jfif",
+                                                              ".heic", ".heif", ".hif"};
+    // The path without its extension, in lower case: Windows names
+    // DSC0001.ARW and dsc0001.jpg as the same stem.
+    auto stemOf = [](const std::string &file, const std::string &extension) {
+        return toLower(file.substr(0, file.size() - extension.size()));
+    };
+    std::unordered_set<std::string> developedStems;
+    for (const std::string &file : files) {
+        const std::string extension = extensionOf(file);
+        if (developed.count(extension) != 0) {
+            developedStems.insert(stemOf(file, extension));
+        }
+    }
+    if (developedStems.empty()) {
+        return files;
+    }
+    auto isDuplicate = [&](const std::string &file) {
+        const std::string extension = extensionOf(file);
+        return raws.count(extension) != 0 && developedStems.count(stemOf(file, extension)) != 0;
+    };
+    files.erase(std::remove_if(files.begin(), files.end(), isDuplicate), files.end());
+    return files;
 }
 
 namespace {
@@ -234,6 +275,12 @@ void LocalDataSource::loadMediaSets(MediaFeed *feed) {
     }
     SDL_Log("Asked the index in %u ms, then listed %zu of %zu locations from it and walked the rest in %u ms",
             (unsigned)(asked - started), listed, roots.size(), (unsigned)(SDL_GetTicks() - asked));
+    // A walk and the index both find the RAW a camera saved beside its JPEG
+    // or HEIF. The JPEG or HEIF stands for the pair. A placeholder is already
+    // gone by here, so a RAW whose partner is online only still shows.
+    for (Folder &folder : folders) {
+        folder.files = withoutRawDuplicates(std::move(folder.files));
+    }
     size_t fromIndex = 0;
     size_t fromFiles = 0;
 

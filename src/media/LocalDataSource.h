@@ -139,6 +139,11 @@ class LocalDataSource : public DataSource {
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);
 
+    // The files without each camera RAW that has a JPEG or HEIF of the same
+    // name beside it. A camera set to save both writes the pair, and the pair
+    // is one photo. The order is kept.
+    static std::vector<std::string> withoutRawDuplicates(std::vector<std::string> files);
+
     // Where a scan gets what the platform already knows: the pictures under
     // the folders it covers, and what it has read about each picture.
     // PhotoIndex::query unless replaced, which a test does to stand in for the

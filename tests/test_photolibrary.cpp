@@ -12,8 +12,10 @@
 #include <string>
 #include <vector>
 
+#include "graphics/Bitmap.h"
 #include "media/LocalDataSource.h"
 #include "media/MediaFeed.h"
+#include "media/MediaItem.h"
 #include "media/MediaSet.h"
 #include "media/PhotoLibrary.h"
 
@@ -139,4 +141,65 @@ TEST(a_library_of_several_folders_shows_each_album_once) {
     // The camera roll and the folder inside it are both the camera's, and
     // nothing else is.
     CHECK(cameraNames.size() == 2 && cameraNames[0] == "2026" && cameraNames[1] == "Camera Roll");
+}
+
+TEST(a_raw_beside_a_jpeg_or_heif_of_the_same_name_is_left_out) {
+    const std::vector<std::string> kept = LocalDataSource::withoutRawDuplicates({
+        "/photos/DSC0001.ARW",
+        "/photos/DSC0001.JPG",
+        // Alone, so it is the only copy of the photo.
+        "/photos/DSC0002.ARW",
+        // Names that differ only in case are one stem.
+        "/photos/dsc0003.arw",
+        "/photos/DSC0003.HIF",
+        // A PNG is not what a camera saves beside its RAW.
+        "/photos/IMG_0004.dng",
+        "/photos/IMG_0004.png",
+        // The JPEG's stem is DSC0005.ARW, not DSC0005.
+        "/photos/DSC0005.ARW",
+        "/photos/DSC0005.ARW.jpg",
+    });
+    const std::vector<std::string> expected = {
+        "/photos/DSC0001.JPG", "/photos/DSC0002.ARW",  "/photos/DSC0003.HIF",     "/photos/IMG_0004.dng",
+        "/photos/IMG_0004.png", "/photos/DSC0005.ARW", "/photos/DSC0005.ARW.jpg",
+    };
+    CHECK(kept == expected);
+}
+
+TEST(a_raw_pair_shows_once_whether_walked_or_listed_from_the_index) {
+    // A build without RAW and HEIF codecs puts neither on the wall at all.
+    if (!Bitmap::decodesExtension(".arw") || !Bitmap::decodesExtension(".hif")) {
+        return;
+    }
+    TempTree tree;
+    touch(tree.path("walked/DSC0001.ARW"));
+    touch(tree.path("walked/DSC0001.JPG"));
+    touch(tree.path("walked/DSC0002.ARW"));
+
+    LocalDataSource source({tree.path("walked"), tree.path("listed")}, {});
+    source.setIndexLookup([&tree](const std::vector<std::string> &) {
+        PhotoIndex::Listing listing;
+        listing.listedFolders = {tree.path("listed")};
+        for (const char *name : {"DSC0003.ARW", "DSC0003.HIF", "DSC0004.ARW"}) {
+            PhotoIndex::Entry entry;
+            entry.path = tree.path(std::string("listed/") + name);
+            entry.attributes = 0x20;
+            listing.entries[PhotoIndex::key(entry.path)] = entry;
+        }
+        return listing;
+    });
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    // The sets join the feed between frames.
+    feed.pumpListener();
+
+    std::vector<std::string> captions;
+    for (MediaSet *set : feed.getMediaSets()) {
+        for (int i = 0; i < set->getNumItems(); ++i) {
+            captions.push_back(set->getItems()[(size_t)i]->mCaption);
+        }
+    }
+    std::sort(captions.begin(), captions.end());
+    const std::vector<std::string> expected = {"DSC0001.JPG", "DSC0002.ARW", "DSC0003.HIF", "DSC0004.ARW"};
+    CHECK(captions == expected);
 }
