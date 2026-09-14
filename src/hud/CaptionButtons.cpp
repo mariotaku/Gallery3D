@@ -16,6 +16,12 @@ const int BUTTON_COUNT = 3;
 // The glyph box inside a button. Windows draws these at 10 by 10.
 const float GLYPH_SIZE = 10.0f;
 
+// The dark halo behind a glyph drawn straight over the picture, which keeps a
+// one pixel white stroke readable on a bright photo. A stroke that thin covers
+// little of the blur, hence the strength.
+const float HALO_RADIUS = 2.0f;
+const float HALO_OPACITY = 3.0f;
+
 // Close goes red, the other two take a plain wash. These are the system's own
 // colours for a dark window.
 const float CLOSE_R = 0.769f;
@@ -183,12 +189,15 @@ Bitmap CaptionButtons::compose() {
 }
 
 void CaptionButtons::ButtonsTexture::renderCanvas(Bitmap &canvas, int width, int height) {
-    (void)width;
     const float buttonWidth = scaled(BUTTON_WIDTH);
     const float glyph = scaled(GLYPH_SIZE);
     // One device pixel at 100%, thickening with the display rather than staying
     // hairline on a dense screen.
     const float stroke = std::max(1.0f, std::floor(App::UI_DENSITY + 0.5f));
+    // Glyphs that sit straight on the picture, drawn here first so their halo
+    // can go under them. A hovered button's glyph has the button's fill behind
+    // it instead, and goes straight onto the canvas.
+    Bitmap haloed(width, height, canvas.order());
 
     for (int i = 0; i < BUTTON_COUNT; ++i) {
         const float left = buttonWidth * (float)i;
@@ -211,44 +220,52 @@ void CaptionButtons::ButtonsTexture::renderCanvas(Bitmap &canvas, int width, int
         const float glyphTop = ((float)height - glyph) * 0.5f;
         const float glyphRight = glyphLeft + glyph;
         const float glyphBottom = glyphTop + glyph;
+        Bitmap &target = hovered ? canvas : haloed;
 
         switch (i) {
         case BUTTON_MINIMIZE:
-            Canvas::drawLine(canvas, glyphLeft, (float)height * 0.5f, glyphRight, (float)height * 0.5f, stroke, 1.0f,
+            Canvas::drawLine(target, glyphLeft, (float)height * 0.5f, glyphRight, (float)height * 0.5f, stroke, 1.0f,
                              1.0f, 1.0f, 1.0f);
             break;
         case BUTTON_MAXIMIZE:
             if (mOwner->mMaximized) {
                 // Restore: the front pane, and the corner of the one behind it.
                 const float step = std::max(1.0f, glyph * 0.25f);
-                Canvas::drawLine(canvas, glyphLeft, glyphTop + step, glyphRight - step, glyphTop + step, stroke, 1.0f,
+                Canvas::drawLine(target, glyphLeft, glyphTop + step, glyphRight - step, glyphTop + step, stroke, 1.0f,
                                  1.0f, 1.0f, 1.0f);
-                Canvas::drawLine(canvas, glyphLeft, glyphBottom, glyphRight - step, glyphBottom, stroke, 1.0f, 1.0f,
+                Canvas::drawLine(target, glyphLeft, glyphBottom, glyphRight - step, glyphBottom, stroke, 1.0f, 1.0f,
                                  1.0f, 1.0f);
-                Canvas::drawLine(canvas, glyphLeft, glyphTop + step, glyphLeft, glyphBottom, stroke, 1.0f, 1.0f, 1.0f,
+                Canvas::drawLine(target, glyphLeft, glyphTop + step, glyphLeft, glyphBottom, stroke, 1.0f, 1.0f, 1.0f,
                                  1.0f);
-                Canvas::drawLine(canvas, glyphRight - step, glyphTop + step, glyphRight - step, glyphBottom, stroke,
+                Canvas::drawLine(target, glyphRight - step, glyphTop + step, glyphRight - step, glyphBottom, stroke,
                                  1.0f, 1.0f, 1.0f, 1.0f);
-                Canvas::drawLine(canvas, glyphLeft + step, glyphTop, glyphRight, glyphTop, stroke, 1.0f, 1.0f, 1.0f,
+                Canvas::drawLine(target, glyphLeft + step, glyphTop, glyphRight, glyphTop, stroke, 1.0f, 1.0f, 1.0f,
                                  1.0f);
-                Canvas::drawLine(canvas, glyphRight, glyphTop, glyphRight, glyphBottom - step, stroke, 1.0f, 1.0f,
+                Canvas::drawLine(target, glyphRight, glyphTop, glyphRight, glyphBottom - step, stroke, 1.0f, 1.0f,
                                  1.0f, 1.0f);
             } else {
-                Canvas::drawLine(canvas, glyphLeft, glyphTop, glyphRight, glyphTop, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
-                Canvas::drawLine(canvas, glyphLeft, glyphBottom, glyphRight, glyphBottom, stroke, 1.0f, 1.0f, 1.0f,
+                Canvas::drawLine(target, glyphLeft, glyphTop, glyphRight, glyphTop, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
+                Canvas::drawLine(target, glyphLeft, glyphBottom, glyphRight, glyphBottom, stroke, 1.0f, 1.0f, 1.0f,
                                  1.0f);
-                Canvas::drawLine(canvas, glyphLeft, glyphTop, glyphLeft, glyphBottom, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
-                Canvas::drawLine(canvas, glyphRight, glyphTop, glyphRight, glyphBottom, stroke, 1.0f, 1.0f, 1.0f,
+                Canvas::drawLine(target, glyphLeft, glyphTop, glyphLeft, glyphBottom, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
+                Canvas::drawLine(target, glyphRight, glyphTop, glyphRight, glyphBottom, stroke, 1.0f, 1.0f, 1.0f,
                                  1.0f);
             }
             break;
         case BUTTON_CLOSE:
-            Canvas::drawLine(canvas, glyphLeft, glyphTop, glyphRight, glyphBottom, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
-            Canvas::drawLine(canvas, glyphRight, glyphTop, glyphLeft, glyphBottom, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
+            Canvas::drawLine(target, glyphLeft, glyphTop, glyphRight, glyphBottom, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
+            Canvas::drawLine(target, glyphRight, glyphTop, glyphLeft, glyphBottom, stroke, 1.0f, 1.0f, 1.0f, 1.0f);
             break;
         default:
             break;
         }
     }
+
+    const int radius = std::max(1, (int)std::lround(scaled(HALO_RADIUS)));
+    const Bitmap halo = Canvas::blurredCoverage(haloed, radius);
+    if (halo.valid()) {
+        Canvas::blendOver(canvas, halo, -radius, -radius, 0.0f, 0.0f, 0.0f, HALO_OPACITY);
+    }
+    Canvas::blit(canvas, haloed, 0, 0);
     mOwner->mNeedsDraw = false;
 }

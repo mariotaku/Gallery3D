@@ -65,22 +65,28 @@ Bitmap trimToMaxEdge(Bitmap decoded, int maxEdge) {
 }  // namespace
 
 Bitmap Bitmap::load(const std::string &path, int maxEdge) {
-    return trimToMaxEdge(fromSurface(IMG_Load(path.c_str())), maxEdge);
+    // Through the bytes, so a JPEG asked for smaller than it is reduces inside
+    // libjpeg rather than decoding whole and scaling after.
+    std::vector<uint8_t> bytes;
+    if (!readFile(path, &bytes)) {
+        return Bitmap();
+    }
+    return loadFromMemory(bytes.data(), bytes.size(), maxEdge);
 }
 
 Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     if (bytes == nullptr || size == 0) {
         return Bitmap();
     }
-    if (maxEdge > 0) {
-        // Reduce inside the decoder where it is close to free, rather than
-        // building the full size image only to throw most of it away. What
-        // comes back can land a little under maxEdge, or over it, in which
-        // case the tail below trims it to exactly that.
-        Bitmap reduced = SubsampledDecode::decode(bytes, size, maxEdge);
-        if (reduced.valid()) {
-            return trimToMaxEdge(std::move(reduced), maxEdge);
-        }
+    // The platform's own decoder first, where it has one. It reduces inside the
+    // codec where that is close to free, rather than building the full size
+    // image only to throw most of it away, and on the desktop it converts a
+    // JPEG's colour profile at any size. What comes back can land a little
+    // under maxEdge, or over it, in which case the tail below trims it to
+    // exactly that.
+    Bitmap decoded = SubsampledDecode::decode(bytes, size, maxEdge);
+    if (decoded.valid()) {
+        return trimToMaxEdge(std::move(decoded), maxEdge);
     }
     SDL_IOStream *stream = SDL_IOFromConstMem(bytes, size);
     if (stream == nullptr) {

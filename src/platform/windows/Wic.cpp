@@ -178,15 +178,21 @@ Bitmap scaled(const Bitmap &bitmap, int width, int height) {
     if (bitmap.width() == width && bitmap.height() == height) {
         return bitmap;
     }
+    // PBGRA, which WIC has had since Windows 7. Its RGBA formats arrived with
+    // Windows 8, so an RGBA bitmap is reordered first.
+    const Bitmap *source = &bitmap;
+    Bitmap reordered;
+    if (bitmap.order() == PixelOrder::RGBA) {
+        reordered = bitmap.inOrder(PixelOrder::BGRA);
+        source = &reordered;
+    }
     const UINT stride = (UINT)bitmap.width() * 4;
     Ptr<IWICBitmap> pixels;
     Ptr<IWICBitmapScaler> scaler;
     // CreateBitmapFromMemory copies the pixels, so nothing is written back.
-    const WICPixelFormatGUID format =
-        (bitmap.order() == PixelOrder::RGBA) ? GUID_WICPixelFormat32bppPRGBA : GUID_WICPixelFormat32bppPBGRA;
-    if (FAILED(imaging->CreateBitmapFromMemory((UINT)bitmap.width(), (UINT)bitmap.height(), format, stride,
-                                               stride * (UINT)bitmap.height(),
-                                               const_cast<BYTE *>(bitmap.pixels()), pixels.put())) ||
+    if (FAILED(imaging->CreateBitmapFromMemory((UINT)bitmap.width(), (UINT)bitmap.height(),
+                                               GUID_WICPixelFormat32bppPBGRA, stride, stride * (UINT)bitmap.height(),
+                                               const_cast<BYTE *>(source->pixels()), pixels.put())) ||
         FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
         FAILED(scaler->Initialize(pixels.get(), (UINT)width, (UINT)height, WICBitmapInterpolationModeFant))) {
         return Bitmap();

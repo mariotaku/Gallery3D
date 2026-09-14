@@ -137,7 +137,7 @@ Debian 13 or newer, or an equivalent:
 ```sh
 sudo apt install build-essential cmake ninja-build pkg-config \
     libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-    libcurl4-openssl-dev nlohmann-json3-dev
+    libcurl4-openssl-dev liblcms2-dev nlohmann-json3-dev
 cmake --preset linux
 cmake --build build
 ctest --test-dir build

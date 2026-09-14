@@ -28,21 +28,42 @@ int sCaptionHeightPx = 32;
 #define DWMWA_BORDER_COLOR 34
 #endif
 
-// Query resize-frame thickness at the current DPI; it changes between displays.
-int frameThickness(HWND window, int metric) {
-    UINT dpi = GetDpiForWindow(window);
-    if (dpi == 0) {
-        dpi = 96;
-    }
-    return GetSystemMetricsForDpi(metric, dpi);
+// GetDpiForWindow and GetSystemMetricsForDpi arrived with Windows 10 version
+// 1607. They are looked up at run time, so the program still starts on
+// Windows 7, which has one DPI for every display.
+using DpiForWindow = UINT(WINAPI *)(HWND);
+using SystemMetricsForDpi = int(WINAPI *)(int, UINT);
+
+struct DpiCalls {
+    DpiForWindow dpiForWindow = nullptr;
+    SystemMetricsForDpi systemMetricsForDpi = nullptr;
+};
+
+const DpiCalls &dpiCalls() {
+    static const DpiCalls calls = [] {
+        DpiCalls found;
+        if (HMODULE user32 = GetModuleHandleW(L"user32.dll")) {
+            found.dpiForWindow = (DpiForWindow)GetProcAddress(user32, "GetDpiForWindow");
+            found.systemMetricsForDpi = (SystemMetricsForDpi)GetProcAddress(user32, "GetSystemMetricsForDpi");
+        }
+        return found;
+    }();
+    return calls;
 }
 
-int captionHeightFor(HWND window) {
-    UINT dpi = GetDpiForWindow(window);
+// A system metric at the DPI of the display the window is on, which changes as
+// it moves between displays. Without the per-display calls, GetSystemMetrics
+// answers at the system DPI, which is then the only one.
+int metricFor(HWND window, int metric) {
+    const DpiCalls &calls = dpiCalls();
+    if (calls.dpiForWindow == nullptr || calls.systemMetricsForDpi == nullptr) {
+        return GetSystemMetrics(metric);
+    }
+    UINT dpi = calls.dpiForWindow(window);
     if (dpi == 0) {
         dpi = 96;
     }
-    return GetSystemMetricsForDpi(SM_CYCAPTION, dpi);
+    return calls.systemMetricsForDpi(metric, dpi);
 }
 
 LRESULT CALLBACK subclassProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR) {
@@ -61,18 +82,17 @@ LRESULT CALLBACK subclassProc(HWND window, UINT message, WPARAM wParam, LPARAM l
         if (IsZoomed(window)) {
             // Maximised windows exceed monitor bounds by frame thickness. Reclaim only
             // the caption height so content stays onscreen.
-            client->top = proposed.top + frameThickness(window, SM_CYSIZEFRAME) +
-                          frameThickness(window, SM_CXPADDEDBORDER);
+            client->top = proposed.top + metricFor(window, SM_CYSIZEFRAME) + metricFor(window, SM_CXPADDEDBORDER);
         } else {
             // The whole way up. The top resize edge now sits inside the client
             // area, which is what the app's hit test covers.
             client->top = proposed.top;
         }
-        sCaptionHeightPx = captionHeightFor(window);
+        sCaptionHeightPx = metricFor(window, SM_CYCAPTION);
         return 0;
     }
     case WM_DPICHANGED:
-        sCaptionHeightPx = captionHeightFor(window);
+        sCaptionHeightPx = metricFor(window, SM_CYCAPTION);
         break;
     default:
         break;
@@ -108,7 +128,7 @@ bool install(SDL_Window *sdlWindow) {
     BOOL dark = TRUE;
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
 
-    sCaptionHeightPx = captionHeightFor(window);
+    sCaptionHeightPx = metricFor(window, SM_CYCAPTION);
 
     // The frame only changes once the window is asked to recalculate it.
     SetWindowPos(window, nullptr, 0, 0, 0, 0,

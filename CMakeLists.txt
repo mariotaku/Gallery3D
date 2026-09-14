@@ -124,6 +124,10 @@ else()
         # the rest, which SDL_image cannot do. SDL_image already links this, so
         # asking for the headers adds no library.
         find_package(JPEG REQUIRED)
+        # LittleCMS converts the colour profile a JPEG embeds to sRGB. Distro
+        # packages ship a pkg-config file for it and no CMake package.
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2)
     endif()
     # Module mode, not CONFIG. Distro libcurl ships no CMake config package,
     # and FindCURL looks for one before falling back. Both give CURL::libcurl.
@@ -171,6 +175,13 @@ target_link_libraries(gallery3d_core PUBLIC
     nlohmann_json::nlohmann_json)
 gallery3d_add_warnings(gallery3d_core)
 gallery3d_add_symbols(gallery3d_core)
+if(WIN32)
+    # Windows 7 is the oldest Windows this runs on. The SDK then hides anything
+    # newer, so a call Windows 7 lacks fails to compile instead of stopping the
+    # program from starting, and code that wants a newer call looks it up at
+    # run time.
+    target_compile_definitions(gallery3d_core PUBLIC _WIN32_WINNT=0x0601 WINVER=0x0601)
+endif()
 
 if(ANDROID)
     # Android has no process to start. SDLActivity loads this and calls the

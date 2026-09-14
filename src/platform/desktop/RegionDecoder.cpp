@@ -5,9 +5,12 @@
 #include <algorithm>
 #include <csetjmp>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 #include <jpeglib.h>
+
+#include "platform/desktop/IccToSrgb.h"
 
 #if defined(_MSC_VER)
 // 4324: jmp_buf carries an alignment that pads the struct holding it.
@@ -67,6 +70,9 @@ class JpegRegionDecoder : public RegionDecoder {
     bool readSize();
 
     std::vector<uint8_t> mBytes;
+    // From the photo's embedded colour profile to sRGB, read once and shared
+    // by every tile, so the tiles match the screennail under them.
+    IccToSrgb mToSrgb;
 };
 
 bool JpegRegionDecoder::read(const std::string &path) {
@@ -97,10 +103,17 @@ bool JpegRegionDecoder::readSize() {
     if (setjmp(error.escape) == 0) {
         jpeg_create_decompress(&cinfo);
         jpeg_mem_src(&cinfo, mBytes.data(), (unsigned long)mBytes.size());
+        jpeg_save_markers(&cinfo, JPEG_APP0 + 2, 0xFFFF);
         if (jpeg_read_header(&cinfo, TRUE) == JPEG_HEADER_OK) {
             mWidth = (int)cinfo.image_width;
             mHeight = (int)cinfo.image_height;
             ok = mWidth > 0 && mHeight > 0;
+            JOCTET *profile = nullptr;
+            unsigned int profileSize = 0;
+            if (jpeg_read_icc_profile(&cinfo, &profile, &profileSize)) {
+                mToSrgb.open(profile, profileSize);
+                std::free(profile);
+            }
         }
     }
     jpeg_destroy_decompress(&cinfo);
@@ -192,6 +205,9 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
     // only then is it copied down to the region.
     if (decodedLeft != 0 || decoded.width() != decodedWidth) {
         decoded = decoded.cropped(decodedLeft, 0, decodedWidth, decodedHeight);
+    }
+    if (mToSrgb) {
+        mToSrgb.convert(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
     }
     // Scaling happens past the jump target, where allocating is safe again. A
     // sample size above eight, or an edge tile libjpeg rounded up, still needs

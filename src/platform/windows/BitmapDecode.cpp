@@ -205,15 +205,21 @@ bool Bitmap::savePng(const std::string &path) const {
     Wic::Ptr<IWICStream> stream;
     Wic::Ptr<IWICBitmapEncoder> encoder;
     Wic::Ptr<IWICBitmapFrameEncode> frame;
-    WICPixelFormatGUID format = GUID_WICPixelFormat32bppRGBA;
+    // BGRA, which WIC has had since Windows 7. Its RGBA formats arrived with
+    // Windows 8, so an RGBA bitmap is reordered first.
+    const Bitmap *source = this;
+    Bitmap reordered;
+    if (mOrder == PixelOrder::RGBA) {
+        reordered = inOrder(PixelOrder::BGRA);
+        source = &reordered;
+    }
+    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
     // PNG stores straight alpha, and these pixels are premultiplied.
-    const WICPixelFormatGUID premultiplied =
-        (mOrder == PixelOrder::RGBA) ? GUID_WICPixelFormat32bppPRGBA : GUID_WICPixelFormat32bppPBGRA;
-    return SUCCEEDED(imaging->CreateBitmapFromMemory((UINT)mWidth, (UINT)mHeight, premultiplied,
+    return SUCCEEDED(imaging->CreateBitmapFromMemory((UINT)mWidth, (UINT)mHeight, GUID_WICPixelFormat32bppPBGRA,
                                                      (UINT)mWidth * 4, (UINT)mPixels.size(),
-                                                     (BYTE *)mPixels.data(), pixels.put())) &&
+                                                     const_cast<BYTE *>(source->pixels()), pixels.put())) &&
            SUCCEEDED(imaging->CreateFormatConverter(straight.put())) &&
-           SUCCEEDED(straight->Initialize(pixels.get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone,
+           SUCCEEDED(straight->Initialize(pixels.get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone,
                                           nullptr, 0.0, WICBitmapPaletteTypeCustom)) &&
            SUCCEEDED(imaging->CreateStream(stream.put())) &&
            SUCCEEDED(stream->InitializeFromFilename(widePath.c_str(), GENERIC_WRITE)) &&

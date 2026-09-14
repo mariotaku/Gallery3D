@@ -6,17 +6,21 @@
 // the profile leaves it red.
 #include "tests.h"
 
-#if defined(_WIN32)
-
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+#include "platform/windows/Wic.h"
+#else
+#include <jpeglib.h>
+#endif
+
 #include "graphics/Bitmap.h"
 #include "graphics/RegionDecoder.h"
-#include "platform/windows/Wic.h"
 
 namespace fs = std::filesystem;
 
@@ -138,6 +142,7 @@ std::vector<uint8_t> swappedProfile() {
     return profile;
 }
 
+#if defined(_WIN32)
 // A picture of pure red at alpha, written by WIC's encoder for the container,
 // with the swapped profile embedded when withProfile is set.
 fs::path writeRed(const std::string &name, REFGUID container, UINT size, BYTE alpha, bool withProfile) {
@@ -179,6 +184,49 @@ fs::path writeRed(const std::string &name, REFGUID container, UINT size, BYTE al
     return written ? path : fs::path();
 }
 
+fs::path writeRedJpeg(const std::string &name, int size, bool withProfile) {
+    return writeRed(name, GUID_ContainerFormatJpeg, (UINT)size, 255, withProfile);
+}
+#else
+// A JPEG of pure red, written by libjpeg, with the swapped profile embedded
+// when withProfile is set.
+fs::path writeRedJpeg(const std::string &name, int size, bool withProfile) {
+    const fs::path path = fs::temp_directory_path() / name;
+    std::FILE *file = std::fopen(path.string().c_str(), "wb");
+    if (file == nullptr) {
+        return fs::path();
+    }
+    jpeg_compress_struct cinfo {};
+    jpeg_error_mgr error {};
+    cinfo.err = jpeg_std_error(&error);
+    jpeg_create_compress(&cinfo);
+    jpeg_stdio_dest(&cinfo, file);
+    cinfo.image_width = (JDIMENSION)size;
+    cinfo.image_height = (JDIMENSION)size;
+    cinfo.input_components = 3;
+    cinfo.in_color_space = JCS_RGB;
+    jpeg_set_defaults(&cinfo);
+    jpeg_set_quality(&cinfo, 95, TRUE);
+    jpeg_start_compress(&cinfo, TRUE);
+    if (withProfile) {
+        const std::vector<uint8_t> profile = swappedProfile();
+        jpeg_write_icc_profile(&cinfo, profile.data(), (unsigned int)profile.size());
+    }
+    std::vector<uint8_t> row((size_t)size * 3, 0);
+    for (size_t i = 0; i < row.size(); i += 3) {
+        row[i] = 255;
+    }
+    for (int y = 0; y < size; ++y) {
+        JSAMPROW rows[1] = {row.data()};
+        jpeg_write_scanlines(&cinfo, rows, 1);
+    }
+    jpeg_finish_compress(&cinfo);
+    jpeg_destroy_compress(&cinfo);
+    std::fclose(file);
+    return path;
+}
+#endif
+
 const uint8_t *centreOf(const Bitmap &bitmap) {
     return bitmap.pixels() + ((size_t)(bitmap.height() / 2) * (size_t)bitmap.width() + (size_t)bitmap.width() / 2) * 4;
 }
@@ -202,13 +250,13 @@ bool isRed(const Bitmap &bitmap) {
 }  // namespace
 
 TEST(a_photo_with_a_colour_profile_decodes_to_srgb) {
-    const fs::path path = writeRed("gallery3d_profile.jpg", GUID_ContainerFormatJpeg, 64, 255, true);
+    const fs::path path = writeRedJpeg("gallery3d_profile.jpg", 64, true);
     CHECK(!path.empty());
-    // At its own size, and reduced, which puts the conversion behind the
-    // scaler.
+    // At its own size, and reduced, which on Windows puts the conversion behind
+    // the scaler.
     CHECK(isGreen(Bitmap::load(path.string(), 0)));
     CHECK(isGreen(Bitmap::load(path.string(), 32)));
-    // The conversion hands out BGRA, but the JPEG under it has no alpha.
+    // A conversion can hand out alpha, but the JPEG under it has none.
     CHECK(Bitmap::load(path.string(), 0).knownOpaque());
     CHECK(Bitmap::load(path.string(), 32).knownOpaque());
     std::error_code error;
@@ -216,7 +264,7 @@ TEST(a_photo_with_a_colour_profile_decodes_to_srgb) {
 }
 
 TEST(a_photo_without_a_colour_profile_keeps_its_colours) {
-    const fs::path path = writeRed("gallery3d_no_profile.jpg", GUID_ContainerFormatJpeg, 64, 255, false);
+    const fs::path path = writeRedJpeg("gallery3d_no_profile.jpg", 64, false);
     CHECK(!path.empty());
     CHECK(isRed(Bitmap::load(path.string(), 0)));
     CHECK(isRed(Bitmap::load(path.string(), 32)));
@@ -224,6 +272,7 @@ TEST(a_photo_without_a_colour_profile_keeps_its_colours) {
     fs::remove(path, error);
 }
 
+#if defined(_WIN32)
 TEST(a_translucent_picture_with_a_colour_profile_is_converted_before_premultiplying) {
     const fs::path path = writeRed("gallery3d_profile.png", GUID_ContainerFormatPng, 64, 128, true);
     CHECK(!path.empty());
@@ -243,9 +292,10 @@ TEST(a_translucent_picture_with_a_colour_profile_is_converted_before_premultiply
     std::error_code error;
     fs::remove(path, error);
 }
+#endif
 
 TEST(a_tile_of_a_photo_with_a_colour_profile_is_in_srgb) {
-    const fs::path path = writeRed("gallery3d_profile_tiles.jpg", GUID_ContainerFormatJpeg, 64, 255, true);
+    const fs::path path = writeRedJpeg("gallery3d_profile_tiles.jpg", 64, true);
     CHECK(!path.empty());
     RegionDecoderPtr decoder = RegionDecoder::open(path.string());
     CHECK(decoder != nullptr);
@@ -257,5 +307,3 @@ TEST(a_tile_of_a_photo_with_a_colour_profile_is_in_srgb) {
     std::error_code error;
     fs::remove(path, error);
 }
-
-#endif

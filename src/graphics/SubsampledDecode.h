@@ -22,9 +22,10 @@ namespace SubsampledDecode {
 void init();
 
 // Decodes so the result is no smaller than maxEdge on its long edge, at the
-// largest reduction that holds. Returns an invalid Bitmap when this build
-// cannot decode the format this way, which leaves the caller its whole-image
-// path.
+// largest reduction that holds, or whole when maxEdge is 0. Returns an invalid
+// Bitmap when this build cannot decode the format or the size this way, which
+// leaves the caller its whole-image path. The desktop's libjpeg also converts
+// the JPEG's colour profile to sRGB. Android answers only a maxEdge above 0.
 Bitmap decode(const void *bytes, size_t size, int maxEdge);
 
 }  // namespace SubsampledDecode

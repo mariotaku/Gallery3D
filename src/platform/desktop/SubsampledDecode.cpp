@@ -4,8 +4,11 @@
 
 #include <algorithm>
 #include <csetjmp>
+#include <cstdlib>
 
 #include <jpeglib.h>
+
+#include "platform/desktop/IccToSrgb.h"
 
 #if defined(_MSC_VER)
 // 4324: jmp_buf carries an alignment that pads the struct holding it.
@@ -35,7 +38,7 @@ void SubsampledDecode::init() {
 }
 
 Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
-    if (bytes == nullptr || size == 0 || maxEdge <= 0) {
+    if (bytes == nullptr || size == 0) {
         return Bitmap();
     }
 
@@ -44,18 +47,28 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     cinfo.err = jpeg_std_error(&error.base);
     error.base.error_exit = jumpOnFatalError;
 
-    // Above the jump target, so a file libjpeg rejects does not leak it.
+    // Above the jump target, so a file libjpeg rejects does not leak them.
     Bitmap decoded;
+    IccToSrgb toSrgb;
 
     if (setjmp(error.escape) == 0) {
         jpeg_create_decompress(&cinfo);
         jpeg_mem_src(&cinfo, (const unsigned char *)bytes, (unsigned long)size);
+        // Kept, so the colour profile a camera or editor embeds can be read.
+        jpeg_save_markers(&cinfo, JPEG_APP0 + 2, 0xFFFF);
         if (jpeg_read_header(&cinfo, TRUE) == JPEG_HEADER_OK) {
+            JOCTET *profile = nullptr;
+            unsigned int profileSize = 0;
+            if (jpeg_read_icc_profile(&cinfo, &profile, &profileSize)) {
+                toSrgb.open(profile, profileSize);
+                std::free(profile);
+            }
             // libjpeg scales by eighths. Take the smallest that still covers
             // the size asked for, so the caller's last step only ever shrinks.
+            // No maxEdge is the whole picture.
             const long longest = (long)std::max(cinfo.image_width, cinfo.image_height);
             unsigned numerator = 8;
-            for (long candidate = 1; candidate <= 8; ++candidate) {
+            for (long candidate = 1; maxEdge > 0 && candidate <= 8; ++candidate) {
                 if (longest * candidate >= (long)maxEdge * 8) {
                     numerator = (unsigned)candidate;
                     break;
@@ -86,5 +99,8 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     }
 
     jpeg_destroy_decompress(&cinfo);
+    if (decoded.valid() && toSrgb) {
+        toSrgb.convert(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
+    }
     return decoded;
 }
