@@ -1,9 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
-     g3d:name="scroller_new" g3d:outputs="drawable=163x48">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 64"
+     g3d:name="scroller_new" g3d:outputs="drawable=163x64">
   <!-- The fallback folder's time bar handle: glass with small rounded top
-       corners that runs off the bottom of the canvas, a grey top line over a
+       corners that runs on down past the time bar, a grey top line over a
        white one, a thin grey edge, grip dots dimpled with a white lower lip,
-       a white arrow with a dark halo at each end, and a wide soft shadow. -->
+       a white arrow with a dark halo at each end, and a wide soft shadow.
+
+       The time bar lays out the top 48 rows. Below them the glass and its
+       shadow fade out over the canvas's last 16, so the tab ends smoothly
+       wherever the bar's bottom edge is. TimeBar draws those rows below the
+       bar, into the safe area's bottom inset. -->
   <defs>
     <rect id="tab" x="13.125" y="13.66" width="136" height="60" rx="5.55"/>
     <clipPath id="inside">
@@ -21,17 +26,25 @@
       <stop offset="0.786" stop-color="#cdcdcd" stop-opacity="0.322"/>
       <stop offset="0.957" stop-color="#bdbdbd" stop-opacity="0.27"/>
     </linearGradient>
-    <filter id="near" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
+    <!-- Full strength down to the bar's bottom edge, gone by the canvas's. -->
+    <linearGradient id="fadeOut" gradientUnits="userSpaceOnUse" x1="0" y1="48" x2="0" y2="64">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <mask id="fade" maskUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144">
+      <rect x="-40" y="-40" width="250" height="144" fill="url(#fadeOut)"/>
+    </mask>
+    <filter id="near" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144">
       <feGaussianBlur stdDeviation="2.688"/>
     </filter>
-    <filter id="far" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
+    <filter id="far" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144">
       <feGaussianBlur stdDeviation="6.6"/>
     </filter>
-    <mask id="outside" maskUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
-      <rect x="-40" y="-40" width="250" height="130" fill="#ffffff"/>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144">
+      <rect x="-40" y="-40" width="250" height="144" fill="#ffffff"/>
       <use href="#tab" fill="#000000"/>
     </mask>
-    <filter id="halo" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+    <filter id="halo" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144"
             color-interpolation-filters="sRGB">
       <feDropShadow dx="0" dy="0" stdDeviation="1.584" flood-color="#000000" flood-opacity="0.428"/>
     </filter>
@@ -48,15 +61,17 @@
     </g>
     <path id="arrow" d="M 20.966 31.47 L 31.363 24.4 V 38.313 Z"/>
   </defs>
-  <g mask="url(#outside)">
-    <use href="#tab" fill="#000000" opacity="0.271" filter="url(#near)"/>
-    <use href="#tab" fill="#000000" opacity="0.314" filter="url(#far)"/>
-  </g>
-  <use href="#tab" fill="url(#glass)"/>
-  <g clip-path="url(#inside)">
-    <use href="#tab" fill="none" stroke="rgb(27.25%,27.25%,27.25%)" stroke-opacity="0" stroke-width="2"/>
-    <rect x="0" y="13.66" width="163" height="0.958" fill="rgb(47.5%,47.5%,47.5%)" fill-opacity="0.406"/>
-    <rect x="0" y="14" width="163" height="1" fill="#ffffff" fill-opacity="0.225"/>
+  <g mask="url(#fade)">
+    <g mask="url(#outside)">
+      <use href="#tab" fill="#000000" opacity="0.271" filter="url(#near)"/>
+      <use href="#tab" fill="#000000" opacity="0.314" filter="url(#far)"/>
+    </g>
+    <use href="#tab" fill="url(#glass)"/>
+    <g clip-path="url(#inside)">
+      <use href="#tab" fill="none" stroke="rgb(27.25%,27.25%,27.25%)" stroke-opacity="0" stroke-width="2"/>
+      <rect x="0" y="13.66" width="163" height="0.958" fill="rgb(47.5%,47.5%,47.5%)" fill-opacity="0.406"/>
+      <rect x="0" y="14" width="163" height="1" fill="#ffffff" fill-opacity="0.225"/>
+    </g>
   </g>
   <g fill="#ffffff" fill-opacity="0.147">
     <use href="#dots" transform="translate(46.2 23)"/>

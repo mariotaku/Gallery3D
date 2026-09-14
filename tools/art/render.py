@@ -103,15 +103,16 @@ CHROME = {
     "popup.9": (62, 67, STRETCH),
     "popup_option_selected.9": (18, 40, STRETCH),
     # Drawn at their own size: the zoom and mode buttons by ImageButton, the
-    # knob by TimeBar.
+    # knob by TimeBar. The knob is 16 taller than the bar's 48, for the rows
+    # TimeBar draws below it (KNOB_OVERHANG).
     "gallery_zoom_in": (66, 42, FIT),
     "gallery_zoom_in_touch": (66, 42, FIT),
     "gallery_zoom_out": (66, 42, FIT),
     "gallery_zoom_out_touch": (66, 42, FIT),
     "mode_grid": (100, 93, FIT),
     "mode_stack": (100, 93, FIT),
-    "scroller_new": (163, 48, FIT),
-    "scroller_pressed_new": (163, 48, FIT),
+    "scroller_new": (163, 64, FIT),
+    "scroller_pressed_new": (163, 64, FIT),
 }
 
 

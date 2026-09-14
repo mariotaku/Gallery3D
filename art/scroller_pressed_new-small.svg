@@ -1,9 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
-     g3d:name="scroller_pressed_new" g3d:outputs="drawable=163x48">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 64"
+     g3d:name="scroller_pressed_new" g3d:outputs="drawable=163x64">
   <!-- The fallback folder's handle while dragged: scroller_new-small.svg's tab
        in solid gold, deeper below the middle, lit from inside along its top
        and sides and glowing yellow around, with dark grip dots and a white
-       arrow with a brown halo at each end. -->
+       arrow with a brown halo at each end. Like scroller_new-small.svg, the
+       tab and its glow fade out over the canvas's last 16 rows, below the 48
+       the time bar lays out. -->
   <defs>
     <rect id="tab" x="13.406" y="13.595" width="136.213" height="60" rx="7.613"/>
     <clipPath id="inside">
@@ -22,7 +24,14 @@
       <stop offset="0.957" stop-color="#feb01c"/>
       <stop offset="1" stop-color="#feaf19"/>
     </linearGradient>
-    <filter id="glow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+    <linearGradient id="fadeOut" gradientUnits="userSpaceOnUse" x1="0" y1="48" x2="0" y2="64">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <mask id="fade" maskUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144">
+      <rect x="-40" y="-40" width="250" height="144" fill="url(#fadeOut)"/>
+    </mask>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144"
             color-interpolation-filters="sRGB">
       <feGaussianBlur in="SourceAlpha" stdDeviation="4.65" result="spread"/>
       <feComponentTransfer in="spread" result="strength">
@@ -31,10 +40,10 @@
       <feFlood flood-color="#ffdb4e"/>
       <feComposite in2="strength" operator="in"/>
     </filter>
-    <filter id="light" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
+    <filter id="light" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144">
       <feGaussianBlur stdDeviation="2.2"/>
     </filter>
-    <filter id="halo" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+    <filter id="halo" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="144"
             color-interpolation-filters="sRGB">
       <feDropShadow dx="0" dy="0" stdDeviation="1.522" flood-color="rgb(25.375%,19.5%,4%)" flood-opacity="0.5"/>
     </filter>
@@ -51,11 +60,13 @@
     </g>
     <path id="arrow" d="M 21.163 31.4 L 31.363 25.08 V 38.19 Z"/>
   </defs>
-  <use href="#tab" fill="#000000" filter="url(#glow)"/>
-  <use href="#tab" fill="url(#gold)"/>
-  <g clip-path="url(#inside)">
-    <use href="#tab" fill="none" stroke="rgb(100%,95.3%,71.4%)" stroke-width="6.05" opacity="0.99" filter="url(#light)"/>
-    <use href="#tab" fill="none" stroke="rgb(100%,96%,43.25%)" stroke-opacity="0.803" stroke-width="0.982"/>
+  <g mask="url(#fade)">
+    <use href="#tab" fill="#000000" filter="url(#glow)"/>
+    <use href="#tab" fill="url(#gold)"/>
+    <g clip-path="url(#inside)">
+      <use href="#tab" fill="none" stroke="rgb(100%,95.3%,71.4%)" stroke-width="6.05" opacity="0.99" filter="url(#light)"/>
+      <use href="#tab" fill="none" stroke="rgb(100%,96%,43.25%)" stroke-opacity="0.803" stroke-width="0.982"/>
+    </g>
   </g>
   <g fill="#ffffff" fill-opacity="0.039">
     <use href="#dots" transform="translate(46.2 23)"/>

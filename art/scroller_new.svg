@@ -1,9 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
-     g3d:outputs="drawable-mdpi=163x48 drawable-hdpi=244x72">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 64"
+     g3d:outputs="drawable-mdpi=163x64 drawable-hdpi=244x96">
   <!-- The time bar's handle: a glass pill with elliptical ends, a thin grey
        edge, three rows of dimpled grip dots and a white arrow at each end with
        a dark halo, casting a wide soft shadow. The fallback folder's handle,
-       square at the bottom, is scroller_new-small.svg. -->
+       square at the bottom, is scroller_new-small.svg.
+
+       The time bar lays out the top 48 rows. The canvas runs 16 more, so the
+       pill's lower edge and its shadow fade out in full. TimeBar draws those
+       rows below the bar, into the safe area's bottom inset. -->
   <defs>
     <rect id="pill" x="11.278" y="12.786" width="139.55" height="34.43" rx="11.423" ry="17.068"/>
     <clipPath id="inside">

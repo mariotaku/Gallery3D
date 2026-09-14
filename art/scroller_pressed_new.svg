@@ -1,9 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
-     g3d:outputs="drawable-mdpi=163x48 drawable-hdpi=244x72">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 64"
+     g3d:outputs="drawable-mdpi=163x64 drawable-hdpi=244x96">
   <!-- scroller_new while dragged: the pill in solid gold, deeper below the
        middle, lit from inside along its edge and glowing yellow around, with
        dark grip dots and a white arrow with a brown halo at each end.
-       scroller_pressed_new-small.svg is the fallback folder's. -->
+       scroller_pressed_new-small.svg is the fallback folder's. Like
+       scroller_new.svg, the canvas runs 16 rows past the 48 the time bar lays
+       out, so the glow fades out in full below the pill. -->
   <defs>
     <rect id="pill" x="11.255" y="12.845" width="139.7" height="34.312" rx="11.213" ry="16.794"/>
     <clipPath id="inside">

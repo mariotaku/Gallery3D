@@ -21,6 +21,11 @@ const float FONT_SIZE = 17.0f;
 // The horizontal and vertical room the popup adds around the date.
 const float POPUP_PAD_X = 70.0f;
 const float POPUP_PAD_Y = 20.0f;
+// The knob art is KNOB_ART_HEIGHT tall. Its top TimeBar::HEIGHT rows are the
+// handle the bar lays out. The KNOB_OVERHANG rows under them are where its
+// lower edge and shadow fade out, and they are drawn below the bar.
+const float KNOB_ART_HEIGHT = 64.0f;
+const float KNOB_OVERHANG = 16.0f;
 
 
 float scaled(float value) {
@@ -321,12 +326,15 @@ void TimeBar::renderBlended(RenderView *view) {
     }
     float knobWidth = (float)knob->getWidth();
     float knobHeight = (float)knob->getHeight();
+    // The art's fade rows below the handle, in this texture's pixels.
+    float overhang = knobHeight * KNOB_OVERHANG / KNOB_ART_HEIGHT;
     float knobX = mX - mScrollAnim + getKnobXForPosition(mPositionAnim) - knobWidth * 0.5f;
     // Without a date the knob rides the bar; with a date it drops to the bottom
     // edge. That edge is the safe area's, not the window's: on a phone the
     // window runs under the navigation bar, and a knob at the window's own
-    // bottom sits behind it where it cannot be dragged.
-    float knobY = mShowTime ? ((float)view->getHeight() - App::SAFE_AREA.bottom - knobHeight) : mY;
+    // bottom sits behind it where it cannot be dragged. Only the fade rows go
+    // past the edge, into the inset, or off the window where there is none.
+    float knobY = mShowTime ? ((float)view->getHeight() - App::SAFE_AREA.bottom - (knobHeight - overhang)) : mY;
     view->draw2D(knobX, knobY, 0.0f, knobWidth, knobHeight);
 
     if (!mShowTime || (!mInDrag && mAnimTextAlpha == 0.0f)) {

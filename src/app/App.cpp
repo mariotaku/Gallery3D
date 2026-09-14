@@ -1,17 +1,20 @@
 #include "app/App.h"
 
-#include <cstdio>
+#include <SDL3/SDL.h>
 
 namespace App {
 
 namespace {
 
+// Through SDL, as Bitmap::readFile loads the file. On Android the drawables
+// live inside the apk, which only SDL's asset manager reads, so fopen reports
+// every bucket missing and the chrome falls back to the 1x folder.
 bool fileExists(const std::string &path) {
-    FILE *file = fopen(path.c_str(), "rb");
+    SDL_IOStream *file = SDL_IOFromFile(path.c_str(), "rb");
     if (file == nullptr) {
         return false;
     }
-    fclose(file);
+    SDL_CloseIO(file);
     return true;
 }
 
