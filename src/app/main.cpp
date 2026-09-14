@@ -1049,20 +1049,22 @@ int main(int argc, char **argv) {
             }
             case SDL_EVENT_KEY_DOWN: {
                 int keyCode = keyCodeFromSDL(sdlEvent.key.key);
+                if (keyCode == KeyEvent::KEYCODE_UNKNOWN) {
+                    break;
+                }
+                KeyEvent keyEvent;
+                keyEvent.action = KeyEvent::ACTION_DOWN;
+                keyEvent.keyCode = keyCode;
+                // The grid takes Back first: a popup or a selection on the top
+                // level closes before the app does.
+                const bool handled = renderView.dispatchKeyDown(keyCode, keyEvent);
                 // Back at the top level leaves. Backspace does not, so a stray
                 // one while browsing cannot close the app.
                 const bool leavesAtTopLevel =
                     sdlEvent.key.key == SDLK_ESCAPE || sdlEvent.key.key == SDLK_AC_BACK;
-                if (keyCode == KeyEvent::KEYCODE_BACK && leavesAtTopLevel &&
+                if (!handled && keyCode == KeyEvent::KEYCODE_BACK && leavesAtTopLevel &&
                     gridLayer.getState() == GridLayer::STATE_MEDIA_SETS) {
                     running = false;
-                    break;
-                }
-                if (keyCode != KeyEvent::KEYCODE_UNKNOWN) {
-                    KeyEvent keyEvent;
-                    keyEvent.action = KeyEvent::ACTION_DOWN;
-                    keyEvent.keyCode = keyCode;
-                    renderView.dispatchKeyDown(keyCode, keyEvent);
                 }
                 break;
             }

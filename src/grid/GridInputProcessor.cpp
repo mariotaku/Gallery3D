@@ -142,6 +142,12 @@ bool GridInputProcessor::onKeyDown(int keyCode, const KeyEvent &event, int state
         if (layer->getViewIntent()) {
             return false;
         }
+        // An open popup is the top of the stack, so Back closes it and nothing
+        // under it.
+        if (layer->getHud()->getPopupMenu()->isShowing()) {
+            layer->getHud()->closeSelectionMenu();
+            return true;
+        }
         if (layer->getHud()->getMode() == HudLayer::MODE_SELECT) {
             layer->deselectAll();
             return true;
@@ -157,8 +163,8 @@ bool GridInputProcessor::onKeyDown(int keyCode, const KeyEvent &event, int state
             layer->centerCameraForSlot(mCurrentSelectedSlot, 1.0f);
             return true;
         }
-        layer->goBack();
-        return state != GridLayer::STATE_MEDIA_SETS;
+        const bool wentBack = layer->goBack();
+        return wentBack || state != GridLayer::STATE_MEDIA_SETS;
     }
     if (mDpadIgnoreTime < 0.1f) {
         return true;

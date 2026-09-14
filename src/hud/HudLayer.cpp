@@ -401,6 +401,8 @@ void HudLayer::enterSelectionMode() {
 }
 
 void HudLayer::cancelSelection() {
+    // The popup came from the selection bar, which leaves with the selection.
+    mPopupMenu.close(true);
     setMode(MODE_NORMAL);
 }
 
