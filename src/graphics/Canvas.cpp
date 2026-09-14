@@ -94,7 +94,9 @@ void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, floa
             }
             const uint8_t *s = srcRow + (size_t)x * 4;
             uint8_t *d = dstRow + (size_t)tx * 4;
-            float sa = (s[3] / 255.0f) * a;
+            // An a above 1 strengthens a faint source, such as a blurred halo,
+            // and stops at full coverage.
+            float sa = std::min(1.0f, (s[3] / 255.0f) * a);
             if (sa <= 0.0f) {
                 continue;
             }
@@ -413,7 +415,7 @@ Bitmap blurredCoverage(const Bitmap &src, int radius) {
 }
 
 void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize, bool bold, float r, float g,
-              float b, float a, int shadowRadius) {
+              float b, float a, int shadowRadius, float shadowAlpha) {
     Bitmap glyphs = renderText(text, fontSize, bold);
     if (!glyphs.valid()) {
         return;
@@ -421,7 +423,7 @@ void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize
     if (shadowRadius > 0) {
         Bitmap shadow = blurredCoverage(glyphs, shadowRadius);
         if (shadow.valid()) {
-            blendOver(dst, shadow, x - shadowRadius, y - shadowRadius, 0.0f, 0.0f, 0.0f, 1.0f);
+            blendOver(dst, shadow, x - shadowRadius, y - shadowRadius, 0.0f, 0.0f, 0.0f, shadowAlpha);
         }
     }
     blendOver(dst, glyphs, x, y, r, g, b, a);

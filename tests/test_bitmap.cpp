@@ -8,6 +8,7 @@
 
 #include "app/App.h"
 #include "graphics/Bitmap.h"
+#include "graphics/Canvas.h"
 #include "core/Shared.h"
 
 namespace {
@@ -127,6 +128,16 @@ TEST(cover_cropped_fills_the_box_without_letterboxing) {
     // Every pixel is image, none is padding.
     CHECK_EQ((int)pixelAt(cropped, 0, 0)[3], 255);
     CHECK_EQ((int)pixelAt(cropped, 99, 99)[3], 255);
+}
+
+TEST(blending_past_full_strength_stops_at_full_coverage) {
+    Bitmap dst = solid(1, 1, 255, 255, 255, 255);
+    Bitmap halo = solid(1, 1, 255, 255, 255, 128);
+    Canvas::blendOver(dst, halo, 0, 0, 0.0f, 0.0f, 0.0f, 3.0f);
+    // Half coverage three times over is full black, not a negative weight on
+    // the white beneath it.
+    CHECK_EQ((int)pixelAt(dst, 0, 0)[0], 0);
+    CHECK_EQ((int)pixelAt(dst, 0, 0)[3], 255);
 }
 
 TEST(next_power_of_two_is_what_the_padding_relies_on) {

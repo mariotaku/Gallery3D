@@ -26,7 +26,7 @@ size_t lengthToFit(const std::string &text, float fontSize, bool bold, int maxWi
 Bitmap renderText(const std::string &text, float fontSize, bool bold);
 
 // Blends a straight alpha source over a premultiplied destination, tinting by
-// (r, g, b, a).
+// (r, g, b, a). An a above 1 strengthens the source's coverage, up to full.
 void blendOver(Bitmap &dst, const Bitmap &src, int x, int y, float r, float g, float b, float a);
 
 // Blends a premultiplied source, which is what Bitmap::load returns.
@@ -69,9 +69,10 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int x, int y, int width, int hei
 Bitmap blurredCoverage(const Bitmap &src, int radius);
 
 // Draws text with an optional soft black halo behind it, so a label stays
-// readable over a bright photo.
+// readable over a bright photo. shadowAlpha scales the halo's opacity without
+// changing its softness.
 void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize, bool bold, float r, float g,
-              float b, float a, int shadowRadius);
+              float b, float a, int shadowRadius, float shadowAlpha = 1.0f);
 
 // Draws an antialiased line of the given thickness.
 void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickness, float r, float g, float b,

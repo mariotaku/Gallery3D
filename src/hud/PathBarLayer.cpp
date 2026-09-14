@@ -16,6 +16,11 @@ const float ICON_SIZE = 39.0f;
 const float JOIN_WIDTH = 21.0f;
 const float CAP_WIDTH = 22.0f;
 const float FONT_SIZE = 18.0f;
+// The black halo behind the label, as soft as StringTexture.Config's default in
+// the original and 30% more opaque. It keeps the label readable where the bar
+// shows a bright photo through it.
+const float SHADOW_RADIUS = 4.0f;
+const float SHADOW_OPACITY = 1.3f;
 // Gap between the icon and the label, and the padding after the label.
 const float TEXT_GAP = 4.0f;
 const float TRAILING_PAD = 10.0f;
@@ -176,7 +181,7 @@ void PathBarLayer::BarTexture::renderCanvas(Bitmap &canvas, int width, int heigh
             int textX = x + (int)scaled(ICON_SIZE) + (int)scaled(TEXT_GAP);
             int textY = (height - textHeight) / 2;
             Canvas::drawText(canvas, component.label, textX, textY, scaled(FONT_SIZE), false, 1.0f, 1.0f, 1.0f,
-                             1.0f, 0);
+                             1.0f, (int)scaled(SHADOW_RADIUS), SHADOW_OPACITY);
         }
     }
 
