@@ -19,8 +19,6 @@ class AdaptiveBackgroundTexture : public Texture {
         return true;
     }
 
-    bool loadsOverNetwork() const override;
-
     Bitmap load(RenderView *view) override;
     void startLoad(RenderView *view, const TexturePtr &self) override;
 

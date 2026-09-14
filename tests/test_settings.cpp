@@ -135,28 +135,29 @@ TEST(the_environment_name_follows_from_the_setting_name) {
 
 TEST(booleans_take_the_spellings_people_actually_write) {
     Settings::Store store;
+    // The store keeps known keys only, so a known one carries the values.
     store.readIni(
         "[library]\n"
-        "artic = yes\n",
+        "photos = yes\n",
         "test.ini");
-    CHECK(store.getBool("library.artic", false));
+    CHECK(store.getBool("library.photos", false));
 
     Settings::Store off;
     off.readIni(
         "[library]\n"
-        "artic = off\n",
+        "photos = off\n",
         "test.ini");
-    CHECK(!off.getBool("library.artic", true));
+    CHECK(!off.getBool("library.photos", true));
 
     // Anything that is not a yes or a no keeps the default rather than
     // guessing, so a value like "maybe" cannot quietly mean false.
     Settings::Store nonsense;
     nonsense.readIni(
         "[library]\n"
-        "artic = maybe\n",
+        "photos = maybe\n",
         "test.ini");
-    CHECK(nonsense.getBool("library.artic", true));
-    CHECK(!nonsense.getBool("library.artic", false));
+    CHECK(nonsense.getBool("library.photos", true));
+    CHECK(!nonsense.getBool("library.photos", false));
 }
 
 TEST(a_malformed_line_is_reported_and_the_rest_still_reads) {

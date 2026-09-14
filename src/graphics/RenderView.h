@@ -42,10 +42,6 @@ class RenderLists {
 class RenderView {
   public:
     static const int NUM_TEXTURE_LOAD_THREADS = 4;
-    // Maximum concurrent network workers; the pool grows on demand.
-    static const int MAX_NETWORK_LOAD_THREADS = 6;
-    // Idle timeout before a network worker retires.
-    static const int NETWORK_THREAD_IDLE_SECONDS = 45;
     static const int MAX_LOADING_COUNT = 8;
 
     RenderView();
@@ -190,14 +186,6 @@ class RenderView {
     void updateLists();
     Layer *hitTest(float x, float y);
     void textureLoadThread(int index);
-    // One elastic worker. Returns, and so retires, when it has had nothing to
-    // do for NETWORK_THREAD_IDLE_SECONDS.
-    void networkLoadThread();
-    // Starts a thread if every one of them is busy and there is room. Call with
-    // mNetworkMutex held.
-    void growNetworkPoolLocked();
-    // Joins whatever has retired since last time. Call with mNetworkMutex held.
-    void reapNetworkThreadsLocked();
 
     SDL_Window *mWindow = nullptr;
     int mViewWidth = 0;
@@ -266,17 +254,6 @@ class RenderView {
     std::vector<std::thread> mLoadThreads;
     std::atomic<bool> mLoadThreadsRunning{false};
     std::atomic<bool> mThreadIsLoading[NUM_TEXTURE_LOAD_THREADS];
-
-    // On-demand network pool, separate from CPU decoding so stalled downloads cannot block it.
-    std::deque<TexturePtr> mNetworkQueue;
-    std::mutex mNetworkMutex;
-    std::condition_variable mNetworkCondition;
-    // Threads that have retired and are waiting to be joined. A thread cannot
-    // join itself, so it leaves its handle here for the next one through.
-    std::vector<std::thread> mNetworkThreads;
-    std::vector<std::thread::id> mNetworkFinished;
-    int mNetworkThreadCount = 0;
-    int mNetworkIdleCount = 0;
 
     std::deque<MotionEvent> mTouchEventQueue;
     // The pointer's last position, and whether it has moved since the render

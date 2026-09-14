@@ -90,16 +90,6 @@ void decodeThumbnail(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
     decodeItem(item, maxEdge, std::move(done));
 }
 
-// Whether the item's owning source loads over the network.
-bool itemLoadsOverNetwork(const MediaItem *item) {
-    if (item == nullptr) {
-        return false;
-    }
-    MediaSet *set = item->mParentMediaSet;
-    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
-    return source != nullptr && source->readsBlockOnNetwork();
-}
-
 // Cache by local path, falling back to the remote content URI.
 const std::string &cacheIdentity(const MediaItem *item) {
     return item->mFilePath.empty() ? item->mContentUri : item->mFilePath;
@@ -113,14 +103,6 @@ void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done) 
 
 void Texture::startLoad(RenderView *view, const TexturePtr &self) {
     view->finishLoad(self, load(view));
-}
-
-bool FileTexture::loadsOverNetwork() const {
-    return itemLoadsOverNetwork(mItem);
-}
-
-bool MediaItemTexture::loadsOverNetwork() const {
-    return itemLoadsOverNetwork(mItem);
 }
 
 Bitmap ResourceTexture::load(RenderView *view) {
@@ -159,10 +141,6 @@ void FileTexture::startLoad(RenderView *view, const TexturePtr &self) {
         return;
     }
     decodeItem(mItem, mMaxEdge, [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
-}
-
-bool RegionTexture::loadsOverNetwork() const {
-    return itemLoadsOverNetwork(mItem);
 }
 
 Bitmap RegionTexture::load(RenderView *view) {

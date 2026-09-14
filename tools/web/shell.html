@@ -3,15 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<!-- The museum's image server requires a Referer and answers 403 without one.
-     Origin alone is not enough: the same request with Origin and no Referer is
-     refused, and with a Referer it is served.
-
-     Browsers disagree about when they send one by default, and a page cannot
-     set the header itself, so this sets the policy that decides it. "origin"
-     sends the site this page is on and nothing more - no path, no query - on
-     every request, which is all the server is looking for. -->
-<meta name="referrer" content="origin">
 <title>Gallery3D</title>
 <style>
   html, body {
@@ -108,9 +99,7 @@
     showError: showError,
     // Runs once the runtime is up and ENV exists, before main is called.
     preRun: [applySettingsFromQuery],
-    // No arguments. Settings are not passed that way, and the web build has no
-    // local directory to point at - the museum is all there is, which is what
-    // library.artic defaults to here.
+    // No arguments. Settings come from the query string.
     arguments: [],
     print: function (text) { console.log(text); },
     printErr: function (text) { console.error(text); },
@@ -155,31 +144,6 @@
               ' dpr ' + (window.devicePixelRatio || 1));
     Module.print = function (text) { console.log(text); showError(text); };
     Module.printErr = function (text) { console.error(text); showError(text); };
-    probeImageServer();
-  }
-
-  // Fetches one artwork four ways and reports what came back.
-  //
-  // The app only ever sees status 0 for a refused request, which says nothing
-  // about why. A plain fetch here gives the browser's own answer, and varying
-  // referrerPolicy says whether the Referer is what the server is weighing -
-  // something that cannot be settled from another machine, because browsers
-  // differ on what they send by default.
-  function probeImageServer() {
-    var url = 'https://www.artic.edu/iiif/2/' +
-              'b34de958-1cbe-065f-4941-c34f64d2b366/full/!200,200/0/default.jpg';
-    var policies = ['default', 'origin', 'unsafe-url', 'no-referrer'];
-    policies.forEach(function (policy) {
-      var options = { mode: 'cors', cache: 'no-store' };
-      if (policy !== 'default') {
-        options.referrerPolicy = policy;
-      }
-      fetch(url, options).then(function (response) {
-        showError('probe ' + policy + ': HTTP ' + response.status + ' (' + response.type + ')');
-      }).catch(function (error) {
-        showError('probe ' + policy + ': FAILED ' + error.message);
-      });
-    });
   }
 </script>
 {{{ SCRIPT }}}

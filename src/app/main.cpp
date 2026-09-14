@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "app/App.h"
-#include "media/ArticDataSource.h"
 #include "core/Backtrace.h"
 #include "app/Settings.h"
 #include "graphics/Bitmap.h"
@@ -520,13 +519,6 @@ int main(int argc, char **argv) {
     std::string photoDirectory = settings.get("library.photos", std::string());
     // A second library, shown after the first. Two sources behind one feed.
     std::string alsoDirectory = settings.get("library.also", std::string());
-    // The web build defaults to the museum source because it cannot browse a local filesystem.
-#if defined(__EMSCRIPTEN__)
-    const bool articByDefault = true;
-#else
-    const bool articByDefault = false;
-#endif
-    bool artic = settings.getBool("library.artic", articByDefault);
     // Override safe-area insets to exercise cutout layout on desktop.
     bool safeAreaOverridden = false;
     App::SafeAreaInsets safeAreaOverride;
@@ -780,7 +772,6 @@ int main(int argc, char **argv) {
 
     LocalDataSource dataSource(photoRoots, systemPhotos.cameraRolls);
     // Sources must outlive the layer: feed shutdown uses their bare pointers.
-    std::unique_ptr<ArticDataSource> articSource;
     std::unique_ptr<LocalDataSource> alsoSource;
     std::unique_ptr<ConcatenatedDataSource> combinedSource;
     DataSource *feedSource = &dataSource;
@@ -790,11 +781,6 @@ int main(int argc, char **argv) {
     MediaStoreDataSource mediaStoreSource;
     feedSource = &mediaStoreSource;
 #endif
-    if (artic) {
-        articSource = std::make_unique<ArticDataSource>();
-        feedSource = articSource.get();
-        SDL_Log("Browsing api.artic.edu");
-    }
     if (!alsoDirectory.empty()) {
         alsoSource = std::make_unique<LocalDataSource>(std::vector<std::string>{alsoDirectory},
                                                        systemPhotos.cameraRolls);
@@ -865,13 +851,11 @@ int main(int argc, char **argv) {
 #if defined(__ANDROID__)
     SDL_Log("Reading the photo library from the media store");
 #else
-    if (!artic) {
-        for (const std::string &root : PhotoLibrary::withoutNested(photoRoots)) {
-            SDL_Log("Scanning %s", root.c_str());
-        }
-        for (const std::string &roll : systemPhotos.cameraRolls) {
-            SDL_Log("Camera roll %s", roll.c_str());
-        }
+    for (const std::string &root : PhotoLibrary::withoutNested(photoRoots)) {
+        SDL_Log("Scanning %s", root.c_str());
+    }
+    for (const std::string &roll : systemPhotos.cameraRolls) {
+        SDL_Log("Camera roll %s", roll.c_str());
     }
 #endif
 

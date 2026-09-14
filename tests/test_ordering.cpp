@@ -47,9 +47,9 @@ TEST(an_album_reads_oldest_first) {
 }
 
 TEST(dates_before_1970_sort_before_dates_after_it) {
-    // A museum's catalogue is mostly negative timestamps. Anything comparing
-    // these as unsigned, or clamping them at the epoch, puts a Degas after a
-    // photograph from last year.
+    // Dates before 1970 are negative timestamps. Anything comparing these as
+    // unsigned, or clamping them at the epoch, puts a photo from 1890 after one
+    // from last year.
     MediaSet set;
     add(set, 1000LL * 60 * 60 * 24 * 365 * 30, "1999");
     add(set, -2500000000000LL, "1890");
@@ -60,8 +60,7 @@ TEST(dates_before_1970_sort_before_dates_after_it) {
 
 TEST(undated_items_go_last_and_keep_their_order) {
     // Zero means the date is unknown, not 1970. Sorting on the value alone
-    // would put every undated artwork ahead of every dated one, which for this
-    // catalogue is most of the wall.
+    // would put every undated photo ahead of every dated one.
     MediaSet set;
     add(set, 0, "unknown one");
     add(set, 2000, "dated late");
@@ -85,8 +84,7 @@ TEST(sorting_twice_changes_nothing) {
 }
 
 TEST(items_added_after_a_sort_land_in_the_right_place) {
-    // The museum's albums fill in twice: covers first, then the rest when the
-    // album is opened.
+    // A later page adds items to a set that is already sorted.
     MediaSet set;
     add(set, 100, "cover");
     set.sortItemsByDate();
@@ -104,7 +102,7 @@ TEST(an_empty_set_sorts_without_complaint) {
 }
 
 // ---------------------------------------------------------------------------
-// Turning a catalogue's year into a timestamp
+// Turning a year into a timestamp
 // ---------------------------------------------------------------------------
 
 TEST(a_year_becomes_the_first_of_january_utc) {
@@ -116,9 +114,9 @@ TEST(a_year_becomes_the_first_of_january_utc) {
 }
 
 TEST(years_before_1970_go_negative_and_stay_exact) {
-    // Most of a museum lives here. Counting 365 days to the year drifts about
-    // three weeks a century, which is invisible in a sort and obvious on a
-    // label: an artwork from 1982 used to read "Dec 29 1981".
+    // Counting 365 days to the year drifts about three weeks a century, which
+    // is invisible in a sort and obvious on a label: 1982 used to read
+    // "Dec 29 1981".
     CHECK_EQ(Dates::startOfYearMs(1900), -2208988800000LL);
     CHECK_EQ(Dates::startOfYearMs(1889), -2556057600000LL);
     CHECK_EQ(Dates::startOfYearMs(1839), -4133980800000LL);

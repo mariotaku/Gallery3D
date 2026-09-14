@@ -135,12 +135,6 @@ void gaussianBlurFilter(const uint32_t *in, uint32_t *out, int width, int height
 
 }  // namespace
 
-bool AdaptiveBackgroundTexture::loadsOverNetwork() const {
-    MediaSet *set = (mItem != nullptr) ? mItem->mParentMediaSet : nullptr;
-    DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
-    return source != nullptr && source->readsBlockOnNetwork();
-}
-
 Bitmap AdaptiveBackgroundTexture::load(RenderView *view) {
     // startLoad handles asynchronous decoding; load is required by the base class.
     (void)view;

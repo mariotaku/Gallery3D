@@ -1,5 +1,5 @@
 // JSON field access with defaults for missing or null values. nlohmann::value()
-// throws for null, which api.artic.edu uses for unknown fields.
+// throws for null.
 #pragma once
 
 #include <cstdint>

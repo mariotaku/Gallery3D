@@ -9,9 +9,6 @@ if(EMSCRIPTEN)
     # built from source. Emscripten ships sdl3 and sdl3_ttf as ports but not
     # sdl3_image, and mixing a port with a source build means two SDL3s in one
     # link. Building all three keeps one.
-    #
-    # No curl: a page cannot open a socket, so src/platform/web/Http.cpp uses
-    # the Fetch API instead. See Http.h.
     include(FetchContent)
     set(FETCHCONTENT_QUIET OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -19,15 +16,15 @@ if(EMSCRIPTEN)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDLIMAGE_SAMPLES OFF CACHE BOOL "" FORCE)
     set(SDLIMAGE_DEPS_SHARED OFF CACHE BOOL "" FORCE)
-    # SDL_image's own stb backend decodes PNG and JPEG, which is everything the
-    # museum serves and everything in assets/. Vendoring would clone libpng,
+    # SDL_image's own stb backend decodes PNG and JPEG, which is everything in
+    # assets/. Photos decode in the browser. Vendoring would clone libpng,
     # libjpeg, libtiff, dav1d and the rest to build decoders nothing here asks
     # for.
     set(SDLIMAGE_VENDORED OFF CACHE BOOL "" FORCE)
     set(SDLIMAGE_BACKEND_STB ON CACHE BOOL "" FORCE)
     set(SDLIMAGE_JPG ON CACHE BOOL "" FORCE)
     set(SDLIMAGE_PNG ON CACHE BOOL "" FORCE)
-    # Only what the museum source and the shipped art actually need.
+    # Only what the shipped art actually needs.
     set(SDLIMAGE_AVIF OFF CACHE BOOL "" FORCE)
     set(SDLIMAGE_TIF OFF CACHE BOOL "" FORCE)
     set(SDLIMAGE_WEBP OFF CACHE BOOL "" FORCE)
@@ -53,9 +50,7 @@ elseif(ANDROID)
     find_package(SDL3_image CONFIG REQUIRED)
     # No SDL_ttf: android.graphics.Paint draws the text, which also keeps the
     # one library in the apk that is not aligned for a 16 KB page out of it.
-    # No curl: HTTP here has to go through the platform, which is not wired up
-    # yet. No libjpeg either, because cropping a region is
-    # BitmapRegionDecoder's job here.
+    # No libjpeg, because cropping a region is BitmapRegionDecoder's job here.
     # nlohmann/json is a header, so it comes from source as it does on the web.
     include(FetchContent)
     set(JSON_BuildTests OFF CACHE INTERNAL "")
@@ -68,7 +63,7 @@ elseif(IOS)
     # libraries are built from source as they are for the web, and linked in
     # statically: an app may not carry loose dylibs.
     #
-    # No curl, which the SDK does not include, and no libjpeg: ImageIO decodes
+    # No libjpeg: ImageIO decodes
     # for SDL_image, and a zoomed photo stays on its screennail as it does in
     # the browser.
     #
@@ -129,9 +124,6 @@ else()
         find_package(PkgConfig REQUIRED)
         pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2)
     endif()
-    # Module mode, not CONFIG. Distro libcurl ships no CMake config package,
-    # and FindCURL looks for one before falling back. Both give CURL::libcurl.
-    find_package(CURL REQUIRED)
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
 
@@ -220,12 +212,10 @@ if(EMSCRIPTEN)
         # The wall's textures are the bulk of the memory and there is no
         # knowing how many up front.
         -sALLOW_MEMORY_GROWTH=1
-        # src/platform/web/Http.cpp talks to the museum through this.
-        -sFETCH=1
-        # No threads. Fetching and decoding both go through the browser and
-        # answer in callbacks, so there is nothing here that would block a
-        # thread if it had one. That also means the page needs no COOP and COEP
-        # headers and will run from any static host.
+        # No threads. Decoding goes through the browser and answers in
+        # callbacks, so there is nothing here that would block a thread if it
+        # had one. That also means the page needs no COOP and COEP headers and
+        # will run from any static host.
         -sEXIT_RUNTIME=0
         # The art and the fonts, baked into a file the runtime mounts.
         --preload-file "${CMAKE_SOURCE_DIR}/assets@/assets"

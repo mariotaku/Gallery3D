@@ -264,21 +264,6 @@ void RenderView::shutdown() {
             }
         }
         mLoadThreads.clear();
-
-        // However many of these are alive, which may be none.
-        mNetworkCondition.notify_all();
-        std::vector<std::thread> networkThreads;
-        {
-            std::lock_guard<std::mutex> lock(mNetworkMutex);
-            networkThreads.swap(mNetworkThreads);
-            mNetworkFinished.clear();
-            mNetworkQueue.clear();
-        }
-        for (std::thread &thread : networkThreads) {
-            if (thread.joinable()) {
-                thread.join();
-            }
-        }
     }
     mRootLayer = nullptr;
     mLists.clear();
@@ -586,23 +571,6 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
     return;
 #endif
 
-    // Route network waits to the elastic pool so downloads cannot stall local decoding.
-    if (texture->loadsOverNetwork()) {
-        {
-            std::lock_guard<std::mutex> lock(mNetworkMutex);
-            if (highPriority) {
-                mNetworkQueue.push_front(texture);
-            } else {
-                mNetworkQueue.push_back(texture);
-            }
-            reapNetworkThreadsLocked();
-            growNetworkPoolLocked();
-        }
-        mNetworkCondition.notify_one();
-        ++mLoadingCount;
-        return;
-    }
-
     {
         std::lock_guard<std::mutex> lock(mQueueMutex);
         std::deque<TexturePtr> &inputQueue = texture->isUncachedVideo() ? mLoadInputQueueVideo
@@ -878,76 +846,6 @@ void RenderView::textureLoadThread(int index) {
         }
         texture->startLoad(this, texture);
         mThreadIsLoading[index].store(false);
-    }
-}
-
-void RenderView::reapNetworkThreadsLocked() {
-    if (mNetworkFinished.empty()) {
-        return;
-    }
-    for (const std::thread::id &id : mNetworkFinished) {
-        for (size_t i = 0; i < mNetworkThreads.size(); ++i) {
-            if (mNetworkThreads[i].get_id() == id) {
-                if (mNetworkThreads[i].joinable()) {
-                    mNetworkThreads[i].join();
-                }
-                mNetworkThreads.erase(mNetworkThreads.begin() + (long)i);
-                break;
-            }
-        }
-    }
-    mNetworkFinished.clear();
-}
-
-void RenderView::growNetworkPoolLocked() {
-    // Grow the network pool only when all workers are busy, up to the request ceiling.
-    if (mNetworkIdleCount > 0) {
-        return;
-    }
-    if (mNetworkThreadCount >= MAX_NETWORK_LOAD_THREADS) {
-        return;
-    }
-    if (!mLoadThreadsRunning.load()) {
-        return;
-    }
-    ++mNetworkThreadCount;
-    mNetworkThreads.emplace_back([this]() { networkLoadThread(); });
-    SDL_Log("Network pool grew to %d thread%s", mNetworkThreadCount, mNetworkThreadCount == 1 ? "" : "s");
-}
-
-void RenderView::networkLoadThread() {
-    // Same reasoning as the decode threads: these decode what they download.
-    SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_LOW);
-
-    const auto idleTimeout = std::chrono::seconds(NETWORK_THREAD_IDLE_SECONDS);
-    for (;;) {
-        TexturePtr texture;
-        {
-            std::unique_lock<std::mutex> lock(mNetworkMutex);
-            ++mNetworkIdleCount;
-            const bool woken = mNetworkCondition.wait_for(lock, idleTimeout, [this]() {
-                return !mNetworkQueue.empty() || !mLoadThreadsRunning.load();
-            });
-            --mNetworkIdleCount;
-
-            if (!mLoadThreadsRunning.load()) {
-                mNetworkFinished.push_back(std::this_thread::get_id());
-                --mNetworkThreadCount;
-                return;
-            }
-            if (!woken || mNetworkQueue.empty()) {
-                // Retire idle workers; leave handles for the next enqueue to join, since
-                // threads cannot join themselves.
-                mNetworkFinished.push_back(std::this_thread::get_id());
-                --mNetworkThreadCount;
-                SDL_Log("Network pool retired an idle thread, %d left", mNetworkThreadCount);
-                return;
-            }
-            texture = mNetworkQueue.front();
-            mNetworkQueue.pop_front();
-        }
-
-        texture->startLoad(this, texture);
     }
 }
 

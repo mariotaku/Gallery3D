@@ -42,11 +42,6 @@ class DataSource {
         return false;
     }
 
-    // Whether item reads use the network; routes loads to a separate pool from local decoding.
-    virtual bool readsBlockOnNetwork() const {
-        return false;
-    }
-
     // Called with the item's encoded bytes, or with false. May answer before it
     // returns or long after, so the caller has to be written for both.
     using BytesCallback = std::function<void(bool ok, std::vector<uint8_t> bytes)>;
@@ -93,8 +88,8 @@ class DataSource {
     // Only used with supportsRegions; callback may run inline or later.
     //
     // This hands back pixels rather than encoded bytes so each source can reach
-    // them its own way: the museum decodes what the server sends, and a local
-    // file is cropped straight out of the original.
+    // them its own way: a local file is cropped straight out of the original,
+    // and the media store goes through the platform's region decoder.
     virtual void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
                                RegionCallback done) {
         (void)x;

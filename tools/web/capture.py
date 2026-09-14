@@ -2,15 +2,14 @@
 """Runs the web build in headless Chrome for real, and screenshots it.
 
 Chrome's own --screenshot fires as soon as the page loads, and its
---virtual-time-budget fast forwards the clock without waiting for the network,
-so neither of them ever sees the wall: the museum's images arrive in real
-seconds. This drives the browser over the DevTools protocol instead, waits an
-actual wall clock interval, and then captures.
+--virtual-time-budget fast forwards the clock without waiting for decodes, so
+neither of them ever sees the wall: photos decode in real seconds. This drives
+the browser over the DevTools protocol instead, waits an actual wall clock
+interval, and then captures.
 
     python tools/web/capture.py --seconds 25 --out shot.png
 
-Needs a server already running with the cross-origin isolation headers, which
-tools/web/serve.py provides.
+Needs a server already running, which tools/web/serve.py provides.
 """
 
 import argparse
@@ -42,15 +41,9 @@ def wait_for_target(port, timeout=30):
     raise SystemExit("Chrome never offered a debuggable page")
 
 
-def origin_of(url):
-    from urllib.parse import urlsplit
-    parts = urlsplit(url)
-    return "%s://%s" % (parts.scheme, parts.netloc)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", default="http://lvh.me:8099/index.html")
+    parser.add_argument("--url", default="http://127.0.0.1:8099/index.html")
     parser.add_argument("--seconds", type=float, default=25.0,
                         help="how long to let it run before capturing")
     parser.add_argument("--out", default="web-shot.png")
@@ -73,16 +66,6 @@ def main():
         "--window-size=%d,%d" % (args.width, args.height),
         "--no-first-run",
         "--disable-extensions",
-        # The museum's WAF refuses any request whose Origin or Referer says
-        # localhost or 127.0.0.1, whatever the scheme, so local testing has to
-        # come from a name it will accept. lvh.me resolves to 127.0.0.1 and is
-        # not called localhost, which satisfies both ends.
-        #
-        # That name is then not a secure context, and SharedArrayBuffer - which
-        # is what the threads are built on - needs one. This says to treat it as
-        # secure anyway. Testing only: a deployed build is served over https
-        # from a real name and needs none of this.
-        "--unsafely-treat-insecure-origin-as-secure=" + origin_of(args.url),
         args.url,
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

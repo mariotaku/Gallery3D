@@ -15,12 +15,6 @@ if(NOT ANDROID)
         DrawableLoad.cpp)
 endif()
 
-# No network, where neither libcurl nor the browser's fetch is there.
-if(NOT GALLERY3D_DESKTOP AND NOT EMSCRIPTEN)
-    target_sources(gallery3d_core PRIVATE
-        Http.cpp)
-endif()
-
 # Bitmap decoding on the calling thread. The browser decodes on its own.
 if(NOT EMSCRIPTEN)
     target_sources(gallery3d_core PRIVATE

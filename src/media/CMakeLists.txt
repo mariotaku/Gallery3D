@@ -1,13 +1,10 @@
 # Where photos come from and how they are grouped: the sources, the feed the
 # wall reads, and what can be done to a photo's file.
 target_sources(gallery3d_core PRIVATE
-    ArticDataSource.cpp
-    ArticDataSource.h
     ConcatenatedDataSource.cpp
     ConcatenatedDataSource.h
     FileOperations.cpp
     FileOperations.h
-    Http.h
     LocalDataSource.cpp
     LocalDataSource.h
     MediaBucketList.cpp

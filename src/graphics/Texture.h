@@ -50,11 +50,6 @@ class Texture {
         return true;
     }
 
-    // Select the network or decode pool per texture, allowing mixed-source walls.
-    virtual bool loadsOverNetwork() const {
-        return false;
-    }
-
     // Starts loading and finishes through RenderView::finishLoad, inline or later.
     // self keeps the texture alive. The default invokes synchronous load().
     virtual void startLoad(RenderView *view, const TexturePtr &self);
@@ -170,8 +165,6 @@ class FileTexture : public Texture {
     explicit FileTexture(std::string path, int maxEdge = MAX_RESOLUTION, MediaItem *item = nullptr)
         : mPath(std::move(path)), mMaxEdge(maxEdge), mItem(item) {}
 
-    bool loadsOverNetwork() const override;
-
     Bitmap load(RenderView *view) override;
     void startLoad(RenderView *view, const TexturePtr &self) override;
 
@@ -188,7 +181,6 @@ class RegionTexture : public Texture {
     RegionTexture(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight)
         : mItem(item), mX(x), mY(y), mWidth(width), mHeight(height), mOutWidth(outWidth), mOutHeight(outHeight) {}
 
-    bool loadsOverNetwork() const override;
     void startLoad(RenderView *view, const TexturePtr &self) override;
 
     // Tiles draw near one texel per pixel and do not need mipmaps.
@@ -218,7 +210,6 @@ class MediaItemTexture : public Texture {
 
     MediaItemTexture(const Config *config, MediaItem *item) : mConfig(config), mItem(item) {}
 
-    bool loadsOverNetwork() const override;
     void startLoad(RenderView *view, const TexturePtr &self) override;
 
     // Only the grid thumbnails. The fullscreen path draws close to one to one.

@@ -38,11 +38,6 @@ bool ConcatenatedDataSource::supportsOperation(int operation) const {
            (mSecond != nullptr && mSecond->supportsOperation(operation));
 }
 
-bool ConcatenatedDataSource::readsBlockOnNetwork() const {
-    return (mFirst != nullptr && mFirst->readsBlockOnNetwork()) ||
-           (mSecond != nullptr && mSecond->readsBlockOnNetwork());
-}
-
 bool ConcatenatedDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
     MediaSet *set = (item != nullptr) ? item->mParentMediaSet : nullptr;
     DataSource *owner = (set != nullptr) ? set->mDataSource : nullptr;

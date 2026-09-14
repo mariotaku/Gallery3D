@@ -1,9 +1,9 @@
 // The arithmetic the tiled fullscreen view lays a picture out with.
 //
 // Both ends of it fail silently. A grid one level too coarse draws a blurry
-// picture, which is indistinguishable from a slow network. And a rectangle one
-// pixel past the edge of the original is a 502 from the museum's image server
-// rather than a trimmed tile, so that corner never arrives at all.
+// picture, which looks the same as a slow decode. And a rectangle one pixel past
+// the edge of the original is refused by Android's region decoder rather than
+// trimmed, so that corner never arrives at all.
 #include "tests.h"
 
 #include "graphics/TiledImage.h"
@@ -54,8 +54,8 @@ TEST(the_grid_covers_the_whole_picture) {
 TEST(an_edge_tile_stops_at_the_edge) {
     // The last column of the same grid starts at 2048 and the picture ends at
     // 3000, so the rectangle asked for is 952 wide rather than a full 1024. A
-    // full width one would run off the picture, and the server answers that
-    // with an error rather than trimming it.
+    // full width one would run off the picture, and a region decoder refuses
+    // that rather than trimming it.
     const TiledImage::Grid grid = TiledImage::gridFor(3000, 2000, 1322.0f);
     const TiledImage::Region corner = TiledImage::regionFor(grid, 3000, 2000, grid.columns - 1, grid.rows - 1);
     CHECK_EQ(corner.x, 2048);
@@ -81,7 +81,7 @@ TEST(a_tile_is_asked_for_at_the_size_it_will_be_drawn) {
 
     // Never zero, however thin the remainder is. Here the picture ends two
     // pixels past the last whole tile while four of its pixels go into one, so
-    // the division alone would ask the server for an image no pixels wide,
+    // the division alone would ask for an image no pixels wide,
     // which is an error rather than an empty tile.
     const TiledImage::Grid sliver = TiledImage::gridFor(4098, 4098, 1000.0f);
     CHECK_EQ(sliver.sampleSize, 4);
@@ -104,9 +104,8 @@ TEST(an_unknown_size_makes_no_grid) {
 }
 
 TEST(a_huge_picture_is_still_one_screen_of_tiles) {
-    // The largest artwork in the museum, drawn one to one, is a grid far past
-    // any texture size limit. What bounds the work is the screen, not the
-    // picture.
+    // A 9310 pixel picture drawn one to one is a grid far past any texture
+    // size limit. What bounds the work is the screen, not the picture.
     const TiledImage::Grid grid = TiledImage::gridFor(9310, 6237, 9310.0f);
     CHECK_EQ(grid.sampleSize, 1);
     CHECK_EQ(grid.columns, 19);

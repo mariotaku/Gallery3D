@@ -1,9 +1,8 @@
-// Reading fields that a real api actually sends.
+// Reading fields that may be missing, null or of the wrong type.
 //
-// These are here because of a crash. api.artic.edu answers date_end with null
-// on records it has no year for, nlohmann's value() throws on that rather than
-// returning the fallback, and the exception took the loader thread with it. The
-// wall came up empty and said nothing about why.
+// nlohmann's value() throws on a null rather than returning the fallback, and
+// an exception on a loader thread takes the thread with it. The wall then comes
+// up empty and says nothing about why.
 #include "tests.h"
 
 #include "core/JsonValue.h"

@@ -16,8 +16,6 @@ class ConcatenatedDataSource : public DataSource {
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
     void requestItemBytes(MediaItem *item, BytesCallback done) override;
     bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) override;
-    // Whether either source may block on the network; textures route per item.
-    bool readsBlockOnNetwork() const override;
     void shutdown() override;
 
   private:

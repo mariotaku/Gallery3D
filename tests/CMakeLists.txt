@@ -2,7 +2,6 @@
 # Anything needing a GL context stays with the screenshot checks instead.
 add_executable(gallery3d_tests
     test_albumtitle.cpp
-    test_artic.cpp
     test_assets.cpp
     test_backdrop.cpp
     test_background.cpp

@@ -42,7 +42,6 @@ and reports unknown keys with file and line numbers. Settings have no flag form.
 ```ini
 [library]
 photos = D:/Pictures
-artic = no
 
 [wall]
 scale = 1.5
@@ -55,8 +54,7 @@ sigma = 4.0
 Environment names follow the setting: `backdrop.sigma` becomes
 `GALLERY3D_BACKDROP_SIGMA`.
 
-- `library.also` adds a second photo directory; `library.artic` enables the
-  read-only Art Institute of Chicago catalogue.
+- `library.also` adds a second photo directory.
 - `wall.scale` scales stacks, spacing, captions and thumbnail resolution.
   Display scaling applies separately; controls follow display scale alone.
 - `wall.thumbnail-max` caps a grid thumbnail's texture edge, as a power of two.
@@ -93,8 +91,8 @@ the file stands in when it is big enough, and a RAW photo decodes from the
 camera's embedded preview. Formats with no reducing decoder behind them take
 the whole-image path.
 
-Zoomed images load only the tiles on screen. The museum crops on its server. A
-local photo is cropped by WIC on Windows, by libjpeg-turbo on the other
+Zoomed images load only the tiles on screen. A photo is cropped by WIC on
+Windows, by libjpeg-turbo on the other
 desktops and by BitmapRegionDecoder on Android, each reading the photo once
 rather than once per tile. WIC crops JPEG, HEIF, TIFF, WebP and RAW; libjpeg
 only JPEG. Formats with no region decoder behind them stay on one downscaled
@@ -137,7 +135,7 @@ Debian 13 or newer, or an equivalent:
 ```sh
 sudo apt install build-essential cmake ninja-build pkg-config \
     libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-    libcurl4-openssl-dev liblcms2-dev nlohmann-json3-dev
+    libjpeg-dev liblcms2-dev nlohmann-json3-dev
 cmake --preset linux
 cmake --build build
 ctest --test-dir build
@@ -161,7 +159,7 @@ goes anywhere.
 `fetch-deps.sh` downloads SDL's official Android archives, which are not on
 Maven Central. They carry prefab modules, so `find_package(SDL3 CONFIG)` finds
 them the same way it finds vcpkg's copy. minSdk is 24 and the build is
-arm64-v8a. The catalogue and the region decoder are not wired up there yet.
+arm64-v8a.
 
 The web build needs emsdk 6.0.9 activated, so that `EMSDK` is set:
 
@@ -200,10 +198,9 @@ SDL, SDL_image and SDL_ttf are built from source and linked statically. The
 build tree is `~/.cache/gallery3d/build-ios` unless `BUILD_DIR` says
 otherwise, because building on the Windows drive from WSL is many times slower.
 Photos are read from the app's Documents folder, which the Files app shows.
-The catalogue has no network there yet, and a zoomed photo stays on its
-screennail.
+A zoomed photo stays on its screennail there.
 
-The vcpkg manifest supplies SDL3, curl and nlohmann-json. Windows needs no
+The vcpkg manifest supplies SDL3 and nlohmann-json. Windows needs no
 SDL_image, SDL_ttf or libjpeg: WIC decodes every image, including HEIF and
 camera RAW once their extensions are installed from the Microsoft Store, and
 DirectWrite draws the text. Assets are copied next to the binary. Tests run without a window.

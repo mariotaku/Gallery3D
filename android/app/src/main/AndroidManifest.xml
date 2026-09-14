@@ -4,9 +4,6 @@
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
-    <!-- The museum catalogue. -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
     <!-- Reading the photo library. The first is how API 33 and later spell it;
          the second is what everything before that understands. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />

@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""Serves the web build.
+"""Serves the web build with caching turned off.
 
-The headers here are cross-origin isolation, which the build needed back when
-it used threads. It does not any more - fetching and decoding both go through
-the browser and answer in callbacks - so the page will run from any static host
-without them. They are kept because they cost nothing and would be needed again
-the moment anything here wants shared memory.
+The build uses no threads, so it needs no cross-origin isolation headers and
+runs from any static host. This server only adds Cache-Control: no-store.
 
     python tools/web/serve.py build-web
     python tools/web/serve.py build-web --host 0.0.0.0
-
-One thing that does matter, and is not about headers: the museum's api refuses
-any request whose Origin says localhost or 127.0.0.1, so a build served to
-yourself on this machine will load its wall and none of its pictures. Serving on
---host 0.0.0.0 and opening the LAN address instead is enough to satisfy it.
 """
 
 import argparse
@@ -39,12 +31,6 @@ def local_addresses():
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
-        # No cross-origin isolation. It was needed when the build used threads,
-        # and it actively breaks things now: require-corp refuses any
-        # cross-origin response that does not carry a
-        # Cross-Origin-Resource-Policy header, and the museum's image server
-        # sends Access-Control-Allow-Origin but not that one. With the threads
-        # gone there is nothing left that wants shared memory, so this goes.
         # A dev server should never be the reason something looks cached.
         self.send_header("Cache-Control", "no-store")
         super().end_headers()

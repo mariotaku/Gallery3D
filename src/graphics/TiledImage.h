@@ -1,7 +1,7 @@
 // Tiled image rendering after davemorrissey/subsampling-scale-image-view.
 // Fetch visible regions at power-of-two sample levels over a fallback screennail.
-// Cropping requires DataSource::supportsRegions: the museum crops on the server,
-// and a local JPEG goes through RegionDecoder.
+// Cropping requires DataSource::supportsRegions, which a source answers through
+// RegionDecoder.
 #pragma once
 
 #include <cstdint>
@@ -73,8 +73,7 @@ class TiledImage {
 
     void clear();
 
-    // Maximum decoded tile edge. A multiple of the IIIF server's 256-pixel pyramid tiles
-    // aligns requests with cached regions.
+    // Maximum decoded tile edge.
     static const int kTileEdge = 512;
 
   private:

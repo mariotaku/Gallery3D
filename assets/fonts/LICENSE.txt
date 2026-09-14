@@ -6,8 +6,8 @@ MODULE_LICENSE_APACHE2 at the root of this repository, which covers the ported
 Gallery3D sources under the same licence.
 
 These are the Latin subsets served by Google Fonts, which is why they are 44KB
-rather than 300KB. Enough for the chrome and for the museum's titles; a script
-outside Latin will come out blank rather than as the wrong glyph.
+rather than 300KB. Enough for the chrome and for names in Latin script; a
+script outside Latin will come out blank rather than as the wrong glyph.
 
 Shipped because the app had no font of its own. It fell back to whatever the
 platform had - Segoe UI on Windows, DejaVu on Linux - so the wall looked

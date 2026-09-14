@@ -47,7 +47,6 @@ const std::vector<Known> &known() {
     static const std::vector<Known> entries = {
         {"library.photos", "the directory of photos to browse, one stack per folder"},
         {"library.also", "a second directory shown on the same wall"},
-        {"library.artic", "browse the Art Institute of Chicago instead of a directory"},
         {"wall.scale", "how much bigger the wall is than the phone it was laid out for"},
         {"wall.thumbnail-max", "cap a grid thumbnail's texture edge, a power of two"},
         {"backdrop.blur", "how the wash behind the wall is blurred: gaussian or box"},

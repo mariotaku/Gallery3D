@@ -25,7 +25,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             ca-certificates git build-essential cmake ninja-build pkg-config \
             libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-            libcurl4-openssl-dev libjpeg-dev liblcms2-dev nlohmann-json3-dev
+            libjpeg-dev liblcms2-dev nlohmann-json3-dev
       - uses: actions/checkout@v4
       - name: Configure
         run: cmake --preset linux
@@ -39,7 +39,7 @@ jobs:
     # Pinned: the default preset names the Visual Studio 2022 generator.
     runs-on: windows-2022
     env:
-      # vcpkg rebuilds SDL, curl and the rest from source. The archives it makes
+      # vcpkg rebuilds SDL and the rest from source. The archives it makes
       # are kept between runs and only rebuilt when the manifest changes.
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.vcpkg-cache,readwrite
     steps:
