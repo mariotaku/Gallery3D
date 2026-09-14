@@ -1,19 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 64 64"
      g3d:outputs="drawable=64x64">
-  <!-- stack_frame for the stack with focus: the same texture and insets, the
-       border in the focus orange and a dark orange glow in place of the
-       shadow. The middle stays clear for the photo. -->
+  <!-- A texture rather than an icon. GridQuadFrame maps each quarter of it to a
+       corner of the photo and stretches the middle row and column along the
+       edges, so the border keeps the insets the code was written for. The
+       border glows, with its own spread and strength outside and inside, and
+       the glow's colour shifts from top to bottom. -->
   <defs>
     <linearGradient id="border" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="52">
-      <stop offset="0" stop-color="#ffa53f"/>
-      <stop offset="0.5" stop-color="#ef750b"/>
-      <stop offset="1" stop-color="#ef8c33"/>
+      <stop offset="0" stop-color="rgb(255.944,168.679,69.733)"/>
+      <stop offset="0.55" stop-color="rgb(237.924,111.427,9.325)"/>
+      <stop offset="1" stop-color="rgb(237.634,139.723,49.574)"/>
     </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3.2"/>
-    </filter>
+    <linearGradient id="glow" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="64">
+      <stop offset="0" stop-color="rgb(107.392,64.979,23.798)"/>
+      <stop offset="1" stop-color="rgb(131.177,72.779,26.073)"/>
+    </linearGradient>
+    <filter id="outerBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.358"/></filter>
+    <filter id="innerBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.818"/></filter>
+    <filter id="nearBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="-0.095"/></filter>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#ffffff"/>
+      <rect x="9.379" y="6.153" width="45.140" height="45.392" fill="#000000"/>
+    </mask>
+    <mask id="inside" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect x="12.763" y="9.537" width="38.372" height="38.624" fill="#ffffff"/>
+    </mask>
   </defs>
-  <rect x="11.05" y="8.9" width="41.9" height="42" fill="none" stroke="#8f4607" stroke-width="5.5"
-        opacity="1" filter="url(#glow)"/>
-  <rect x="11.05" y="7.95" width="41.9" height="42" fill="none" stroke="url(#border)" stroke-width="3.6"/>
+  <g mask="url(#outside)">
+    <rect x="11.071" y="10.741" width="41.756" height="42.008" fill="none" stroke="url(#glow)" stroke-width="8.414"
+          opacity="0.832" filter="url(#outerBlur)"/>
+  </g>
+  <g mask="url(#inside)">
+    <rect x="11.071" y="9.513" width="41.756" height="42.008" fill="none" stroke="url(#glow)" stroke-width="8.352"
+          opacity="0.704" filter="url(#innerBlur)"/>
+  </g>
+  <rect x="11.071" y="7.845" width="41.756" height="42.008" fill="none" stroke="url(#glow)" stroke-width="3.583"
+        opacity="0.613" filter="url(#nearBlur)"/>
+  <rect x="11.071" y="7.845" width="41.756" height="42.008" fill="none" stroke="url(#border)" stroke-width="3.384"/>
 </svg>

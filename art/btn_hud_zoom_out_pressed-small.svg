@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 65 68"
+     g3d:name="btn_hud_zoom_out_pressed" g3d:outputs="drawable=43x45">
+  <!-- The fallback drawable's pressed zoom out key, drawn like
+       btn_hud_zoom_out_pressed.svg in hdpi pixels. -->
+  <defs>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="11.519" y1="0" x2="65" y2="0">
+      <stop offset="0" stop-color="#eaa208"/>
+      <stop offset="0.544" stop-color="#f2c03c"/>
+      <stop offset="1" stop-color="#fbdc63"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(97%,89%,67.438%)"/>
+      <stop offset="1" stop-color="rgb(96%,93.375%,73%)"/>
+    </linearGradient>
+    <linearGradient id="catch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.925" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="key">
+      <rect x="11.519" y="10.425" width="80" height="80" rx="5.074"/>
+    </clipPath>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="120">
+      <feGaussianBlur stdDeviation="3.3"/>
+    </filter>
+    <filter id="edge" filterUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="120">
+      <feGaussianBlur stdDeviation="2.426"/>
+    </filter>
+    <g id="glyph">
+      <circle cx="38.075" cy="26.233" r="8.788" fill="none" stroke-width="4.493"/>
+      <line x1="46.937" y1="34.825" x2="53.231" y2="41.637" stroke-width="5.309" stroke-linecap="round"/>
+      <rect x="33.437" y="25.7" width="8.95" height="2.6" stroke="none"/>
+    </g>
+  </defs>
+
+  <g transform="translate(0 68) scale(1 -1)">
+    <rect x="6.133" y="5.862" width="80" height="80" rx="12.559" fill="#f2bd39" opacity="1" filter="url(#glow)"/>
+    <rect x="9.431" y="8.803" width="80" height="80" rx="7.344" fill="#ffe400"/>
+    <rect x="11.519" y="10.425" width="80" height="80" rx="5.074" fill="url(#gold)"/>
+    <g clip-path="url(#key)">
+      <rect x="0" y="62.25" width="65" height="2.375" fill="#b87800" opacity="0.195"/>
+    </g>
+  </g>
+
+  <circle cx="38.075" cy="26.233" r="7.9" fill="#8a5c00" opacity="0.037"/>
+  <use href="#glyph" fill="#6a4500" stroke="#6a4500" opacity="1" filter="url(#edge)"/>
+  <circle cx="38.075" cy="26.233" r="8.788" fill="none" stroke="url(#ring)" stroke-width="4.493" opacity="0.906"/>
+  <line x1="46.937" y1="34.825" x2="53.231" y2="41.637" stroke="url(#ring)" stroke-width="5.309" stroke-linecap="round"
+        opacity="0.989"/>
+  <rect x="33.437" y="25.7" width="8.95" height="2.6" fill="rgb(96%,87.875%,72%)" opacity="0.907"/>
+  <circle cx="38.075" cy="26.233" r="8.788" fill="none" stroke="url(#catch)" stroke-width="1.381" opacity="0.321"/>
+</svg>

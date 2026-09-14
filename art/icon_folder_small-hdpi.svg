@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:name="icon_folder_small" g3d:outputs="drawable-hdpi=60x60">
+  <!-- A folder: one flat white shape, a tab above the body's left side. -->
+  <defs>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.350"/>
+      <feOffset dx="0.200" dy="0.500"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.750 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.312"/>
+      <feOffset dx="0.200" dy="0.900"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.325 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <path filter="url(#halo)" fill="#ffffff"
+        d="M11.900 13.600 H18.600 L19.400 15.631 H29.900 V26.900 H11.900 Z"/>
+</svg>

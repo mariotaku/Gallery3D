@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 53 51"
+     g3d:name="videooverlay" g3d:outputs="drawable=96x92">
+  <!-- The play badge on a video: a smoked glass disc in a light ring that
+       dims toward the bottom, with a darker line along the ring's outer and
+       inner edges, a play triangle shaded the same way, and a soft glow around
+       the ring. -->
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.466"/>
+    </filter>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(244.770,244.770,244.770)"/>
+      <stop offset="1" stop-color="rgb(175.890,175.890,175.890)"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(255.621,255.621,255.621)"/>
+      <stop offset="1" stop-color="rgb(176.359,176.359,176.359)"/>
+    </linearGradient>
+  </defs>
+  <circle cx="26.653" cy="25.448" r="21.860" fill="none" stroke="rgb(167.876,167.876,167.876)" stroke-width="5.165"
+          opacity="0.478" filter="url(#glow)"/>
+  <circle cx="26.653" cy="25.440" r="19.970" fill="#000000" opacity="0.436"/>
+  <circle cx="26.653" cy="25.440" r="21.860" fill="none" stroke="url(#ring)" stroke-width="3.780" stroke-opacity="0.799"/>
+  <circle cx="26.653" cy="25.440" r="23.593" fill="none" stroke="rgb(41.250,41.250,41.250)" stroke-width="0.313"
+          stroke-opacity="0.550"/>
+  <circle cx="26.653" cy="25.440" r="20.148" fill="none" stroke="rgb(100.000,100.000,100.000)" stroke-width="0.356"
+          stroke-opacity="0.428"/>
+  <path d="M18.819 14.424 L18.819 36.680 L38.116 25.230 Z" fill="url(#play)" fill-opacity="0.720"/>
+</svg>

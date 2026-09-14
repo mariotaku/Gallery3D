@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 34 34"
+     g3d:name="icon_more" g3d:outputs="drawable=34x34">
+  <!-- The fallback drawable's more is its own drawing: a grey button with a
+       dark groove around a sunken, see-through well, and a light arrow pointing
+       up out of the well. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="10.184" x2="0" y2="26.176">
+      <stop offset="0" stop-color="rgb(255,255,255)"/>
+      <stop offset="1" stop-color="rgb(188.75,188.75,188.75)"/>
+    </linearGradient>
+    <mask id="button" maskUnits="userSpaceOnUse" x="0" y="0" width="34" height="34">
+      <circle cx="17.027" cy="18.062" r="10.725" fill="#ffffff"/>
+      <circle cx="17.027" cy="17.996" r="6.267" fill="#000000"/>
+    </mask>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.286"/>
+      <feOffset dx="0" dy="0.4" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0.994 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.644"/>
+      <feOffset dx="0" dy="1.1" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0.33 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="34" height="34" fill="url(#face)" mask="url(#button)"/>
+  </g>
+  <circle cx="17.027" cy="17.996" r="8.54" fill="none" stroke="rgb(90,90,90)" stroke-opacity="0.027" stroke-width="1.394"/>
+  <!-- The well: dark and see-through, darkest along its top and in the groove. -->
+  <circle cx="17.027" cy="17.996" r="6.267" fill="rgb(10,10,10)" fill-opacity="0.215"/>
+  <circle cx="17.027" cy="17.996" r="6.207" fill="none" stroke="rgb(8,8,8)" stroke-opacity="0.294" stroke-width="0.828"/>
+  <polygon points="17.006,13.125 22.369,19.925 11.625,19.925"
+           fill="url(#face)"/>
+  <rect x="11.625" y="19.95" width="10.575" height="1.039" fill="rgb(110,110,110)" fill-opacity="0.906"/>
+</svg>

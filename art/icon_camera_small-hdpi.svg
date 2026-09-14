@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:name="icon_camera_small" g3d:outputs="drawable-hdpi=60x60">
+  <!-- A camera: a white body with a hump and a flash, and a see-through ring
+       around a white lens, where the halo shows. -->
+  <defs>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.350"/>
+      <feOffset dx="-0.200" dy="0.500"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.775 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.750"/>
+      <feOffset dx="-0.200" dy="0.900"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.150 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <mask id="lens" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+      <rect width="40" height="40" fill="#ffffff"/>
+      <circle cx="19.788" cy="21.525" r="4.094" fill="#000000"/>
+    </mask>
+  </defs>
+  <g filter="url(#halo)" fill="#ffffff">
+    <g mask="url(#lens)">
+      <rect x="11.688" y="15.475" width="16.287" height="11.425" rx="0.750"/>
+      <rect x="17.244" y="13.550" width="5.043" height="2.925" rx="0.750"/>
+      <rect x="11.750" y="14.250" width="2.700" height="1.000"/>
+    </g>
+    <circle cx="19.788" cy="21.525" r="2.731"/>
+  </g>
+</svg>

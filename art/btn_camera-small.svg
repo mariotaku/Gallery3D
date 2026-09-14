@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 100 94"
+     g3d:name="btn_camera" g3d:outputs="drawable=100x94">
+  <!-- The fallback folder's shutter button: btn_camera.svg's glass disc and
+       camera, drawn smaller, with a tighter shadow. -->
+  <defs>
+    <clipPath id="pane">
+      <circle cx="104.331" cy="-12.803" r="72.081"/>
+    </clipPath>
+    <mask id="outsidePane" maskUnits="userSpaceOnUse" x="-20" y="-60" width="200" height="240">
+      <rect x="-20" y="-60" width="200" height="240" fill="#ffffff"/>
+      <circle cx="104.331" cy="-12.803" r="72.081" fill="#000000"/>
+    </mask>
+    <filter id="paneShadow" filterUnits="userSpaceOnUse" x="-20" y="-60" width="200" height="240">
+      <feGaussianBlur stdDeviation="2.112"/>
+    </filter>
+    <path id="gloss" d="M 20 -20 L 34.375 -2 C 36.625 10.975 41.55 16.6 50.85 20.739 S 80.875 25.342 130 24.5 L 130 -20 Z"/>
+    <clipPath id="glossy">
+      <use href="#gloss"/>
+    </clipPath>
+    <mask id="matte" maskUnits="userSpaceOnUse" x="-20" y="-60" width="200" height="240">
+      <rect x="-20" y="-60" width="200" height="240" fill="#ffffff"/>
+      <use href="#gloss" fill="#000000"/>
+    </mask>
+    <linearGradient id="upper" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.33"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.278"/>
+    </linearGradient>
+    <linearGradient id="lower" gradientUnits="userSpaceOnUse" x1="0" y1="24" x2="0" y2="58">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.192"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.129"/>
+    </linearGradient>
+    <g id="camera">
+      <path d="M 61.997 11.4 H 67.694 V 13.4 L 61.997 15.594 Z"/>
+      <path d="M 71.175 15 V 11.5 L 72.8 9.7 H 80 L 81.6 11.5 V 15 Z"/>
+      <path d="M 69.5 13.5 H 91.675 V 35.7 H 61.169 V 17.562 Z"/>
+    </g>
+    <mask id="lens" maskUnits="userSpaceOnUse" x="-20" y="-60" width="200" height="240">
+      <rect x="-20" y="-60" width="200" height="240" fill="#ffffff"/>
+      <circle cx="76.513" cy="24.874" r="6.353" fill="none" stroke="#000000" stroke-width="2.2"/>
+    </mask>
+    <mask id="offCamera" maskUnits="userSpaceOnUse" x="-20" y="-60" width="200" height="240">
+      <rect x="-20" y="-60" width="200" height="240" fill="#ffffff"/>
+      <use href="#camera" fill="#000000"/>
+      <circle cx="76.513" cy="24.874" r="6.353" fill="none" stroke="#ffffff" stroke-width="2.2"/>
+    </mask>
+    <filter id="cameraShadow" filterUnits="userSpaceOnUse" x="-20" y="-60" width="200" height="240">
+      <feGaussianBlur stdDeviation="1.198"/>
+    </filter>
+  </defs>
+
+  <g mask="url(#outsidePane)">
+    <circle cx="104.331" cy="-12.803" r="72.081" fill="#000000" opacity="0.503" filter="url(#paneShadow)"/>
+  </g>
+  <g clip-path="url(#pane)">
+    <rect x="0" y="0" width="100" height="94" fill="#000000" opacity="0.087"/>
+    <rect x="0" y="0" width="100" height="94" fill="url(#lower)" mask="url(#matte)"/>
+    <rect x="0" y="0" width="100" height="94" fill="url(#upper)" clip-path="url(#glossy)"/>
+    <circle cx="104.331" cy="-12.803" r="71.617" fill="none" stroke="#ffffff" stroke-opacity="0.241" stroke-width="1.335"/>
+  </g>
+
+  <g mask="url(#offCamera)">
+    <g opacity="0.325" filter="url(#cameraShadow)">
+      <use href="#camera" transform="translate(0 1.637)" mask="url(#lens)"/>
+    </g>
+  </g>
+  <circle cx="76.513" cy="24.874" r="6.353" fill="none" stroke="#000000" stroke-opacity="0.155" stroke-width="2.2"/>
+  <use href="#camera" fill="#ffffff" fill-opacity="0.8" mask="url(#lens)"/>
+</svg>

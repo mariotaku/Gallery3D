@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
+     g3d:name="icon_delete" g3d:outputs="drawable-mdpi=30x30">
+  <!-- The selection bar's delete at mdpi: a grey bin lit from above. The
+       slots, the groove under the lid and the space inside the handle are cut
+       through and tinted dark. It casts a tight shadow over a wider, fainter
+       one. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="4.338" x2="0" y2="26.112">
+      <stop offset="0" stop-color="rgb(234,234,234)"/>
+      <stop offset="1" stop-color="rgb(171,171,171)"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="0.1"/>
+    </filter>
+    <mask id="bin" maskUnits="userSpaceOnUse" x="0" y="0" width="30" height="30">
+      <g filter="url(#soft)">
+      <path fill="#ffffff" d="M10.25 8.6 V4.5 H19.45 V8.6 H17.4 V6.425 H12.45 V8.6 Z"/>
+      <rect fill="#ffffff" x="5.425" y="8.081" width="19" height="3.3"/>
+      <polygon fill="#ffffff" points="7.886,12 22.212,12 22.125,26.05 7.762,26.05"/>
+      <g fill="#000000">
+        <rect x="10.575" y="14.613" width="1.5" height="9.05"/>
+        <rect x="14.3" y="14.613" width="1.5" height="9.05"/>
+        <rect x="18.025" y="14.613" width="1.5" height="9.05"/>
+      </g>
+      </g>
+    </mask>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.334"/>
+      <feOffset dx="0" dy="0.5" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0.275  0 0 0 0 0.275  0 0 0 0 0.275  0 0 0 0.489 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.028"/>
+      <feOffset dx="0" dy="1.1" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0.275  0 0 0 0 0.275  0 0 0 0 0.275  0 0 0 0.241 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="30" height="30" fill="url(#face)" mask="url(#bin)"/>
+  </g>
+  <g fill="rgb(71.062,71.062,71.062)" fill-opacity="0.3">
+    <rect x="10.575" y="14.613" width="1.5" height="9.05"/>
+    <rect x="14.3" y="14.613" width="1.5" height="9.05"/>
+    <rect x="18.025" y="14.613" width="1.5" height="9.05"/>
+    <rect x="12.45" y="6.425" width="5.1" height="1.675"/>
+    <rect x="5.425" y="11.7" width="19" height="0.416"/>
+  </g>
+</svg>

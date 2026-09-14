@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 34 34"
+     g3d:name="icon_play" g3d:outputs="drawable=34x34">
+  <!-- The fallback drawable's play is drawn smaller in its canvas, with a
+       wider shadow that spreads down and to the right. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="8.625" x2="0" y2="27.25">
+      <stop offset="0" stop-color="rgb(231,231,231)"/>
+      <stop offset="1" stop-color="rgb(168,168,168)"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0.8" dy="0.6" stdDeviation="2.1"
+                    flood-color="rgb(0,0,0)" flood-opacity="0.925"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <polygon points="10.384,7.4 10.384,28.011 27.862,17.988"
+             fill="url(#face)" stroke="url(#face)" stroke-width="1.538" stroke-linejoin="round"/>
+  </g>
+</svg>

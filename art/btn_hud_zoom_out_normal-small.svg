@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 65 68"
+     g3d:name="btn_hud_zoom_out_normal" g3d:outputs="drawable=43x45">
+  <!-- The fallback drawable's zoom out key, drawn like
+       btn_hud_zoom_out_normal.svg in hdpi pixels. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="9.106" y1="0" x2="65" y2="0">
+      <stop offset="0" stop-color="rgb(27.5%,27.5%,27.5%)"/>
+      <stop offset="1" stop-color="rgb(83.625%,83.625%,83.625%)"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(93%,93%,93%)"/>
+      <stop offset="1" stop-color="rgb(87.438%,87.438%,87.438%)"/>
+    </linearGradient>
+    <linearGradient id="catch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.65" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="key">
+      <rect x="9.106" y="9.219" width="80" height="80" rx="7.278"/>
+    </clipPath>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="120">
+      <rect x="-20" y="-20" width="120" height="120" fill="#ffffff"/>
+      <rect x="9.106" y="9.219" width="80" height="80" rx="7.278" fill="#000000"/>
+    </mask>
+    <mask id="notGlyph" maskUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="120">
+      <rect x="-20" y="-20" width="120" height="120" fill="#ffffff"/>
+      <use href="#glyph" fill="#000000" stroke="#000000"/>
+    </mask>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="120">
+      <feGaussianBlur stdDeviation="4.2"/>
+    </filter>
+    <filter id="edge" filterUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="120">
+      <feGaussianBlur stdDeviation="2.494"/>
+    </filter>
+    <g id="glyph">
+      <circle cx="38.05" cy="26.184" r="8.625" fill="none" stroke-width="4.887"/>
+      <line x1="47.016" y1="34.814" x2="53.225" y2="41.119" stroke-width="6.004" stroke-linecap="round"/>
+      <rect x="32.4" y="25.1" width="9.75" height="2.6" stroke="none"/>
+    </g>
+  </defs>
+
+  <g transform="translate(0 68) scale(1 -1)">
+    <g mask="url(#outside)">
+      <rect x="9.106" y="9.219" width="80" height="80" rx="7.278" fill="#000000" opacity="0.757" filter="url(#shadow)"/>
+    </g>
+  </g>
+  <g mask="url(#notGlyph)">
+    <g transform="translate(0 68) scale(1 -1)">
+      <rect x="9.106" y="9.219" width="80" height="80" rx="7.278" fill="url(#face)" fill-opacity="0.41"/>
+      <g clip-path="url(#key)">
+        <rect x="9.106" y="9.219" width="80" height="80" rx="7.278" fill="none" stroke="rgb(56.125%,56.125%,56.125%)"
+              stroke-opacity="0.361" stroke-width="3.075"/>
+        <rect x="0" y="63.675" width="65" height="0.3" fill="#000000" opacity="0.405"/>
+      </g>
+    </g>
+    <circle cx="38.05" cy="26.184" r="6.662" fill="#000000" opacity="0.015"/>
+    <use href="#glyph" fill="#000000" stroke="#000000" opacity="0.651" filter="url(#edge)"/>
+  </g>
+  <circle cx="38.05" cy="26.184" r="8.625" fill="none" stroke="url(#ring)" stroke-width="4.887" opacity="0.748"/>
+  <line x1="47.016" y1="34.814" x2="53.225" y2="41.119" stroke="url(#ring)" stroke-width="6.004" stroke-linecap="round"
+        opacity="0.758"/>
+  <rect x="32.4" y="25.1" width="9.75" height="2.6" fill="rgb(88%,88%,88%)" opacity="0.782"/>
+  <circle cx="38.05" cy="26.184" r="8.625" fill="none" stroke="url(#catch)" stroke-width="0.304" opacity="0.1"/>
+</svg>

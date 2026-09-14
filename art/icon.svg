@@ -1,48 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 48 48"
-     g3d:outputs="drawable=48x48 drawable-mdpi=48x48 drawable-hdpi=72x72">
-  <!-- The app's icon: a sunset print in a bevelled black frame. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
+     g3d:name="icon" g3d:outputs="drawable-mdpi=48x48 drawable-hdpi=72x72">
+  <!-- The app's icon: a sunset print in a bevelled grey frame. The frame's top
+       face is lit in the middle, its sides are mid grey and its bottom face is
+       dark. Inside, a dark line, a grey line and a white line run around a
+       photo of a sun setting behind dark hills, with a yellow rim of light
+       along the hilltops. Drawn in hdpi pixels. -->
   <defs>
-    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7a7a7a"/>
-      <stop offset="1" stop-color="#4a4a4a"/>
+    <linearGradient id="top" gradientUnits="userSpaceOnUse" x1="6.112" y1="0" x2="66.112" y2="0">
+      <stop offset="0.1" stop-color="rgb(93.5,93.5,93.5)"/>
+      <stop offset="0.5" stop-color="rgb(131.5,131.5,131.5)"/>
+      <stop offset="0.9" stop-color="rgb(93.5,93.5,93.5)"/>
     </linearGradient>
-    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4c4c4c"/>
-      <stop offset="1" stop-color="#383838"/>
-    </linearGradient>
-    <linearGradient id="bottom" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2e2e2e"/>
-      <stop offset="1" stop-color="#1e1e1e"/>
-    </linearGradient>
-    <linearGradient id="mat" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#9a9a9a"/>
-      <stop offset="0.5" stop-color="#eeeeee"/>
-      <stop offset="1" stop-color="#8a8a8a"/>
-    </linearGradient>
-    <radialGradient id="sky" cx="24" cy="28" r="21" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fffbd0"/>
-      <stop offset="0.28" stop-color="#ffe268"/>
-      <stop offset="0.7" stop-color="#f2b31e"/>
-      <stop offset="1" stop-color="#b86a00"/>
+    <radialGradient id="sky" gradientUnits="userSpaceOnUse" cx="36.555" cy="44.494" r="31.861">
+      <stop offset="0" stop-color="#ffffdc"/>
+      <stop offset="0.136" stop-color="#fff9c1"/>
+      <stop offset="0.258" stop-color="#fff594"/>
+      <stop offset="0.379" stop-color="#ffe967"/>
+      <stop offset="0.5" stop-color="#f6d54c"/>
+      <stop offset="0.621" stop-color="#e2b737"/>
+      <stop offset="0.742" stop-color="#c99726"/>
+      <stop offset="0.864" stop-color="#b27b18"/>
+      <stop offset="1" stop-color="#935600"/>
     </radialGradient>
-    <linearGradient id="hills" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3e3a22"/>
-      <stop offset="1" stop-color="#0e0e0a"/>
+    <linearGradient id="hills" gradientUnits="userSpaceOnUse" x1="0" y1="46.588" x2="0" y2="55.675">
+      <stop offset="0" stop-color="#2e2d17"/>
+      <stop offset="1" stop-color="#111008"/>
     </linearGradient>
+    <clipPath id="photo">
+      <rect x="14.3" y="14.8" width="43.965" height="43.5"/>
+    </clipPath>
     <filter id="drop" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" flood-color="#000000" flood-opacity="0.65"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.231"/>
+      <feOffset dx="0" dy="0.794" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.235"/>
+      <feOffset dx="0" dy="2" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.968 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
   <g filter="url(#drop)">
-    <!-- The frame's four bevelled faces, lit from above. -->
-    <path d="M3.6 4 H44.4 L39.7 8.7 H8.3 Z" fill="url(#top)"/>
-    <path d="M3.6 4 L8.3 8.7 V39.7 L3.6 44.7 Z" fill="url(#side)"/>
-    <path d="M44.4 4 V44.7 L39.7 39.7 V8.7 Z" fill="url(#side)"/>
-    <path d="M3.6 44.7 L8.3 39.7 H39.7 L44.4 44.7 Z" fill="url(#bottom)"/>
+    <!-- The frame's four bevelled faces. -->
+    <path fill="url(#top)" d="M6.112 6.112 H66.112 L60.85 11.863 H11.863 Z"/>
+    <path fill="rgb(78,78,78)" d="M6.112 6.112 L11.863 11.863 V60.85 L6.112 66.112 Z"/>
+    <path fill="rgb(78,78,78)" d="M66.112 6.112 V66.112 L60.85 60.85 V11.863 Z"/>
+    <path fill="rgb(45.762,45.762,45.762)" d="M6.112 66.112 L11.863 60.85 H60.85 L66.112 66.112 Z"/>
   </g>
-  <rect x="8.3" y="8.7" width="31.4" height="31" fill="url(#mat)"/>
-  <rect x="9.6" y="10" width="28.8" height="28.4" fill="url(#sky)"/>
-  <path d="M9.6 38.4 V29.8 Q11.4 27.6 13.4 27.9 Q15.4 28.2 16.6 26.9 Q18.2 25.6 20.2 27.3 Q22 28.9 24.2 27.6
-           Q26.6 26.2 28.4 27.8 Q29.8 29 31.4 27.9 Q33.4 26.6 35.4 28.2 Q37 29.4 38.4 29.6 V38.4 Z" fill="url(#hills)"/>
-  <rect x="9.6" y="10" width="28.8" height="28.4" fill="none" stroke="#000000" stroke-opacity="0.35" stroke-width="0.5"/>
+  <rect x="6.112" y="6.112" width="60" height="1" fill="#ffffff" fill-opacity="0.209"/>
+  <!-- The lines around the photo. -->
+  <rect x="11.863" y="12" width="50" height="49.3" fill="rgb(51,51,51)"/>
+  <rect x="12.15" y="12.7" width="47.625" height="47.15" fill="rgb(142,142,142)"/>
+  <rect x="13.3" y="13" width="45.7" height="46.3" fill="rgb(236.875,236.875,236.875)"/>
+  <g clip-path="url(#photo)">
+    <rect x="10" y="10" width="52" height="52" fill="url(#sky)"/>
+    <rect x="10" y="14.8" width="52" height="0.714" fill="#000000" fill-opacity="0.494"/>
+    <path transform="translate(0 -0.379)" fill="url(#hills)"
+          stroke="rgb(255,232,80)" stroke-opacity="0.325" stroke-width="0.4" stroke-linejoin="round"
+          d="M12 47.3 L18 47.1 L20 46.3 L22 45.3 L24 44.4 L26 43.3 L28 42.4 L29.5 42.1 L31 42.9 L33 44 L35 45 L37 45.6
+             L38.5 45.8 L40 45.2 L42 44.5 L44.5 44.2 L47 45 L49 46 L51 47 L53 47.8 L60 48.2 V62 H12 Z"/>
+    <rect x="10" y="56.075" width="52" height="1" fill="#000000"/>
+    <rect x="10" y="57.15" width="52" height="1" fill="#171611"/>
+  </g>
 </svg>

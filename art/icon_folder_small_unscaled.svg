@@ -1,17 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 78 78"
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
      g3d:outputs="drawable=78x78">
-  <!-- The folder badge on a local album's stack, drawn at the size the wall
-       samples it. A white folder ringed by a dark halo so it reads on any
-       photo. -->
+  <!-- A folder: one flat white shape, a tab above the body's left side. -->
   <defs>
-    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#eeeeee"/>
-    </linearGradient>
-    <filter id="halo" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="0.4" stdDeviation="2.5" flood-color="#000000" flood-opacity="1"/>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.612"/>
+      <feOffset dx="0.200" dy="0.500"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.844 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.688"/>
+      <feOffset dx="0.200" dy="0.900"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.106 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
-  <path d="M22.8 27.6 Q22.8 26.4 24 26.4 H31.4 Q32.2 26.4 32.6 27.1 L34.2 30.3 H55.6 Q56.4 30.3 56.4 31.1 V52.8 Q56.4 53.6 55.6 53.6 H23.6 Q22.8 53.6 22.8 52.8 Z"
-        fill="url(#glyph)" filter="url(#halo)"/>
+  <path filter="url(#halo)" fill="#ffffff"
+        d="M11.675 13.712 H18.600 L19.437 15.650 H28.850 V26.900 H11.675 Z"/>
 </svg>

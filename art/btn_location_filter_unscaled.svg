@@ -1,25 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 38 38"
      g3d:outputs="drawable=38x38">
-  <!-- The location badge on a timeline cluster: a white crosshair on a glassy
-       disc, lit from above, with a soft shadow under the disc. -->
+  <!-- The badge on a stack with a location: a clear glass disc, brightest at
+       the top, with a faint white rim and a soft shadow below it that does not
+       show through the glass, and a solid white crosshair on it. -->
   <defs>
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.12"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
-    </linearGradient>
-    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.3"/>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.575"/>
     </filter>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.285"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.000"/>
+    </linearGradient>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="38">
+      <rect width="38" height="38" fill="#ffffff"/>
+      <circle cx="18.953" cy="16.878" r="15.506" fill="#000000"/>
+    </mask>
   </defs>
-  <circle cx="18.8" cy="17" r="15.8" fill="url(#glass)" filter="url(#drop)"/>
-  <circle cx="18.8" cy="17" r="15.3" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1"/>
+  <g mask="url(#outside)">
+    <circle cx="18.953" cy="18.016" r="15.781" fill="#000000" opacity="0.181" filter="url(#soft)"/>
+  </g>
+  <circle cx="18.953" cy="16.878" r="15.506" fill="url(#glass)"/>
+  <circle cx="18.953" cy="16.878" r="15.351" fill="none" stroke="#ffffff" stroke-opacity="0.300" stroke-width="0.309"/>
   <g fill="#ffffff">
-    <circle cx="19" cy="17.3" r="6.75" fill="none" stroke="#ffffff" stroke-width="2"/>
-    <circle cx="19" cy="17.3" r="3.1"/>
-    <rect x="18" y="7" width="2" height="3.4"/>
-    <rect x="18" y="24.2" width="2" height="3.4"/>
-    <rect x="8.8" y="16.3" width="3.4" height="2"/>
-    <rect x="25.8" y="16.3" width="3.4" height="2"/>
+    <circle cx="19.000" cy="17.000" r="7.050" fill="none" stroke="#ffffff" stroke-width="1.838"/>
+    <circle cx="19.000" cy="17.000" r="3.525"/>
+    <rect x="18.000" y="6.881" width="2.000" height="2.650"/>
+    <rect x="18.000" y="24.469" width="2.000" height="2.650"/>
+    <rect x="8.881" y="16.000" width="2.650" height="2.000"/>
+    <rect x="26.469" y="16.000" width="2.650" height="2.000"/>
   </g>
 </svg>

@@ -1,22 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 42 42"
-     g3d:outputs="drawable=42x42">
-  <!-- The badge on a face the crop box found by itself: a white button in a
-       glowing magenta ring, with a diagonal resize arrow. -->
+     g3d:name="indicator_autocrop" g3d:outputs="drawable=42x42">
+  <!-- The badge on a face the crop box found by itself: a magenta ring that
+       fades out into a soft glow, around a pinkish white disc with a diagonal
+       two-headed resize arrow. -->
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f8f4f8"/>
-      <stop offset="1" stop-color="#ebebeb"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="9.6" x2="0" y2="34.425">
+      <stop offset="0" stop-color="rgb(248,243,248)"/>
+      <stop offset="0.525" stop-color="rgb(239,243,239)"/>
+      <stop offset="1" stop-color="rgb(238.073,234,238.073)"/>
     </linearGradient>
-    <filter id="glow" filterUnits="userSpaceOnUse" x="-10" y="-10" width="62" height="62">
-      <feGaussianBlur stdDeviation="2.4"/>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="2.5"/>
     </filter>
   </defs>
-  <circle cx="21" cy="21" r="17.5" fill="#e72c8c" filter="url(#glow)"/>
-  <circle cx="21" cy="21" r="16" fill="#e7308c"/>
-  <circle cx="21" cy="21" r="12.5" fill="url(#face)"/>
-  <g fill="#e030ad">
-    <path d="M21 13.5 H29.5 V22 Z"/>
-    <path d="M13.5 20 V28.5 H22 Z"/>
-    <line x1="16.5" y1="25.5" x2="26.5" y2="15.5" stroke="#e030ad" stroke-width="4"/>
+  <g fill="rgb(231,48,145.468)">
+    <circle cx="21.01" cy="21.008" r="17.172" filter="url(#glow)" opacity="1"/>
+    <circle cx="21.01" cy="21.008" r="15.5"/>
+  </g>
+  <circle cx="21.01" cy="20.909" r="12.991" fill="url(#face)"/>
+  <g fill="rgb(231,44,172.97)">
+    <polygon points="18.575,14.3 27.8,14.3 27.8,23"/>
+    <polygon points="14.225,18.491 14.225,27.8 23.271,27.8"/>
+    <line x1="17.591" y1="24.8" x2="24.875" y2="16.702"
+          stroke="rgb(231,44,172.97)" stroke-width="2.9"/>
   </g>
 </svg>

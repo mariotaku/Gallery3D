@@ -1,47 +1,78 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
-     g3d:outputs="drawable=72x72">
-  <!-- Menu: map. A framed map of the world centred on the Atlantic, in the
-       Android 2.3 menu style: white, with a soft white glow. -->
+     g3d:name="ic_menu_mapmode" g3d:outputs="drawable=72x72">
+  <!-- Map mode, in the Android 2.3 menu style: a thick frame around a world
+       map centred on the Atlantic. The sea is see-through. Light grey faces
+       that darken toward the bottom, a darker bevel along the top edges, and a
+       faint white glow. Drawn in hdpi pixels. -->
   <defs>
-    <linearGradient id="bright" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="60">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#f2f2f2"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="25.792" x2="0" y2="53.621">
+      <stop offset="0" stop-color="rgb(255,255,255)"/>
+      <stop offset="0.163" stop-color="rgb(255,255,255)"/>
+      <stop offset="1" stop-color="rgb(209.166,209.166,209.166)"/>
     </linearGradient>
-    <linearGradient id="land" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="51">
-      <stop offset="0" stop-color="#f4f4f4"/>
-      <stop offset="1" stop-color="#c8c8c8"/>
-    </linearGradient>
-    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
-      <feMorphology in="SourceAlpha" operator="dilate" radius="1.2" result="grown"/>
-      <feGaussianBlur in="grown" stdDeviation="0.9" result="soft"/>
-      <feFlood flood-color="#ffffff" flood-opacity="0.3"/>
-      <feComposite in2="soft" operator="in" result="halo"/>
+    <mask id="glyph" maskUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <rect x="10.013" y="13" width="51.75" height="44.899" rx="1.401" fill="#ffffff"/>
+      <rect x="17.103" y="19.875" width="37.808" height="31" fill="#000000"/>
+      <!-- The continents, traced at half coverage from the Gingerbread icon:
+           Europe, Africa and Asia with the Mediterranean as a notch, North
+           America's northern tip, South America, Madagascar and Australia. -->
+      <path fill="#ffffff" fill-rule="evenodd" transform="translate(0.008 -0.074)"
+            stroke="#000000" stroke-width="0.494" stroke-linejoin="round"
+            d="M41.50 21.35 L40.50 21.77 L38.50 22.18 L37.50 22.94 L37.03 23.50 L37.50 24.11 L38.50 24.39 L39.50 23.43 L39.63 23.50 L39.75 24.50 L39.50 24.73 L38.50 24.61 L35.50 25.45 L34.50 23.46 L33.85 24.50 L33.81 25.50 L34.88 26.50 L34.50 26.87 L33.50 27.09 L32.99 27.50 L33.50 28.40 L34.50 28.09 L35.50 27.99 L36.50 27.36 L37.50 27.15 L38.50 27.76 L39.50 27.72 L41.50 27.24 L42.50 27.08 L42.94 27.50 L42.25 28.50 L41.50 29.02 L40.50 29.23 L39.50 29.23 L36.50 28.87 L34.50 28.96 L33.50 29.80 L32.15 31.50 L31.99 32.50 L32.00 33.50 L32.50 34.55 L33.50 34.97 L35.50 35.00 L36.50 35.27 L36.73 35.50 L37.85 38.50 L38.20 40.50 L38.98 42.50 L39.50 43.16 L40.51 43.50 L41.50 42.89 L41.88 42.50 L42.50 41.49 L42.97 40.50 L43.22 38.50 L44.32 36.50 L45.50 35.11 L45.96 34.50 L45.50 33.87 L44.50 33.77 L44.24 33.50 L44.50 33.22 L45.50 33.18 L46.50 32.97 L47.01 32.50 L46.50 31.46 L46.23 30.50 L46.50 30.32 L47.50 30.73 L48.50 30.93 L49.50 31.23 L49.77 31.50 L50.20 32.50 L50.81 33.50 L51.50 34.11 L52.50 33.16 L52.99 32.50 L53.15 31.50 L53.15 23.50 L52.50 22.85 L50.50 22.87 L48.50 22.57 L47.50 21.96 L46.50 22.02 L45.50 22.18 L44.50 22.51 L43.50 22.60 L42.86 21.50 L42.50 21.34 Z
+               M20.50 23.44 L19.50 23.64 L19.10 24.50 L18.82 25.50 L18.80 27.50 L19.50 28.09 L20.64 27.50 L21.50 26.81 L22.50 25.66 L23.50 25.79 L23.76 25.50 L23.50 25.25 L22.50 25.06 L22.28 24.50 L21.50 23.99 L20.56 23.50 Z
+               M19.50 34.24 L19.19 34.50 L18.79 35.50 L18.79 37.50 L18.98 38.50 L19.87 39.50 L20.26 40.50 L20.22 41.50 L19.60 45.50 L19.58 46.50 L20.13 47.50 L20.50 47.79 L20.77 47.50 L20.92 46.50 L21.60 45.50 L22.64 44.50 L23.78 43.50 L25.76 41.50 L26.54 40.50 L27.75 38.50 L27.25 37.50 L25.50 36.18 L24.50 35.68 L23.50 35.00 L22.50 34.39 L21.50 34.05 L20.50 34.03 Z
+               M45.50 39.85 L45.17 40.50 L45.50 41.25 L45.76 40.50 Z
+               M52.50 45.20 L50.50 47.00 L49.50 47.68 L48.50 48.14 L48.14 48.50 L48.50 49.24 L49.50 49.34 L52.50 49.34 L53.15 48.50 L53.15 46.50 L52.94 45.50 Z"/>
+    </mask>
+    <filter id="bevel" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="0.767"/>
+      <feGaussianBlur stdDeviation="2.273" result="blur"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.164"/>
+      <feComposite in2="blur" operator="in" result="glow1"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.223" result="wide"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.341"/>
+      <feComposite in2="wide" operator="in" result="glow2"/>
+      <feMerge result="glow">
+        <feMergeNode in="glow2"/>
+        <feMergeNode in="glow1"/>
+      </feMerge>
+      <feMorphology in="SourceAlpha" operator="erode" radius="0.862" result="inner"/>
+      <feComposite in="SourceAlpha" in2="inner" operator="out" result="rim"/>
+      <feGaussianBlur in="rim" stdDeviation="0.05" result="softrim"/>
+      <feFlood flood-color="rgb(106.954,106.954,106.954)" flood-opacity="0.433"/>
+      <feComposite in2="softrim" operator="in" result="tint"/>
+      <feComposite in="tint" in2="SourceAlpha" operator="in" result="shade"/>
+      <feOffset in="SourceAlpha" dx="0" dy="2.279" result="shifted"/>
+      <feComposite in="SourceAlpha" in2="shifted" operator="out" result="edge"/>
+      <feGaussianBlur in="edge" stdDeviation="1.158" result="soft"/>
+      <feFlood flood-color="rgb(10.19,10.19,10.19)" flood-opacity="0.286"/>
+      <feComposite in2="soft" operator="in" result="ttint"/>
+      <feComposite in="ttint" in2="SourceAlpha" operator="in" result="top"/>
+      <feOffset in="SourceAlpha" dx="0" dy="-1" result="raised"/>
+      <feComposite in="SourceAlpha" in2="raised" operator="out" result="lowedge"/>
+      <feFlood flood-color="#ffffff" flood-opacity="1.036"/>
+      <feComposite in2="lowedge" operator="in" result="lit"/>
+      <feOffset in="SourceAlpha" dx="1" dy="0" result="toright"/>
+      <feComposite in="SourceAlpha" in2="toright" operator="out" result="leftedge"/>
+      <feOffset in="SourceAlpha" dx="-1" dy="0" result="toleft"/>
+      <feComposite in="SourceAlpha" in2="toleft" operator="out" result="rightedge"/>
+      <feMerge result="sides">
+        <feMergeNode in="leftedge"/>
+        <feMergeNode in="rightedge"/>
+      </feMerge>
+      <feFlood flood-color="rgb(213.125,213.125,213.125)" flood-opacity="0.338"/>
+      <feComposite in2="sides" operator="in" result="side"/>
       <feMerge>
-        <feMergeNode in="halo"/>
+        <feMergeNode in="glow"/>
         <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="shade"/>
+        <feMergeNode in="side"/>
+        <feMergeNode in="top"/>
+        <feMergeNode in="lit"/>
       </feMerge>
     </filter>
   </defs>
-  <rect x="18" y="20" width="38" height="31" fill="#ffffff" opacity="0.1"/>
-  <g filter="url(#glow)">
-    <path fill="url(#bright)" fill-rule="evenodd"
-          d="M11 14.3 Q11 13.3 12 13.3 H62 Q63 13.3 63 14.3 V56.7 Q63 57.7 62 57.7 H12 Q11 57.7 11 56.7 Z
-             M18 20 V51 H56 V20 Z"/>
-    <g fill="url(#land)">
-      <!-- The Americas. -->
-      <path d="M19 23 L22.5 22.8 L24.5 25 L22.5 26.5 L21.6 28.5 L19.6 28 Z"/>
-      <path d="M19.5 34 L23 33.8 L25.6 35 L28 37 L28.4 39 L27 41 L25.5 43 L23.6 45 L22 47.6 L21 46 L20.5 42
-               L20.2 38 Z"/>
-      <!-- Europe, Africa and Asia, with the Mediterranean cut out of them. -->
-      <path fill-rule="evenodd"
-            d="M41 20.8 L45 21 L50 21.8 L52 22.4 L54.5 23 L54.5 30.8 L54 33.5 L52.5 34.2 L50.6 31.2 L48.2 31
-               L47.8 34 L46.8 35.2 L45.6 37 L44.6 39.5 L43.6 41.8 L42.2 44 L40.2 43.6 L39.4 41 L38.6 38
-               L37.5 35.6 L35.5 35 L33 34.6 L32.8 31 L33.8 28.8 L33.6 26.6 L35.5 25.6 L37.8 25 L38 22.6 Z
-               M37.6 26.9 H43.8 V28.8 H37.6 Z"/>
-      <circle cx="35.4" cy="23.5" r="0.9"/>
-      <ellipse cx="46.5" cy="40" rx="0.7" ry="1.6"/>
-      <!-- Australia. -->
-      <path d="M48.5 47.5 Q49.5 45 51.5 44.8 Q53.8 46 54.5 48.5 Q53 49.8 50 49.6 Z"/>
-    </g>
+  <g filter="url(#bevel)">
+    <rect x="0" y="0" width="72" height="72" fill="url(#face)" mask="url(#glyph)"/>
   </g>
 </svg>

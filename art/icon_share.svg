@@ -1,18 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
-     g3d:outputs="drawable=34x34 drawable-mdpi=30x30 drawable-hdpi=45x45">
-  <!-- Share: a ball sending two broad arrows up and outward. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 45 45"
+     g3d:name="icon_share" g3d:outputs="drawable-mdpi=30x30 drawable-hdpi=45x45">
+  <!-- The selection bar's share: two broad arrows flying up and out of a
+       ball, grey and lit from above. The notch between the arrows is
+       see-through, and so, partly, is the seam over the ball. Drawn in hdpi
+       pixels. -->
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f4f4f4"/>
-      <stop offset="1" stop-color="#b3b3b3"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="7.191" x2="0" y2="39.506">
+      <stop offset="0" stop-color="rgb(232,232,232)"/>
+      <stop offset="1" stop-color="rgb(162,162,162)"/>
     </linearGradient>
+    <path id="wing" d="M9.928 6.275 L22.044 11.85 L25.041 24.984
+             L14.275 26.688 L10.884 19.569 L6.567 19.881 Z"/>
+    <mask id="glyph" maskUnits="userSpaceOnUse" x="0" y="0" width="45" height="45">
+      <use href="#wing" fill="#ffffff"/>
+      <use href="#wing" fill="#ffffff" transform="matrix(-1 0 0 1 45.007 0)"/>
+      <ellipse cx="22.514" cy="31.018" rx="6.711" ry="7.205" fill="#ffffff"/>
+      <polygon fill="#000000" points="22.509,11.737 25.425,14.786 22.509,21.329 19.575,14.786"/>
+      <ellipse cx="22.514" cy="31.018" rx="6.711" ry="7.205" fill="none" clip-path="url(#upper)"
+               stroke="#000000" stroke-opacity="0.917" stroke-width="2.097"/>
+    </mask>
+    <clipPath id="upper">
+      <rect x="0" y="0" width="45" height="28.252"/>
+    </clipPath>
     <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="0.8" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.75"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.18"/>
+      <feOffset dx="0" dy="0.455" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0.344  0 0 0 0 0.344  0 0 0 0 0.344  0 0 0 0.955 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="0.8" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0.344  0 0 0 0 0.344  0 0 0 0 0.344  0 0 0 0.451 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
-  <g filter="url(#drop)" fill="url(#face)" stroke-linejoin="round">
-    <path d="M4.8 5.2 L13.2 5.8 L11.2 7.8 L15.9 12.5 L12.4 16 L7.7 11.3 L5.5 13.4 Z"/>
-    <path d="M25.2 5.2 L16.8 5.8 L18.8 7.8 L14.1 12.5 L17.6 16 L22.3 11.3 L24.5 13.4 Z"/>
-    <circle cx="15" cy="20.8" r="4.6"/>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="45" height="45" fill="url(#face)" mask="url(#glyph)"/>
   </g>
+  <ellipse cx="22.514" cy="31.018" rx="6.711" ry="7.205" fill="none" clip-path="url(#upper)"
+           stroke="rgb(20.312,20.312,20.312)" stroke-opacity="0.106" stroke-width="2.097"/>
 </svg>

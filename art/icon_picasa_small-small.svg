@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:name="icon_picasa_small" g3d:outputs="drawable=39x39">
+  <!-- The Picasa mark as the small fallback draws it: the same white disc,
+       house-shaped hole and five slits, with no shadow. -->
+  <defs>
+    <mask id="cuts" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+      <rect width="40" height="40" fill="#ffffff"/>
+      <g fill="#000000" stroke="#000000" stroke-width="0.825" stroke-linecap="butt">
+        <path stroke="none" d="M19.509 14.550 L22.959 18.000 V22.694 H15.750 V18.309 Z"/>
+        <path fill="none" d="M19.509 14.550 l-12 -12"/>
+        <path fill="none" d="M22.959 18.000 v-14"/>
+        <path fill="none" d="M22.959 22.694 h14"/>
+        <path fill="none" d="M15.750 22.694 v14"/>
+        <path fill="none" d="M15.750 18.309 l-12 12"/>
+      </g>
+    </mask>
+  </defs>
+  <circle cx="19.509" cy="19.525" r="8.012" fill="#ffffff" mask="url(#cuts)"/>
+</svg>

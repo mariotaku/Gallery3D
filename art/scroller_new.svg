@@ -1,61 +1,70 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
      g3d:outputs="drawable-mdpi=163x48 drawable-hdpi=244x72">
-  <!-- The time bar's handle: a glass pill with a grey edge, dimpled grip dots
-       and an embossed arrow at each end, casting a wide soft shadow. The
-       fallback folder's handle, square at the bottom, is
-       scroller_new-small.svg. -->
+  <!-- The time bar's handle: a glass pill with elliptical ends, a thin grey
+       edge, three rows of dimpled grip dots and a white arrow at each end with
+       a dark halo, casting a wide soft shadow. The fallback folder's handle,
+       square at the bottom, is scroller_new-small.svg. -->
   <defs>
-    <rect id="pill" x="11.8" y="12.3" width="139.1" height="35.3" rx="13"/>
+    <rect id="pill" x="11.278" y="12.786" width="139.55" height="34.43" rx="11.423" ry="17.068"/>
     <clipPath id="inside">
       <use href="#pill"/>
     </clipPath>
-    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="12.3" x2="0" y2="47.6">
-      <stop offset="0.062" stop-color="#ffffff" stop-opacity="0.533"/>
-      <stop offset="0.232" stop-color="#ffffff" stop-opacity="0.49"/>
-      <stop offset="0.402" stop-color="#ffffff" stop-opacity="0.435"/>
-      <stop offset="0.544" stop-color="#ffffff" stop-opacity="0.388"/>
-      <stop offset="0.571" stop-color="#ffffff" stop-opacity="0.385"/>
-      <stop offset="0.572" stop-color="#ffffff" stop-opacity="0.325"/>
-      <stop offset="0.742" stop-color="#ffffff" stop-opacity="0.258"/>
-      <stop offset="0.94" stop-color="#ffffff" stop-opacity="0.208"/>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="12.786" x2="0" y2="47.25">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="0.021" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="0.031" stop-color="#ffffff" stop-opacity="0.538"/>
+      <stop offset="0.183" stop-color="#ffffff" stop-opacity="0.506"/>
+      <stop offset="0.317" stop-color="#ffffff" stop-opacity="0.462"/>
+      <stop offset="0.433" stop-color="#ffffff" stop-opacity="0.424"/>
+      <stop offset="0.548" stop-color="#ffffff" stop-opacity="0.39"/>
+      <stop offset="0.567" stop-color="#ffffff" stop-opacity="0.331"/>
+      <stop offset="0.587" stop-color="#ffffff" stop-opacity="0.318"/>
+      <stop offset="0.683" stop-color="#ffffff" stop-opacity="0.282"/>
+      <stop offset="0.798" stop-color="#ffffff" stop-opacity="0.247"/>
+      <stop offset="0.952" stop-color="#ffffff" stop-opacity="0.204"/>
     </linearGradient>
-    <filter id="soft" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
-      <feGaussianBlur stdDeviation="5.5"/>
+    <filter id="near" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
+      <feGaussianBlur stdDeviation="3.75"/>
+    </filter>
+    <filter id="far" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
+      <feGaussianBlur stdDeviation="8.162"/>
     </filter>
     <mask id="outside" maskUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
       <rect x="-40" y="-40" width="250" height="130" fill="#ffffff"/>
       <use href="#pill" fill="#000000"/>
     </mask>
-    <filter id="emboss" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+    <filter id="halo" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
             color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="#000000" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="2.045" flood-color="#000000" flood-opacity="0.489"/>
     </filter>
     <g id="dots">
-      <rect x="-1.4" y="0" width="2.8" height="2"/>
-      <rect x="7.35" y="0" width="2.8" height="2"/>
-      <rect x="16.1" y="0" width="2.8" height="2"/>
-      <rect x="24.85" y="0" width="2.8" height="2"/>
-      <rect x="33.6" y="0" width="2.8" height="2"/>
-      <rect x="42.35" y="0" width="2.8" height="2"/>
-      <rect x="51.1" y="0" width="2.8" height="2"/>
-      <rect x="59.85" y="0" width="2.8" height="2"/>
-      <rect x="68.6" y="0" width="2.8" height="2"/>
+      <rect x="0" y="0" width="2.925" height="2.125"/>
+      <rect x="8.75" y="0" width="2.925" height="2.125"/>
+      <rect x="17.5" y="0" width="2.925" height="2.125"/>
+      <rect x="26.25" y="0" width="2.925" height="2.125"/>
+      <rect x="35" y="0" width="2.925" height="2.125"/>
+      <rect x="43.75" y="0" width="2.925" height="2.125"/>
+      <rect x="52.5" y="0" width="2.925" height="2.125"/>
+      <rect x="61.25" y="0" width="2.925" height="2.125"/>
+      <rect x="70" y="0" width="2.925" height="2.125"/>
     </g>
+    <path id="arrow" d="M 21.398 31.473 L 31.799 25.398 V 37.666 Z"/>
   </defs>
   <g mask="url(#outside)">
-    <use href="#pill" fill="#000000" opacity="0.44" filter="url(#soft)"/>
+    <use href="#pill" fill="#000000" opacity="0.28" filter="url(#near)"/>
+    <use href="#pill" fill="#000000" opacity="0.247" filter="url(#far)"/>
   </g>
   <use href="#pill" fill="url(#glass)"/>
   <g clip-path="url(#inside)">
-    <use href="#pill" fill="none" stroke="#8a8a8a" stroke-opacity="0.35" stroke-width="2.4"/>
+    <use href="#pill" fill="none" stroke="rgb(48.125%,48.125%,48.125%)" stroke-opacity="0.227" stroke-width="0.991"/>
   </g>
-  <g fill="#000000" fill-opacity="0.21">
-    <use href="#dots" transform="translate(46.2 22)"/>
-    <use href="#dots" transform="translate(46.2 30)"/>
-    <use href="#dots" transform="translate(46.2 37.3)"/>
+  <g fill="#000000" fill-opacity="0.203">
+    <use href="#dots" transform="translate(44.733 22.131)"/>
+    <use href="#dots" transform="translate(44.733 29.2)"/>
+    <use href="#dots" transform="translate(44.733 37)"/>
   </g>
-  <g filter="url(#emboss)" fill="#ffffff" fill-opacity="0.5">
-    <path d="M 20.8 30.5 L 31.5 24.9 V 36.1 Z"/>
-    <path d="M 142.2 30.5 L 131.5 24.9 V 36.1 Z"/>
+  <g filter="url(#halo)" fill="#ffffff" fill-opacity="0.546">
+    <use href="#arrow"/>
+    <use href="#arrow" transform="translate(163 0) scale(-1 1)"/>
   </g>
 </svg>

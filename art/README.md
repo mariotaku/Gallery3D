@@ -38,12 +38,18 @@ Android 2.3 and the Cooliris gallery it came from, around 2010: glyphs with
 depth, soft gradients, and shadows rather than flat shapes and hairlines.
 Numbers are in mdpi pixels.
 
-- **Shadows.** A glyph on the chrome casts a drop shadow straight down: offset
-  1, blur 0.8, black at 70%. Anything sitting on the wall, a frame or a badge,
-  casts a softer and longer one: offset about 2, blur about 3, black at 60%.
-  Leave room in the canvas for the shadow to fade out.
-- **Light glyphs.** White fading to `#d9d9d9` from top to bottom. Detail cut
-  into a glyph, such as a photo inside a frame, is `#3c3c3c`.
+- **Shadows.** A glyph on the chrome sits in a dark halo that reaches about two
+  pixels on every side and a little further below. It is two blurred black
+  copies of the shape laid over each other: blur about 1.5, one offset about
+  0.5 down and one about 1 down, together close to opaque at the glyph's edge.
+  The halo shows through every hole in the glyph. Anything on the wall, a
+  frame or a badge, casts a softer and longer shadow: a tight one and a wide
+  one, blur about 2 and 4, offset 2 to 4 down. Leave room in the canvas for a
+  shadow to fade out.
+- **Light glyphs.** Flat white, and only white: the path bar crumbs, the album
+  source icons and the like. Detail inside a glyph, such as the photo inside
+  a frame or a camera's lens, is see-through, and the glyph's own halo of
+  shadow shows there. Never fill it with grey.
 - **Grey controls.** Buttons and badges on the chrome are a grey gradient,
   `#e8e8e8` to `#9a9a9a`, with a one-pixel lighter edge along the top.
 - **Menu icons.** The `ic_menu_*` set is a lighter grey bevel with a soft white

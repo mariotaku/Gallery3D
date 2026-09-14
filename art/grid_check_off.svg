@@ -1,28 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 54 52"
      g3d:outputs="drawable=54x52">
-  <!-- grid_check_on before the photo is picked: the same tile and check in
-       smoked grey, letting the photo show through. -->
+  <!-- The check on a photo in selection mode: a rounded tile, filled with a
+       gradient and edged with a rim, a lighter line along its top inside the
+       rim, a band of shadow below it, and a check mark. -->
   <defs>
-    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#b9b9b9"/>
-      <stop offset="1" stop-color="#474747"/>
+    <linearGradient id="fill" gradientUnits="userSpaceOnUse" x1="0" y1="3.469" x2="0" y2="44.319">
+      <stop offset="0" stop-color="rgb(218.500,218.500,218.500)"/>
+      <stop offset="1" stop-color="rgb(31.000,31.000,31.000)"/>
     </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#adadad"/>
-      <stop offset="1" stop-color="#a6a6a6"/>
+    <linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="0" y1="3.469" x2="0" y2="44.319">
+      <stop offset="0" stop-color="rgb(171.750,171.750,171.750)"/>
+      <stop offset="1" stop-color="rgb(210.000,210.000,210.000)"/>
     </linearGradient>
-    <filter id="tile" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0.8" stdDeviation="0.6" flood-color="#000000" flood-opacity="0.25"/>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.600"/>
     </filter>
-    <filter id="check" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="1" dy="1.4" stdDeviation="0.7" flood-color="#303030" flood-opacity="0.7"/>
+    <filter id="band" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.100"/>
     </filter>
   </defs>
-  <g filter="url(#tile)">
-    <rect x="5.3" y="3.4" width="43.4" height="42.2" rx="7" fill="url(#rim)"/>
-    <rect x="6.8" y="4.9" width="40.4" height="39.2" rx="5.7" fill="#979797"/>
-    <rect x="7.7" y="5.8" width="38.6" height="37.4" rx="5" fill="url(#fill)"/>
-  </g>
-  <path d="M16.2 24.6 L24 33.4 L40.3 14.3" fill="none" stroke="#c8c8c8" stroke-width="6"
-        stroke-linejoin="miter" stroke-miterlimit="4" filter="url(#check)"/>
+  <rect x="5.763" y="4.019" width="42.456" height="40.850" rx="8.300" fill="rgb(143.000,143.000,143.000)" opacity="0.400"
+        filter="url(#band)"/>
+  <rect x="5.763" y="3.469" width="42.456" height="40.850" rx="8.300" fill="url(#fill)" fill-opacity="0.577"/>
+  <path d="M14.063 4.672 H39.919" stroke="rgb(184.000,184.000,184.000)" stroke-width="1.100"
+        stroke-opacity="0.500"/>
+  <rect x="6.614" y="4.321" width="40.753" height="39.147" rx="7.449" fill="none"
+        stroke="url(#rim)" stroke-width="1.703" stroke-opacity="0.737"/>
+  <path d="M14.525 23.913 L23.550 34.075 L41.081 14.300" fill="none" stroke="#000000" stroke-width="5.350"
+        stroke-linecap="butt" stroke-linejoin="miter" transform="translate(0.000 0.000)" opacity="0.000" filter="url(#soft)"/>
+  <path d="M14.525 23.913 L23.550 34.075 L41.081 14.300" fill="none" stroke="rgb(222.500,222.500,222.500)" stroke-width="5.350"
+        stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="0.639"/>
 </svg>

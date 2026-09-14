@@ -1,27 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 38 38"
-     g3d:outputs="drawable=38x38">
+     g3d:name="camera_crop_width" g3d:outputs="drawable=38x38">
   <!-- The crop box's handle for its left and right edges: the same knob as
-       camera_crop_height, with a left and right arrow. -->
+       camera_crop_height, with its arrow turned to point left and right. -->
   <defs>
-    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8a8a8a"/>
-      <stop offset="0.3" stop-color="#262626"/>
-      <stop offset="1" stop-color="#080808"/>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="0" y1="2.209" x2="0" y2="34.45">
+      <stop offset="0" stop-color="rgb(130,130,130)"/>
+      <stop offset="0.434" stop-color="rgb(18.794,18.794,18.794)"/>
+      <stop offset="1" stop-color="rgb(0,0,0)"/>
     </linearGradient>
-    <radialGradient id="face" cx="0.45" cy="0.2" r="0.9">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.5" stop-color="#eeeeee"/>
-      <stop offset="1" stop-color="#c6c6c6"/>
-    </radialGradient>
-    <linearGradient id="arrow" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#6c6c6c"/>
-      <stop offset="1" stop-color="#2c2c2c"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="9.187" x2="0" y2="20.4">
+      <stop offset="0" stop-color="rgb(255,255,255)"/>
+      <stop offset="0.45" stop-color="rgb(241.25,241.25,241.25)"/>
+      <stop offset="1" stop-color="rgb(218.75,218.75,218.75)"/>
     </linearGradient>
-    <filter id="drop" filterUnits="userSpaceOnUse" x="-5" y="-5" width="48" height="48">
-      <feDropShadow dx="0" dy="1.6" stdDeviation="1.3" flood-color="#000000" flood-opacity="0.85"/>
+    <linearGradient id="arrow" gradientUnits="userSpaceOnUse" x1="7.938" y1="0" x2="21.757" y2="0">
+      <stop offset="0" stop-color="rgb(86.25,86.25,86.25)"/>
+      <stop offset="1" stop-color="rgb(60,60,60)"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.599"/>
+      <feOffset dx="0" dy="1" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.224 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.555"/>
+      <feOffset dx="0" dy="2" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.371 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="rim" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feMorphology in="SourceAlpha" operator="erode" radius="0.669" result="inner"/>
+      <feComposite in="SourceAlpha" in2="inner" operator="out" result="edge"/>
+      <feFlood flood-color="rgb(206.921,206.921,206.921)" flood-opacity="0.137"/>
+      <feComposite in2="edge" operator="in" result="lit"/>
+      <feMerge>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="lit"/>
+      </feMerge>
     </filter>
   </defs>
-  <circle cx="20" cy="17" r="16" fill="url(#ring)" filter="url(#drop)"/>
-  <circle cx="20" cy="17" r="14" fill="url(#face)"/>
-  <path d="M11 17 L17.3 11.6 V15 H22.7 V11.6 L29 17 L22.7 22.4 V19 H17.3 V22.4 Z" fill="url(#arrow)"/>
+  <circle cx="18.99" cy="17.257" r="16.3" fill="url(#ring)" filter="url(#drop)"/>
+  <circle cx="18.99" cy="16.999" r="14.013" fill="url(#face)"/>
+  <g filter="url(#rim)">
+    <path fill="url(#arrow)" d="M9.488 16.999 L16.063 11.638 V15 H21.95 V11.638
+          L28.525 16.999 L21.95 23.75 V19.9 H16.063 V23.75 Z"/>
+  </g>
 </svg>

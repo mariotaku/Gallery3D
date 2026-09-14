@@ -1,31 +1,53 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
-     g3d:outputs="drawable=72x72">
-  <!-- Shows the photo's details: an information disc. Drawn in hdpi pixels. -->
+     g3d:name="ic_menu_view_details" g3d:outputs="drawable=72x72">
+  <!-- Shows the photo's details: an information disc in the Android 2.3 menu
+       style. A light grey bevel with a darker rim, a soft white glow around
+       it, and the i cut right through, see-through with a faint white glow
+       along its inside edge. Drawn in hdpi pixels. -->
   <defs>
-    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#c4c4c4"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="18" x2="0" y2="56">
+      <stop offset="0" stop-color="rgb(255,255,255)"/>
+      <stop offset="0.5" stop-color="rgb(236,236,236)"/>
+      <stop offset="0.966" stop-color="rgb(204,204,204)"/>
+      <stop offset="1" stop-color="rgb(204,204,204)"/>
     </linearGradient>
-    <linearGradient id="cut" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5c5c5c"/>
-      <stop offset="1" stop-color="#7a7a7a"/>
-    </linearGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="2.4" result="blur"/>
-      <feFlood flood-color="#ffffff" flood-opacity="0.6"/>
-      <feComposite in2="blur" operator="in" result="halo"/>
-      <feMerge>
-        <feMergeNode in="halo"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <rect x="0" y="0" width="72" height="72" fill="#ffffff"/>
+      <rect x="31.802" y="21.113" width="8.323" height="8.449" rx="1.069" fill="#000000"/>
+      <rect x="31.802" y="34.105" width="8.323" height="19.475" rx="1.069" fill="#000000"/>
+    </mask>
+    <mask id="holes" maskUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <rect x="31.802" y="21.113" width="8.323" height="8.449" rx="1.069" fill="#ffffff"/>
+      <rect x="31.802" y="34.105" width="8.323" height="19.475" rx="1.069" fill="#ffffff"/>
+    </mask>
+    <clipPath id="disc">
+      <circle cx="36.006" cy="36.075" r="25.937"/>
+    </clipPath>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.223"/>
+    </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.799"/>
     </filter>
   </defs>
-  <g filter="url(#glow)">
-    <circle cx="35.8" cy="36" r="25.6" fill="url(#glyph)"/>
+  <g mask="url(#cut)">
+    <circle cx="36.006" cy="36.075" r="28.055" fill="#ffffff" fill-opacity="0.23" filter="url(#glow)"/>
   </g>
-  <!-- The i, pressed into the disc. -->
-  <g fill="url(#cut)" stroke="#9a9a9a" stroke-width="0.6">
-    <rect x="31.3" y="20" width="9" height="8" rx="1.6"/>
-    <rect x="31.4" y="31.8" width="8.8" height="22.4" rx="1.6"/>
+  <g mask="url(#cut)">
+    <circle cx="36.006" cy="36.075" r="25.937" fill="url(#face)"/>
+    <g clip-path="url(#disc)">
+      <circle cx="36.006" cy="36.075" r="25.937" fill="none" stroke="rgb(212.812,212.812,212.812)"
+              stroke-opacity="1" stroke-width="3.827"/>
+      <g fill="none" stroke="rgb(18.75,18.75,18.75)" stroke-opacity="0.197" stroke-width="2.275">
+        <rect x="31.802" y="21.113" width="8.323" height="8.449" rx="1.069"/>
+        <rect x="31.802" y="34.105" width="8.323" height="19.475" rx="1.069"/>
+      </g>
+    </g>
+  </g>
+  <g mask="url(#holes)">
+    <g fill="none" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.419" filter="url(#soft)">
+      <rect x="31.802" y="21.113" width="8.323" height="8.449" rx="1.069"/>
+      <rect x="31.802" y="34.105" width="8.323" height="19.475" rx="1.069"/>
+    </g>
   </g>
 </svg>

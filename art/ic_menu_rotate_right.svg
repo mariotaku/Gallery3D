@@ -1,26 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
-     g3d:outputs="drawable=72x72">
-  <!-- Turns the photo a quarter to the right: rotate left, mirrored. -->
+     g3d:name="ic_menu_rotate_right" g3d:outputs="drawable=72x72">
+  <!-- Turns the photo a quarter to the right: ic_menu_rotate_left mirrored, as
+       the original pair was. A broad ring around a sunken dot, open on the
+       right, ending in a right-angled arrowhead at the upper right. Light grey
+       with a darker bevel along its edges and a soft white glow. Drawn in hdpi
+       pixels. -->
   <defs>
-    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#c4c4c4"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="28.939" x2="0" y2="54.74">
+      <stop offset="0" stop-color="rgb(255,255,255)"/>
+      <stop offset="1" stop-color="rgb(211.25,211.25,211.25)"/>
     </linearGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="2.4" result="blur"/>
-      <feFlood flood-color="#ffffff" flood-opacity="0.6"/>
-      <feComposite in2="blur" operator="in" result="halo"/>
+    <linearGradient id="dot" gradientUnits="userSpaceOnUse" x1="0" y1="26.75" x2="0" y2="39.1">
+      <stop offset="0" stop-color="rgb(172,172,172)"/>
+      <stop offset="1" stop-color="rgb(255,255,255)"/>
+    </linearGradient>
+    <mask id="ring" maskUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+      <circle cx="35.698" cy="35.591" r="22.019" fill="none" stroke="#ffffff" stroke-width="8.711"/>
+      <polygon fill="#000000" points="35.698,35.591 9,25.629 -1.938,62.062 16.766,43.5"/>
+      <polygon fill="#ffffff" points="10.551,13.109 10.551,30.56 29.338,28.675"/>
+    </mask>
+    <filter id="bevel" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.1" result="blur"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.617"/>
+      <feComposite in2="blur" operator="in" result="glow"/>
+      <feMorphology in="SourceAlpha" operator="erode" radius="1" result="inner"/>
+      <feComposite in="SourceAlpha" in2="inner" operator="out" result="rim"/>
+      <feGaussianBlur in="rim" stdDeviation="0.583" result="softrim"/>
+      <feFlood flood-color="rgb(35.468,35.468,35.468)" flood-opacity="0.547"/>
+      <feComposite in2="softrim" operator="in" result="tint"/>
+      <feComposite in="tint" in2="SourceAlpha" operator="in" result="shade"/>
       <feMerge>
-        <feMergeNode in="halo"/>
+        <feMergeNode in="glow"/>
         <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="shade"/>
       </feMerge>
     </filter>
   </defs>
-  <g filter="url(#glow)">
-    <g transform="translate(72 0) scale(-1 1)" fill="url(#glyph)">
-      <path d="M17.71 42.84 A20 20 0 1 0 23.64 20.68" fill="none" stroke="url(#glyph)" stroke-width="9"/>
-      <path d="M20.6 10.6 L22.6 37.2 L3.9 25.4 Z" stroke="url(#glyph)" stroke-width="1.2" stroke-linejoin="round"/>
-      <circle cx="36.5" cy="36" r="4.3"/>
+  <g filter="url(#bevel)">
+    <g transform="matrix(-1 0 0 1 72 0)">
+      <rect x="0" y="0" width="72" height="72" fill="url(#face)" mask="url(#ring)"/>
+      <circle cx="36.004" cy="35.77" r="5.173" fill="url(#dot)"/>
     </g>
   </g>
 </svg>

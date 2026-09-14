@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 34 34"
+     g3d:name="icon_delete" g3d:outputs="drawable=34x34">
+  <!-- The fallback drawable's delete: the same bin, drawn wider and lighter
+       with darker slots. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="4.363" x2="0" y2="29.075">
+      <stop offset="0" stop-color="rgb(254.745,254.745,254.745)"/>
+      <stop offset="1" stop-color="rgb(197.5,197.5,197.5)"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="0.062"/>
+    </filter>
+    <mask id="bin" maskUnits="userSpaceOnUse" x="0" y="0" width="34" height="34">
+      <g filter="url(#soft)">
+      <g transform="translate(-0.39 0.119) scale(1.17 1.11)">
+        <path fill="#ffffff" d="M10.85 8.6 V4.844 H18.85 V8.6 H17.4 V6.425 H12.3 V8.6 Z"/>
+        <rect fill="#ffffff" x="5.95" y="7.78" width="17.8" height="3.3"/>
+        <polygon fill="#ffffff" points="8.345,12.3 21.392,12.3 21.159,25.744 8.512,25.744"/>
+        <g fill="#000000">
+          <rect x="10.58" y="14.65" width="1.4" height="9"/>
+          <rect x="14.3" y="14.65" width="1.4" height="9"/>
+          <rect x="17.73" y="14.65" width="1.4" height="9"/>
+        </g>
+      </g>
+      </g>
+    </mask>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.728"/>
+      <feOffset dx="0" dy="0.5" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.986 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.752"/>
+      <feOffset dx="0" dy="1.1" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.385 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="34" height="34" fill="url(#face)" mask="url(#bin)"/>
+  </g>
+  <g transform="translate(-0.39 0.119) scale(1.17 1.11)" fill="rgb(41.25,41.25,41.25)" fill-opacity="0.528">
+    <rect x="10.58" y="14.65" width="1.4" height="9"/>
+    <rect x="14.3" y="14.65" width="1.4" height="9"/>
+    <rect x="17.73" y="14.65" width="1.4" height="9"/>
+    <rect x="5.95" y="11.4" width="17.8" height="0.4"/>
+  </g>
+</svg>

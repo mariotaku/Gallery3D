@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:name="icon_picasa_small" g3d:outputs="drawable-hdpi=60x60">
+  <!-- The Picasa mark: a white disc with a house-shaped hole, each of whose
+       five edges runs on outward as a slit to the rim. The hole and the slits
+       are see-through, and the halo shows in them. -->
+  <defs>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.350"/>
+      <feOffset dx="0.000" dy="0.500"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.881 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.625"/>
+      <feOffset dx="0.000" dy="0.900"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.150 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <mask id="cuts" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+      <rect width="40" height="40" fill="#ffffff"/>
+      <g fill="#000000" stroke="#000000" stroke-width="0.850" stroke-linecap="butt">
+        <path stroke="none" d="M19.775 15.387 L23.750 19.362 V23.250 H16.225 V18.937 Z"/>
+        <path fill="none" d="M19.775 15.387 l-12 -12"/>
+        <path fill="none" d="M23.750 19.362 v-14"/>
+        <path fill="none" d="M23.750 23.250 h14"/>
+        <path fill="none" d="M16.225 23.250 v14"/>
+        <path fill="none" d="M16.225 18.937 l-12 12"/>
+      </g>
+    </mask>
+  </defs>
+  <g filter="url(#halo)">
+    <circle cx="20.022" cy="20.031" r="8.044" fill="#ffffff" mask="url(#cuts)"/>
+  </g>
+</svg>

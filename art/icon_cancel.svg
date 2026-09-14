@@ -1,18 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
-     g3d:outputs="drawable-hdpi=45x45">
-  <!-- The selection bar's cancel: a no-entry sign. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 45 45"
+     g3d:name="icon_cancel" g3d:outputs="drawable-hdpi=45x45">
+  <!-- The selection bar's cancel: a grey no-entry sign lit from above, see-through
+       where the ring is open, in a soft halo of shadow. Drawn in hdpi pixels. -->
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f4f4f4"/>
-      <stop offset="1" stop-color="#b3b3b3"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="8.35" x2="0" y2="36.85">
+      <stop offset="0" stop-color="rgb(230,230,230)"/>
+      <stop offset="1" stop-color="rgb(168,168,168)"/>
     </linearGradient>
+    <mask id="sign" maskUnits="userSpaceOnUse" x="0" y="0" width="45" height="45">
+      <circle cx="22.497" cy="22.6" r="12.34" fill="none" stroke="#ffffff" stroke-width="5.894"/>
+      <g transform="translate(22.497 22.6) rotate(45)">
+        <rect x="-12" y="-2.9" width="24" height="5.6" fill="#ffffff"/>
+      </g>
+    </mask>
     <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="0.8" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.75"/>
+      <feDropShadow dx="0.1" dy="0.5" stdDeviation="2"
+                    flood-color="rgb(21.812,21.812,21.812)" flood-opacity="0.997"/>
     </filter>
   </defs>
-  <!-- Ring and bar as one shape, so the gradient and the shadow run across both. -->
-  <g filter="url(#drop)" fill="url(#face)">
-    <path d="M15 4.7 A10.3 10.3 0 1 1 14.99 4.7 Z M15 8.3 A6.7 6.7 0 1 0 15.01 8.3 Z" fill-rule="evenodd"/>
-    <rect x="7.4" y="13.1" width="15.2" height="3.8" transform="rotate(45 15 15)"/>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="45" height="45" fill="url(#face)" mask="url(#sign)"/>
   </g>
 </svg>

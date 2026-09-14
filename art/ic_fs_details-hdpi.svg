@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
+     g3d:name="ic_fs_details" g3d:outputs="drawable-hdpi=60x60">
+  <!-- A framed landscape: a flat white outline, and flat white hills a narrow
+       gap inside it. The only thing inside the frame is the halo the shapes
+       cast, two soft black shadows laid over each other a little below. -->
+  <defs>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.712"/>
+      <feOffset dx="0.000" dy="0.500"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.200 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.625"/>
+      <feOffset dx="0.000" dy="0.900"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.700 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#halo)">
+    <rect x="11.950" y="14.350" width="15.900" height="11.400" fill="none" stroke="#ffffff" stroke-width="1.350"/>
+    <path fill="#ffffff" d="M13.400 24.670 V21.675 Q17.675 15.837 20.338 21.950 Q22.550 18.125 26.425 21.300 V24.670 Z"/>
+  </g>
+</svg>

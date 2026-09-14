@@ -1,22 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 39 39"
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
      g3d:outputs="drawable=39x39">
-  <!-- The location filter's crumb: a target, as on a map. -->
+  <!-- The location filter: a crosshair, a white ring with a white dot inside
+       and four short ticks. -->
   <defs>
-    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#e2e2e2"/>
-    </linearGradient>
-    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.887"/>
+      <feOffset dx="0.000" dy="0.200"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.125 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.050"/>
+      <feOffset dx="0.000" dy="0.400"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.537 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
-  <g filter="url(#drop)" fill="url(#glyph)">
-    <path d="M19.5 13.4 A6.1 6.1 0 1 1 19.49 13.4 Z M19.5 15.2 A4.3 4.3 0 1 0 19.51 15.2 Z" fill-rule="evenodd"/>
-    <circle cx="19.5" cy="19.5" r="2.3"/>
-    <!-- Ticks at the four points of the compass. -->
-    <path d="M18.4 13.6 L19.5 10.6 L20.6 13.6 Z"/>
-    <path d="M18.4 25.4 L19.5 28.4 L20.6 25.4 Z"/>
-    <path d="M13.6 18.4 L10.6 19.5 L13.6 20.6 Z"/>
-    <path d="M25.4 18.4 L28.4 19.5 L25.4 20.6 Z"/>
+  <g filter="url(#halo)" fill="#ffffff">
+    <circle cx="20.519" cy="20.519" r="5.365" fill="none" stroke="#ffffff" stroke-width="1.562"/>
+    <circle cx="20.519" cy="20.519" r="2.862"/>
+    <rect x="19.906" y="12.654" width="1.225" height="2.500"/>
+    <rect x="19.906" y="25.884" width="1.225" height="2.500"/>
+    <rect x="12.654" y="19.906" width="2.500" height="1.225"/>
+    <rect x="25.884" y="19.906" width="2.500" height="1.225"/>
   </g>
 </svg>

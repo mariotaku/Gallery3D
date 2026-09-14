@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 34 34"
+     g3d:name="icon_share" g3d:outputs="drawable=34x34">
+  <!-- The fallback drawable's share: the same arrows and ball drawn smaller
+       and lighter in their canvas, with a darker seam over the ball. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="9.084" x2="0" y2="27.237">
+      <stop offset="0" stop-color="rgb(244.131,244.131,244.131)"/>
+      <stop offset="1" stop-color="rgb(182,182,182)"/>
+    </linearGradient>
+    <path id="wing" d="M9.178 5.975 L22.269 11.55 L25.641 25.809
+             L13.975 27.832 L10.284 20.431 L5.667 19.731 Z"/>
+    <mask id="glyph" maskUnits="userSpaceOnUse" x="0" y="0" width="34" height="34">
+      <g transform="translate(3.5 3.7) scale(0.62)">
+        <use href="#wing" fill="#ffffff"/>
+        <use href="#wing" fill="#ffffff" transform="matrix(-1 0 0 1 45.307 0)"/>
+        <ellipse cx="22.589" cy="32.293" rx="7.461" ry="7.805" fill="#ffffff"/>
+        <polygon fill="#000000" points="22.509,11.512 26.1,14.786 22.509,21.254 19.275,14.786"/>
+        <ellipse cx="22.589" cy="32.293" rx="7.461" ry="7.805" fill="none" clip-path="url(#upper)"
+                 stroke="#000000" stroke-opacity="1" stroke-width="2.097"/>
+      </g>
+    </mask>
+    <clipPath id="upper">
+      <rect x="0" y="0" width="45" height="29.252"/>
+    </clipPath>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.876"/>
+      <feOffset dx="0" dy="0.5" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.991 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.422"/>
+      <feOffset dx="0" dy="1.1" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.396 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="34" height="34" fill="url(#face)" mask="url(#glyph)"/>
+  </g>
+  <g transform="translate(3.5 3.7) scale(0.62)">
+    <ellipse cx="22.589" cy="32.293" rx="7.461" ry="7.805" fill="none" clip-path="url(#upper)"
+             stroke="rgb(1.25,1.25,1.25)" stroke-opacity="0.194" stroke-width="2.097"/>
+  </g>
+</svg>

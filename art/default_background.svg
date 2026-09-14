@@ -1,41 +1,94 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 256 128"
      g3d:outputs="drawable=256x128">
-  <!-- The backdrop behind a wall with no photo to blur: a warm sky glowing
-       over dark hills, already soft. Its right edge fades out from x 190, as
-       the original's did. -->
+  <!-- The backdrop behind a wall with no photo to blur: a warm sky that turns
+       darker and browner toward both sides, a pale haze on the horizon, and
+       dark soft hills. The right edge fades out from x 188. -->
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5c4722"/>
-      <stop offset="0.62" stop-color="#8a7844"/>
-      <stop offset="1" stop-color="#6c6242"/>
+    <linearGradient id="sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="128">
+      <stop offset="0.004" stop-color="#70592e"/>
+      <stop offset="0.082" stop-color="#796435"/>
+      <stop offset="0.199" stop-color="#8b7943"/>
+      <stop offset="0.316" stop-color="#9c8e55"/>
+      <stop offset="0.434" stop-color="#a69d6a"/>
+      <stop offset="0.512" stop-color="#aca77e"/>
+      <stop offset="0.6" stop-color="rgb(69.8%,67.062%,44.019%)"/>
     </linearGradient>
-    <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="128" cy="78" r="175"
-                    gradientTransform="translate(128 78) scale(1 0.5) translate(-128 -78)">
-      <stop offset="0" stop-color="#c8c6ad" stop-opacity="1"/>
-      <stop offset="0.18" stop-color="#b6b292" stop-opacity="0.95"/>
-      <stop offset="0.5" stop-color="#a99a66" stop-opacity="0.7"/>
-      <stop offset="1" stop-color="#8a7844" stop-opacity="0"/>
+    <!-- Opacity of the side shade across the width, 1 at both edges. -->
+    <linearGradient id="sides" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="270" y2="0">
+      <stop offset="0" stop-color="rgb(27%,12.45%,0%)" stop-opacity="1"/>
+      <stop offset="0.037" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.9"/>
+      <stop offset="0.074" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.77"/>
+      <stop offset="0.111" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.64"/>
+      <stop offset="0.148" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.54"/>
+      <stop offset="0.185" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.44"/>
+      <stop offset="0.222" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.33"/>
+      <stop offset="0.259" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.26"/>
+      <stop offset="0.296" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.18"/>
+      <stop offset="0.333" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.1"/>
+      <stop offset="0.37" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.08"/>
+      <stop offset="0.407" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.05"/>
+      <stop offset="0.444" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.025"/>
+      <stop offset="0.5" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0"/>
+      <stop offset="0.556" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.025"/>
+      <stop offset="0.593" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.05"/>
+      <stop offset="0.63" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.08"/>
+      <stop offset="0.667" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.1"/>
+      <stop offset="0.704" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.18"/>
+      <stop offset="0.741" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.26"/>
+      <stop offset="0.778" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.33"/>
+      <stop offset="0.815" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.44"/>
+      <stop offset="0.852" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.54"/>
+      <stop offset="0.889" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.64"/>
+      <stop offset="0.926" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.77"/>
+      <stop offset="0.963" stop-color="rgb(27%,12.45%,0%)" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="rgb(27%,12.45%,0%)" stop-opacity="1"/>
+    </linearGradient>
+    <radialGradient id="haze">
+      <stop offset="0" stop-color="rgb(69.062%,74.062%,100%)" stop-opacity="1"/>
+      <stop offset="0.5" stop-color="rgb(69.062%,74.062%,100%)" stop-opacity="0.505"/>
+      <stop offset="1" stop-color="rgb(69.062%,74.062%,100%)" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#34332a"/>
-      <stop offset="0.45" stop-color="#1b1a13"/>
-      <stop offset="1" stop-color="#0e0e09"/>
+    <linearGradient id="ground" gradientUnits="userSpaceOnUse" x1="0" y1="90" x2="0" y2="128">
+      <stop offset="0" stop-color="rgb(12.637%,12.675%,8.95%)"/>
+      <stop offset="1" stop-color="rgb(5.4%,5.4%,4.15%)"/>
     </linearGradient>
-    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="190" y1="0" x2="255" y2="0">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    <filter id="soft" filterUnits="userSpaceOnUse" x="-40" y="0" width="340" height="200">
+      <feGaussianBlur stdDeviation="6.95"/>
+    </filter>
+    <!-- The original's alpha along x, sampled every 4 px from x 186. -->
+    <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="256" y2="0">
+      <stop offset="0.729" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.744" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.76" stop-color="#ffffff" stop-opacity="0.965"/>
+      <stop offset="0.775" stop-color="#ffffff" stop-opacity="0.914"/>
+      <stop offset="0.791" stop-color="#ffffff" stop-opacity="0.859"/>
+      <stop offset="0.807" stop-color="#ffffff" stop-opacity="0.796"/>
+      <stop offset="0.822" stop-color="#ffffff" stop-opacity="0.729"/>
+      <stop offset="0.838" stop-color="#ffffff" stop-opacity="0.655"/>
+      <stop offset="0.854" stop-color="#ffffff" stop-opacity="0.576"/>
+      <stop offset="0.869" stop-color="#ffffff" stop-opacity="0.502"/>
+      <stop offset="0.885" stop-color="#ffffff" stop-opacity="0.424"/>
+      <stop offset="0.9" stop-color="#ffffff" stop-opacity="0.345"/>
+      <stop offset="0.916" stop-color="#ffffff" stop-opacity="0.263"/>
+      <stop offset="0.932" stop-color="#ffffff" stop-opacity="0.184"/>
+      <stop offset="0.947" stop-color="#ffffff" stop-opacity="0.114"/>
+      <stop offset="0.963" stop-color="#ffffff" stop-opacity="0.055"/>
+      <stop offset="0.979" stop-color="#ffffff" stop-opacity="0.016"/>
+      <stop offset="0.994" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
     <mask id="edge" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="128">
       <rect x="0" y="0" width="256" height="128" fill="url(#fade)"/>
     </mask>
-    <filter id="haze" x="-10%" y="-40%" width="120%" height="180%">
-      <feGaussianBlur stdDeviation="3.5"/>
-    </filter>
   </defs>
   <g mask="url(#edge)">
     <rect x="0" y="0" width="256" height="128" fill="url(#sky)"/>
-    <rect x="0" y="0" width="256" height="128" fill="url(#glow)"/>
-    <path d="M-20 140 V96 C5 89 35 90 62 97 C88 104 108 90 138 88 C164 86 176 98 198 99 C224 100 246 92 276 94 V140 Z"
-          fill="url(#ground)" filter="url(#haze)"/>
+    <rect x="0" y="0" width="256" height="128" fill="url(#sides)" opacity="0.451"/>
+    <ellipse cx="131" cy="85.75" rx="64" ry="21" fill="url(#haze)" opacity="0.403"/>
+    <!-- The hill line at half strength, every 8 px. -->
+    <path transform="translate(0 -1.2)" fill="url(#ground)" filter="url(#soft)"
+          d="M -16 104 L -8 103 L 0 102 L 8 101 L 16 100 L 24 98 L 32 96 L 40 94 L 48 92 L 56 90 L 64 89
+             L 72 88 L 80 88 L 88 89 L 96 90 L 104 91 L 112 93 L 120 95 L 128 96 L 136 97 L 144 97
+             L 152 96 L 160 95 L 168 93 L 176 92 L 184 92 L 192 93 L 200 95 L 208 96 L 216 99 L 224 101
+             L 232 103 L 240 104 L 248 106 L 256 107.5 L 272 110 L 272 180 L -16 180 Z"/>
   </g>
 </svg>

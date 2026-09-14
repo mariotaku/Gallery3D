@@ -1,65 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 163 48"
      g3d:outputs="drawable-mdpi=163x48 drawable-hdpi=244x72">
-  <!-- scroller_new while dragged: the pill turns gold, lit from inside along
-       its edges, and glows around. scroller_pressed_new-small.svg is the
-       fallback folder's. -->
+  <!-- scroller_new while dragged: the pill in solid gold, deeper below the
+       middle, lit from inside along its edge and glowing yellow around, with
+       dark grip dots and a white arrow with a brown halo at each end.
+       scroller_pressed_new-small.svg is the fallback folder's. -->
   <defs>
-    <rect id="pill" x="11.8" y="12.3" width="139.1" height="35.3" rx="13"/>
+    <rect id="pill" x="11.255" y="12.845" width="139.7" height="34.312" rx="11.213" ry="16.794"/>
     <clipPath id="inside">
       <use href="#pill"/>
     </clipPath>
-    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="12.3" x2="0" y2="47.6">
-      <stop offset="0.232" stop-color="#fdd66a"/>
-      <stop offset="0.345" stop-color="#fdce5c"/>
-      <stop offset="0.459" stop-color="#fdc74d"/>
-      <stop offset="0.544" stop-color="#fec243"/>
-      <stop offset="0.571" stop-color="#fec040"/>
-      <stop offset="0.572" stop-color="#feba30"/>
-      <stop offset="0.686" stop-color="#feb21e"/>
-      <stop offset="0.771" stop-color="#fead14"/>
-      <stop offset="1" stop-color="#feaa10"/>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="12.845" x2="0" y2="47.147">
+      <stop offset="0.01" stop-color="#fde485"/>
+      <stop offset="0.221" stop-color="#fdd66b"/>
+      <stop offset="0.279" stop-color="#fed365"/>
+      <stop offset="0.375" stop-color="#fdcc58"/>
+      <stop offset="0.471" stop-color="#fdc64c"/>
+      <stop offset="0.548" stop-color="#fec142"/>
+      <stop offset="0.567" stop-color="#febb33"/>
+      <stop offset="0.606" stop-color="#feb729"/>
+      <stop offset="0.702" stop-color="#feb11c"/>
+      <stop offset="0.798" stop-color="#ffab13"/>
+      <stop offset="1" stop-color="#ffa40a"/>
     </linearGradient>
     <filter id="glow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
             color-interpolation-filters="sRGB">
       <feGaussianBlur in="SourceAlpha" stdDeviation="4.5" result="spread"/>
       <feComponentTransfer in="spread" result="strength">
-        <feFuncA type="linear" slope="1.72"/>
+        <feFuncA type="linear" slope="1.698"/>
       </feComponentTransfer>
-      <feFlood flood-color="#ffdb55"/>
+      <feFlood flood-color="#ffdc54"/>
       <feComposite in2="strength" operator="in"/>
     </filter>
     <filter id="light" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130">
       <feGaussianBlur stdDeviation="2.2"/>
     </filter>
-    <filter id="emboss" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
+    <filter id="halo" filterUnits="userSpaceOnUse" x="-40" y="-40" width="250" height="130"
             color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="#8a6000" flood-opacity="0.9"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1.825" flood-color="rgb(23.125%,12.75%,1%)" flood-opacity="0.489"/>
     </filter>
     <g id="dots">
-      <rect x="-1.4" y="0" width="2.85" height="2.4"/>
-      <rect x="7.35" y="0" width="2.85" height="2.4"/>
-      <rect x="16.1" y="0" width="2.85" height="2.4"/>
-      <rect x="24.85" y="0" width="2.85" height="2.4"/>
-      <rect x="33.6" y="0" width="2.85" height="2.4"/>
-      <rect x="42.35" y="0" width="2.85" height="2.4"/>
-      <rect x="51.1" y="0" width="2.85" height="2.4"/>
-      <rect x="59.85" y="0" width="2.85" height="2.4"/>
-      <rect x="68.6" y="0" width="2.85" height="2.4"/>
+      <rect x="0" y="0" width="2.925" height="2.2"/>
+      <rect x="8.75" y="0" width="2.925" height="2.2"/>
+      <rect x="17.5" y="0" width="2.925" height="2.2"/>
+      <rect x="26.25" y="0" width="2.925" height="2.2"/>
+      <rect x="35" y="0" width="2.925" height="2.2"/>
+      <rect x="43.75" y="0" width="2.925" height="2.2"/>
+      <rect x="52.5" y="0" width="2.925" height="2.2"/>
+      <rect x="61.25" y="0" width="2.925" height="2.2"/>
+      <rect x="70" y="0" width="2.925" height="2.2"/>
     </g>
+    <path id="arrow" d="M 21.441 31.42 L 32.082 25.337 V 37.674 Z"/>
   </defs>
   <use href="#pill" fill="#000000" filter="url(#glow)"/>
   <use href="#pill" fill="url(#gold)"/>
   <g clip-path="url(#inside)">
-    <use href="#pill" fill="none" stroke="#fff6c0" stroke-width="6" filter="url(#light)"/>
-    <use href="#pill" fill="none" stroke="#fff0aa" stroke-width="2"/>
+    <use href="#pill" fill="none" stroke="rgb(100%,95.3%,71.4%)" stroke-width="5.966" opacity="0.958" filter="url(#light)"/>
+    <use href="#pill" fill="none" stroke="rgb(100%,94%,64.875%)" stroke-opacity="0.875" stroke-width="1.4"/>
   </g>
-  <g fill="#000000" fill-opacity="0.19">
-    <use href="#dots" transform="translate(46.15 21.9)"/>
-    <use href="#dots" transform="translate(46.15 29.1)"/>
-    <use href="#dots" transform="translate(46.15 36.95)"/>
+  <g fill="#000000" fill-opacity="0.199">
+    <use href="#dots" transform="translate(44.67 22.1)"/>
+    <use href="#dots" transform="translate(44.67 29.2)"/>
+    <use href="#dots" transform="translate(44.67 37)"/>
   </g>
-  <g filter="url(#emboss)" fill="#ffe1a3" stroke="#c38c22" stroke-opacity="0.8" stroke-width="1" stroke-linejoin="round">
-    <path d="M 21 32 L 32 25 V 36.8 Z"/>
-    <path d="M 142 32 L 131 25 V 36.8 Z"/>
+  <g filter="url(#halo)" fill="#ffffff" fill-opacity="0.522">
+    <use href="#arrow"/>
+    <use href="#arrow" transform="translate(163 0) scale(-1 1)"/>
   </g>
 </svg>

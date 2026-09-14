@@ -1,20 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 40 40"
-     g3d:outputs="drawable=39x39 drawable-mdpi=40x40 drawable-hdpi=60x60">
-  <!-- Marks the camera's own album: a compact camera seen from the front. -->
+     g3d:outputs="drawable-mdpi=40x40">
+  <!-- A camera: a white body with a hump and a flash, and a see-through ring
+       around a white lens, where the halo shows. -->
   <defs>
-    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#e4e4e4"/>
-    </linearGradient>
-    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+    <filter id="halo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.350"/>
+      <feOffset dx="-0.200" dy="0.500"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.650 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.000"/>
+      <feOffset dx="-0.200" dy="0.900"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.594 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
+    <mask id="lens" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+      <rect width="40" height="40" fill="#ffffff"/>
+      <circle cx="19.825" cy="21.619" r="4.150" fill="#000000"/>
+    </mask>
   </defs>
-  <g filter="url(#drop)">
-    <!-- Body, with the viewfinder hump and the flash on top. -->
-    <path d="M11.8 15.1 H16.9 L17.5 13.3 H22.3 L22.9 15.1 H27.6 Q28.3 15.1 28.3 15.8 V26.5 Q28.3 27.2 27.6 27.2
-             H11.8 Q11.1 27.2 11.1 26.5 V15.8 Q11.1 15.1 11.8 15.1 Z" fill="url(#glyph)"/>
-    <path d="M11.9 14.4 L14.8 13.5 L15.1 14.6 Z" fill="url(#glyph)"/>
-    <circle cx="20.1" cy="21.3" r="3.3" fill="none" stroke="#3c3c3c" stroke-width="1.3"/>
+  <g filter="url(#halo)" fill="#ffffff">
+    <g mask="url(#lens)">
+      <rect x="11.800" y="15.775" width="16.250" height="10.825" rx="0.400"/>
+      <rect x="17.450" y="13.850" width="4.800" height="2.925" rx="0.400"/>
+      <rect x="11.900" y="14.250" width="2.550" height="1.150"/>
+    </g>
+    <circle cx="19.825" cy="21.619" r="2.600"/>
   </g>
 </svg>

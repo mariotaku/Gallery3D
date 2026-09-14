@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
+     g3d:name="icon_play" g3d:outputs="drawable-mdpi=30x30">
+  <!-- The selection bar's slideshow at mdpi: a grey play triangle with well
+       rounded left corners, lit from above. It casts a tight dark shadow
+       over a wider, fainter one. -->
+  <defs>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="7.307" x2="0" y2="22.093">
+      <stop offset="0" stop-color="rgb(225,225,225)"/>
+      <stop offset="1" stop-color="rgb(174,174,174)"/>
+    </linearGradient>
+    <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.117"/>
+      <feOffset dx="0" dy="0.5" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0.805 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.288"/>
+      <feOffset dx="0" dy="0.8" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0.196 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <polygon points="6.63,6 7.689,4.862 24.321,15.196 7.803,25.1 6.63,23.663"
+             fill="url(#face)" stroke="url(#face)" stroke-width="1.925" stroke-linejoin="round"/>
+  </g>
+</svg>

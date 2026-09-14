@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 72 72"
+     g3d:name="icon" g3d:outputs="drawable=48x48">
+  <!-- The fallback drawable's app icon: the same sunset print in its bevelled
+       grey frame, tuned to the fallback's own 48 pixel drawing. Drawn in hdpi
+       pixels. -->
+  <defs>
+    <linearGradient id="top" gradientUnits="userSpaceOnUse" x1="6.15" y1="0" x2="66.15" y2="0">
+      <stop offset="0.1" stop-color="rgb(93.5,93.5,93.5)"/>
+      <stop offset="0.5" stop-color="rgb(128.5,128.5,128.5)"/>
+      <stop offset="0.9" stop-color="rgb(93.5,93.5,93.5)"/>
+    </linearGradient>
+    <radialGradient id="sky" gradientUnits="userSpaceOnUse" cx="36.73" cy="44.088" r="31.392">
+      <stop offset="0" stop-color="#ffffdc"/>
+      <stop offset="0.136" stop-color="#fff9c1"/>
+      <stop offset="0.258" stop-color="#fff594"/>
+      <stop offset="0.379" stop-color="#ffe967"/>
+      <stop offset="0.5" stop-color="#f6d54c"/>
+      <stop offset="0.621" stop-color="#e2b737"/>
+      <stop offset="0.742" stop-color="#c99726"/>
+      <stop offset="0.864" stop-color="#b27b18"/>
+      <stop offset="1" stop-color="#935600"/>
+    </radialGradient>
+    <linearGradient id="hills" gradientUnits="userSpaceOnUse" x1="0" y1="46.569" x2="0" y2="55.675">
+      <stop offset="0" stop-color="#2e2d17"/>
+      <stop offset="1" stop-color="#111008"/>
+    </linearGradient>
+    <clipPath id="photo">
+      <rect x="14" y="14.8" width="43.965" height="43.092"/>
+    </clipPath>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.644"/>
+      <feOffset dx="0" dy="0.988" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.988 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.986"/>
+      <feOffset dx="0" dy="2" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.994 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <path fill="url(#top)" d="M6.15 6.15 H66.15 L61.112 11.675 H11.675 Z"/>
+    <path fill="rgb(79.25,79.25,79.25)" d="M6.15 6.15 L11.675 11.675 V61.112 L6.15 66.15 Z"/>
+    <path fill="rgb(79.25,79.25,79.25)" d="M66.15 6.15 V66.15 L61.112 61.112 V11.675 Z"/>
+    <path fill="rgb(43.887,43.887,43.887)" d="M6.15 66.15 L11.675 61.112 H61.112 L66.15 66.15 Z"/>
+  </g>
+  <rect x="6.15" y="6.15" width="60" height="1" fill="#ffffff" fill-opacity="0.229"/>
+  <rect x="11.675" y="12" width="50" height="49.45" fill="rgb(40,40,40)"/>
+  <rect x="12" y="12.589" width="47.7" height="47.225" fill="rgb(135,135,135)"/>
+  <rect x="13.3" y="13" width="45.7" height="46.3" fill="rgb(236.875,236.875,236.875)"/>
+  <g clip-path="url(#photo)">
+    <rect x="10" y="10" width="52" height="52" fill="url(#sky)"/>
+    <rect x="10" y="14.8" width="52" height="0.714" fill="#000000" fill-opacity="1.044"/>
+    <path transform="translate(0 -0.37)" fill="url(#hills)"
+          stroke="rgb(255,232,80)" stroke-opacity="0.275" stroke-width="0.4" stroke-linejoin="round"
+          d="M12 47.3 L18 47.1 L20 46.3 L22 45.3 L24 44.4 L26 43.3 L28 42.4 L29.5 42.1 L31 42.9 L33 44 L35 45 L37 45.6
+             L38.5 45.8 L40 45.2 L42 44.5 L44.5 44.2 L47 45 L49 46 L51 47 L53 47.8 L60 48.2 V62 H12 Z"/>
+    <rect x="10" y="56" width="52" height="1" fill="#000000"/>
+    <rect x="10" y="56.922" width="52" height="1" fill="#171611"/>
+  </g>
+</svg>

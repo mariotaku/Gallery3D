@@ -1,28 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 30 30"
-     g3d:outputs="drawable=34x34 drawable-mdpi=30x30 drawable-hdpi=45x45">
-  <!-- The selection bar's delete: a bin with a lid and handle. -->
+     g3d:name="icon_delete" g3d:outputs="drawable-hdpi=45x45">
+  <!-- The selection bar's delete at hdpi, drawn in mdpi units: a grey bin lit
+       from above. The slots, the groove under the lid and the space inside the
+       handle are cut through and tinted dark. It casts a tight shadow over a
+       wider, fainter one. -->
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f4f4f4"/>
-      <stop offset="1" stop-color="#b3b3b3"/>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="4.633" x2="0" y2="27.181">
+      <stop offset="0" stop-color="rgb(231,231,231)"/>
+      <stop offset="1" stop-color="rgb(168,168,168)"/>
     </linearGradient>
-    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fafafa"/>
-      <stop offset="1" stop-color="#cfcfcf"/>
-    </linearGradient>
+    <mask id="bin" maskUnits="userSpaceOnUse" x="0" y="0" width="30" height="30">
+      <rect fill="#ffffff" x="10.331" y="4.467" width="9.278" height="5" rx="2.438"/>
+      <rect fill="#000000" x="12.474" y="6.687" width="5.076" height="3" rx="0.3"/>
+      <rect fill="#ffffff" x="5.434" y="7.902" width="18.987" height="3.461"/>
+      <polygon fill="#ffffff" points="7.866,12.068 22.225,12.068 22.082,26.05 7.762,26.05"/>
+      <g fill="#000000">
+        <rect x="10.575" y="14.613" width="1.5" height="9.05"/>
+        <rect x="14.3" y="14.613" width="1.5" height="9.05"/>
+        <rect x="18.025" y="14.613" width="1.5" height="9.05"/>
+      </g>
+    </mask>
     <filter id="drop" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="0.8" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.7"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.949"/>
+      <feOffset dx="0" dy="0.5" result="nb"/>
+      <feColorMatrix in="nb" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0.841 0" result="near"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.136"/>
+      <feOffset dx="0" dy="0.568" result="fb"/>
+      <feColorMatrix in="fb" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0 0.25  0 0 0 0.493 0" result="far"/>
+      <feMerge>
+        <feMergeNode in="far"/>
+        <feMergeNode in="near"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
-  <g filter="url(#drop)" stroke="#2a2a2a" stroke-opacity="0.45" stroke-width="0.4">
-    <path d="M10.6 8.2 V5.6 Q10.6 4.7 11.5 4.7 H18.5 Q19.4 4.7 19.4 5.6 V8.2 H17.9 V6.2 H12.1 V8.2 Z" fill="url(#lid)"/>
-    <rect x="5.6" y="7.9" width="18.8" height="3.7" rx="0.6" fill="url(#lid)"/>
-    <path d="M7.4 11.6 H22.6 L22 25.1 Q21.95 25.9 21.1 25.9 H8.9 Q8.05 25.9 8 25.1 Z" fill="url(#face)"/>
+  <g filter="url(#drop)">
+    <rect x="0" y="0" width="30" height="30" fill="url(#face)" mask="url(#bin)"/>
   </g>
-  <!-- Slots, cut in with a lit lower edge. -->
-  <g fill="#3a3a3a">
-    <rect x="10.4" y="13.6" width="1.5" height="9.8" rx="0.5"/>
-    <rect x="14.25" y="13.6" width="1.5" height="9.8" rx="0.5"/>
-    <rect x="18.1" y="13.6" width="1.5" height="9.8" rx="0.5"/>
+  <g fill="rgb(85.307,85.307,85.307)" fill-opacity="0.119">
+    <rect x="10.575" y="14.613" width="1.5" height="9.05"/>
+    <rect x="14.3" y="14.613" width="1.5" height="9.05"/>
+    <rect x="18.025" y="14.613" width="1.5" height="9.05"/>
+    <rect x="12.474" y="6.687" width="5.06" height="0.504"/>
+    <rect x="5.434" y="11.629" width="18.987" height="0.699"/>
   </g>
 </svg>

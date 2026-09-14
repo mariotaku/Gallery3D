@@ -1,43 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 66 42"
      g3d:outputs="drawable=66x42">
-  <!-- gallery_zoom_out while pressed: gold, rimmed and glowing like
-       gallery_zoom_in_touch, turned round. -->
+  <!-- The zoom out tab held down: gallery_zoom_out.svg's shape in solid gold,
+       darker toward the bottom, edged in yellow and glowing, with a cream
+       magnifier and its brown edge. -->
   <defs>
-    <path id="tab" d="M 65 7.4 H 16.5 A 9 9 0 0 0 7.5 16.4 V 25.3 A 9 9 0 0 0 16.5 34.3 H 65 Z"/>
-    <clipPath id="inside">
-      <use href="#tab"/>
-    </clipPath>
-    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="8.5" x2="0" y2="32.5">
-      <stop offset="0" stop-color="#fad54f"/>
-      <stop offset="0.167" stop-color="#f6cf4a"/>
-      <stop offset="0.333" stop-color="#f2c43d"/>
-      <stop offset="0.5" stop-color="#edb62d"/>
-      <stop offset="0.667" stop-color="#e8a91e"/>
-      <stop offset="0.833" stop-color="#e39c14"/>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="8.054" x2="0" y2="30.108">
+      <stop offset="0" stop-color="#fad64f"/>
+      <stop offset="0.592" stop-color="#edb62d"/>
       <stop offset="1" stop-color="#df910f"/>
     </linearGradient>
-    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80"
-            color-interpolation-filters="sRGB">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="2.8" result="spread"/>
-      <feComponentTransfer in="spread" result="strength">
-        <feFuncA type="linear" slope="2"/>
-      </feComponentTransfer>
-      <feFlood flood-color="#eaae2a"/>
-      <feComposite in2="strength" operator="in"/>
+    <!-- The tab stops square short of the right edge of the canvas. -->
+    <clipPath id="glowEnd">
+      <rect x="-100" y="-20" width="100" height="80" transform="translate(67 0)"/>
+    </clipPath>
+    <clipPath id="edgeEnd">
+      <rect x="-100" y="-20" width="100" height="80" transform="translate(65 0)"/>
+    </clipPath>
+    <clipPath id="goldEnd">
+      <rect x="-100" y="-20" width="100" height="80" transform="translate(64 0)"/>
+    </clipPath>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="80">
+      <feGaussianBlur stdDeviation="2.2"/>
     </filter>
-    <filter id="drop" filterUnits="userSpaceOnUse" x="-20" y="-20" width="110" height="80"
-            color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="0.5" stdDeviation="1.1" flood-color="#3a2600" flood-opacity="1"/>
+    <filter id="edge" filterUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="80">
+      <feGaussianBlur stdDeviation="2.4"/>
     </filter>
+    <g id="glyph">
+      <circle cx="25.944" cy="20.944" r="7.203" fill="none" stroke-width="2.688"/>
+      <line x1="32.4" y1="27.4" x2="37.95" y2="32.7" stroke-width="2.844" stroke-linecap="round"/>
+      <rect x="23" y="20" width="6.6" height="2" stroke="none"/>
+    </g>
   </defs>
-  <use href="#tab" fill="#000000" filter="url(#glow)"/>
-  <use href="#tab" fill="url(#gold)"/>
-  <g clip-path="url(#inside)">
-    <use href="#tab" fill="none" stroke="#f8cb14" stroke-width="2"/>
+
+  <g opacity="0.987" filter="url(#glow)">
+    <rect x="6.112" y="5.115" width="100" height="31" rx="12.388" fill="#e9ad2b" clip-path="url(#glowEnd)"/>
   </g>
-  <g filter="url(#drop)" fill="#fcf9ec">
-    <circle cx="26" cy="20.9" r="7.05" fill="none" stroke="#fcf9ec" stroke-width="2.9"/>
-    <rect x="22.35" y="19.85" width="7.3" height="2.1"/>
-    <line x1="32.45" y1="27.35" x2="38.05" y2="32.95" stroke="#fcf9ec" stroke-width="2.8" stroke-linecap="round"/>
-  </g>
+  <rect x="7.575" y="6.75" width="100" height="27.758" rx="11.25" fill="rgb(97%,79.229%,10.167%)" clip-path="url(#edgeEnd)"/>
+  <rect x="9.221" y="8.054" width="100" height="25.198" rx="8.688" fill="url(#gold)" clip-path="url(#goldEnd)"/>
+
+  <use href="#glyph" fill="#9a6400" stroke="#9a6400" opacity="0.875" filter="url(#edge)"/>
+  <use href="#glyph" fill="rgb(98.5%,98.5%,94.375%)" stroke="rgb(98.5%,98.5%,94.375%)" opacity="0.997"/>
 </svg>
