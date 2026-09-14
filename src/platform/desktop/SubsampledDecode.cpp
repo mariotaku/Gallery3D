@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <csetjmp>
-#include <vector>
 
 #include <jpeglib.h>
 
@@ -45,9 +44,8 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     cinfo.err = jpeg_std_error(&error.base);
     error.base.error_exit = jumpOnFatalError;
 
-    // Above the jump target, so a file libjpeg rejects does not leak these.
+    // Above the jump target, so a file libjpeg rejects does not leak it.
     Bitmap decoded;
-    std::vector<uint8_t> row;
 
     if (setjmp(error.escape) == 0) {
         jpeg_create_decompress(&cinfo);
@@ -65,30 +63,21 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             }
             cinfo.scale_num = numerator;
             cinfo.scale_denom = 8;
-            cinfo.out_color_space = JCS_RGB;
+            // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
+            // straight into the bitmap. JPEG carries no alpha, so opaque
+            // pixels are already premultiplied.
+            cinfo.out_color_space = JCS_EXT_RGBA;
             jpeg_start_decompress(&cinfo);
 
             const int width = (int)cinfo.output_width;
             const int height = (int)cinfo.output_height;
             decoded = Bitmap(width, height);
             if (decoded.valid()) {
-                row.resize((size_t)width * 3);
+                decoded.markOpaque();
                 for (int line = 0; line < height; ++line) {
-                    JSAMPROW rows[1] = {row.data()};
+                    JSAMPROW rows[1] = {decoded.pixels() + (size_t)line * (size_t)width * 4};
                     if (jpeg_read_scanlines(&cinfo, rows, 1) != 1) {
                         break;
-                    }
-                    // JPEG carries no alpha, so opaque pixels are already
-                    // premultiplied.
-                    const uint8_t *source = row.data();
-                    uint8_t *destination = decoded.pixels() + (size_t)line * (size_t)width * 4;
-                    for (int column = 0; column < width; ++column) {
-                        destination[0] = source[0];
-                        destination[1] = source[1];
-                        destination[2] = source[2];
-                        destination[3] = 255;
-                        source += 3;
-                        destination += 4;
                     }
                 }
             }

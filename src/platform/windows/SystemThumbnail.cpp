@@ -146,17 +146,23 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
 
     // A handler that makes its thumbnail without alpha can leave the channel
     // at zero, which would draw nothing. Nothing in such a picture is meant to
-    // be transparent.
+    // be transparent. The same pass finds a thumbnail that is opaque already,
+    // so the upload does not read it again.
     uint8_t *pixel = bitmap.pixels();
     const uint8_t *end = pixel + (size_t)bitmap.width() * bitmap.height() * 4;
     bool anyAlpha = false;
-    for (const uint8_t *p = pixel; p < end && !anyAlpha; p += 4) {
-        anyAlpha = p[3] != 0;
+    bool opaque = true;
+    for (const uint8_t *p = pixel; p < end && (opaque || !anyAlpha); p += 4) {
+        anyAlpha = anyAlpha || p[3] != 0;
+        opaque = opaque && p[3] == 255;
     }
     if (!anyAlpha) {
         for (; pixel < end; pixel += 4) {
             pixel[3] = 255;
         }
+    }
+    if (!anyAlpha || opaque) {
+        bitmap.markOpaque();
     }
     return bitmap;
 }

@@ -140,6 +140,62 @@ TEST(blending_past_full_strength_stops_at_full_coverage) {
     CHECK_EQ((int)pixelAt(dst, 0, 0)[3], 255);
 }
 
+TEST(reordering_exchanges_red_and_blue_only_between_orders) {
+    const Bitmap rgba = solid(2, 1, 10, 20, 30, 255);
+    CHECK(rgba.order() == PixelOrder::RGBA);
+    const Bitmap same = rgba.inOrder(PixelOrder::RGBA);
+    CHECK_EQ((int)pixelAt(same, 1, 0)[0], 10);
+    const Bitmap bgra = rgba.inOrder(PixelOrder::BGRA);
+    CHECK(bgra.order() == PixelOrder::BGRA);
+    CHECK_EQ((int)pixelAt(bgra, 1, 0)[0], 30);
+    CHECK_EQ((int)pixelAt(bgra, 1, 0)[1], 20);
+    CHECK_EQ((int)pixelAt(bgra, 1, 0)[2], 10);
+    CHECK_EQ((int)pixelAt(bgra, 1, 0)[3], 255);
+    CHECK_EQ((int)pixelAt(bgra, 1, 0)[bgra.redOffset()], 10);
+}
+
+TEST(resizing_cropping_and_padding_keep_the_order) {
+    const Bitmap bgra = solid(8, 8, 10, 20, 30, 255).inOrder(PixelOrder::BGRA);
+    for (const Bitmap &derived :
+         {bgra.scaled(4, 4), bgra.cropped(2, 2, 4, 4), bgra.paddedTo(16, 16), bgra.coverCropped(4, 2)}) {
+        CHECK(derived.order() == PixelOrder::BGRA);
+        CHECK_NEAR(pixelAt(derived, 1, 1)[derived.redOffset()], 10, 1);
+        CHECK_NEAR(pixelAt(derived, 1, 1)[derived.blueOffset()], 30, 1);
+    }
+}
+
+TEST(canvas_draws_between_orders_channel_by_channel) {
+    // Red art decoded as BGRA, drawn into an RGBA canvas.
+    Bitmap canvas(1, 1, PixelOrder::RGBA);
+    const Bitmap art = solid(1, 1, 200, 0, 0, 255).inOrder(PixelOrder::BGRA);
+    Canvas::blit(canvas, art, 0, 0);
+    CHECK_EQ((int)pixelAt(canvas, 0, 0)[0], 200);
+    CHECK_EQ((int)pixelAt(canvas, 0, 0)[2], 0);
+    Bitmap stamped(1, 1, PixelOrder::RGBA);
+    Canvas::stamp(stamped, art, 0, 0);
+    CHECK_EQ((int)pixelAt(stamped, 0, 0)[0], 200);
+    // A red fill lands in a BGRA canvas's red byte.
+    Bitmap bgraCanvas(1, 1, PixelOrder::BGRA);
+    Canvas::fillRect(bgraCanvas, 0, 0, 1, 1, 1.0f, 0.0f, 0.0f, 1.0f);
+    CHECK_EQ((int)pixelAt(bgraCanvas, 0, 0)[2], 255);
+    CHECK_EQ((int)pixelAt(bgraCanvas, 0, 0)[0], 0);
+}
+
+TEST(a_bitmap_known_opaque_stays_known_through_resizing_and_cropping) {
+    Bitmap photo = solid(8, 8, 10, 20, 30, 255);
+    CHECK(!photo.knownOpaque());
+    photo.markOpaque();
+    CHECK(!photo.hasTransparency());
+    for (const Bitmap &derived : {photo.scaled(4, 4), photo.cropped(2, 2, 4, 4), photo.coverCropped(4, 2),
+                                  photo.inOrder(PixelOrder::BGRA), photo.paddedTo(16, 16, true)}) {
+        CHECK(derived.knownOpaque());
+    }
+    // Transparent padding is not opaque, and is found by reading the pixels.
+    const Bitmap padded = photo.paddedTo(16, 16);
+    CHECK(!padded.knownOpaque());
+    CHECK(padded.hasTransparency());
+}
+
 TEST(next_power_of_two_is_what_the_padding_relies_on) {
     CHECK_EQ(Shared::nextPowerOf2(1), 1);
     CHECK_EQ(Shared::nextPowerOf2(2), 2);

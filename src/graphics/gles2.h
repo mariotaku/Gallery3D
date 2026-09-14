@@ -63,6 +63,9 @@ typedef std::ptrdiff_t GLsizeiptr;
 
 #define GL_RGB 0x1907
 #define GL_RGBA 0x1908
+// Desktop GL's BGRA, and GL_BGRA_EXT from GL_EXT_texture_format_BGRA8888 on
+// GL ES, which has the same value.
+#define GL_BGRA 0x80E1
 #define GL_LUMINANCE 0x1909
 #define GL_LUMINANCE_ALPHA 0x190A
 #define GL_UNSIGNED_SHORT_5_6_5 0x8363
@@ -163,6 +166,8 @@ typedef std::ptrdiff_t GLsizeiptr;
                            const void *pixels))                                                        \
     X(void, glTexParameterf, (GLenum target, GLenum pname, GLfloat param))                             \
     X(void, glTexParameteri, (GLenum target, GLenum pname, GLint param))                               \
+    X(void, glTexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,  \
+                              GLsizei height, GLenum format, GLenum type, const void *pixels))         \
     X(void, glUniform1f, (GLint location, GLfloat v0))                                                 \
     X(void, glUniform1i, (GLint location, GLint v0))                                                   \
     X(void, glUniform4f, (GLint loc, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3))                  \

@@ -248,6 +248,9 @@ class RenderView {
     uint64_t mFrameCounter = 0;
     // 1 means the extension is missing, and then no mip chains are built.
     float mMaxAnisotropy = 1.0f;
+    // The internal format a BGRA bitmap uploads with, or 0 where the context
+    // takes no BGRA and the bitmap is swapped to RGBA first.
+    GLint mBgraInternalFormat = 0;
 
     std::map<std::string, TexturePtr> mCacheScaled;
     std::map<std::string, TexturePtr> mCacheUnscaled;

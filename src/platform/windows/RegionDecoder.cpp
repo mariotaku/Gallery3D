@@ -66,6 +66,9 @@ class WicRegionDecoder : public RegionDecoder {
     UINT mSourceHeight = 0;
     // Whether mSource reduces while it decodes, which JPEG does.
     bool mReducesWhileDecoding = false;
+    // Whether mSource's format has no alpha, so every level and tile is marked
+    // opaque.
+    bool mOpaque = false;
     // The frame's embedded thumbnail in the frame's shape, if it has one. A
     // HEIF photo's is about a quarter of its width.
     Wic::Ptr<IWICBitmapSource> mThumbnail;
@@ -126,6 +129,8 @@ bool WicRegionDecoder::open(const std::string &path) {
         mReducesWhileDecoding = container == GUID_ContainerFormatJpeg;
     }
 
+    mOpaque = !Wic::hasAlpha(mSource.get());
+
     if (!mReducesWhileDecoding) {
         Wic::Ptr<IWICBitmapSource> thumbnail;
         UINT thumbnailWidth = 0;
@@ -152,6 +157,9 @@ const Bitmap &WicRegionDecoder::levelFor(int sample) {
         Bitmap thumbnail = Wic::copy(Wic::inSrgb(mThumbnail.get(), mProfile.get()).get(), nullptr);
         if (thumbnail.valid()) {
             mLevel = std::move(thumbnail);
+            if (mOpaque) {
+                mLevel.markOpaque();
+            }
             return mLevel;
         }
     }
@@ -162,6 +170,9 @@ const Bitmap &WicRegionDecoder::levelFor(int sample) {
         return mLevel;
     }
     mLevel = Wic::copy(Wic::inSrgb(scaler.get(), mProfile.get()).get(), nullptr);
+    if (mOpaque) {
+        mLevel.markOpaque();
+    }
     return mLevel;
 }
 
@@ -233,6 +244,9 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
     }
     if (!tile.valid()) {
         return Bitmap();
+    }
+    if (mOpaque) {
+        tile.markOpaque();
     }
     if (tile.width() == outWidth && tile.height() == outHeight) {
         return tile;

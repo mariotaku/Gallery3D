@@ -157,8 +157,9 @@ TEST(hovering_close_paints_it_rather_than_only_the_glyph) {
 
     // Red, not a grey wash, so it reads as the destructive one.
     const size_t sample = ((size_t)2 * (size_t)hovered.width() + (size_t)(third * 2 + 2)) * 4;
-    CHECK(hovered.pixels()[sample] > hovered.pixels()[sample + 1]);
-    CHECK(hovered.pixels()[sample] > hovered.pixels()[sample + 2]);
+    const int red = hovered.pixels()[sample + (size_t)hovered.redOffset()];
+    CHECK(red > hovered.pixels()[sample + 1]);
+    CHECK(red > hovered.pixels()[sample + (size_t)hovered.blueOffset()]);
 
     // And the pointer moving away puts it back.
     buttons.onPointerMoved(10.0f, 10.0f);

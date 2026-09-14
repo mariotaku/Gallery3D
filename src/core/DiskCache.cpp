@@ -12,7 +12,7 @@ namespace {
 const uint32_t kMagic = 0x54443347u;
 // Bump this whenever the layout below changes, so old entries are dropped
 // instead of misread.
-const uint32_t kVersion = 1u;
+const uint32_t kVersion = 3u;
 const uint64_t kMaxBytes = 256ull * 1024ull * 1024ull;
 // Evicting down to the cap alone would make every following put evict again.
 // Free a tenth of the store instead.
@@ -27,10 +27,16 @@ struct Header {
     int32_t width;
     int32_t height;
     uint32_t keyLength;
+    // The pixels' order as it was decoded, 0 for RGBA and 1 for BGRA, so an
+    // entry comes back the way it went in.
+    uint32_t order;
+    // 1 when the decoder knew every pixel is opaque, so the entry keeps
+    // saving the upload its scan for transparency.
+    uint32_t opaque;
 };
 
 // The header goes to disk as raw bytes, so it must not grow padding.
-static_assert(sizeof(Header) == 20, "DiskCache header layout changed");
+static_assert(sizeof(Header) == 28, "DiskCache header layout changed");
 
 uint64_t hashKey(const std::string &key) {
     // FNV-1a. The full key goes into the file as well, so a collision is
@@ -138,12 +144,15 @@ Bitmap DiskCache::get(const std::string &key) {
     std::string storedKey;
     if (readFully(stream, &header, sizeof(header)) && header.magic == kMagic &&
         header.version == kVersion && header.width > 0 && header.height > 0 &&
-        header.keyLength == key.size()) {
+        header.keyLength == key.size() && header.order <= 1u) {
         storedKey.resize(header.keyLength);
         if (readFully(stream, &storedKey[0], storedKey.size()) && storedKey == key) {
-            Bitmap bitmap(header.width, header.height);
+            Bitmap bitmap(header.width, header.height, (header.order == 1u) ? PixelOrder::BGRA : PixelOrder::RGBA);
             size_t bytes = (size_t)header.width * (size_t)header.height * 4;
             if (bitmap.valid() && readFully(stream, bitmap.pixels(), bytes)) {
+                if (header.opaque == 1u) {
+                    bitmap.markOpaque();
+                }
                 result = std::move(bitmap);
             }
         }
@@ -174,6 +183,8 @@ void DiskCache::put(const std::string &key, const Bitmap &bitmap) {
     header.width = bitmap.width();
     header.height = bitmap.height();
     header.keyLength = (uint32_t)key.size();
+    header.order = (bitmap.order() == PixelOrder::BGRA) ? 1u : 0u;
+    header.opaque = bitmap.knownOpaque() ? 1u : 0u;
     size_t pixelBytes = (size_t)bitmap.width() * (size_t)bitmap.height() * 4;
     bool written = writeFully(stream, &header, sizeof(header)) &&
                    writeFully(stream, key.data(), key.size()) &&

@@ -81,15 +81,22 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     UINT sourceWidth = 0;
     UINT sourceHeight = 0;
     source->GetSize(&sourceWidth, &sourceHeight);
+    // A format with no alpha channel decodes fully opaque, which saves the
+    // upload a pass over the pixels to find that out.
+    const bool alpha = Wic::hasAlpha(source.get());
     if (sourceWidth == targetWidth && sourceHeight == targetHeight) {
-        return Wic::copy(Wic::inSrgb(source.get(), profile.get()).get(), nullptr);
+        Bitmap bitmap = Wic::copy(Wic::inSrgb(source.get(), profile.get()).get(), nullptr);
+        if (!alpha) {
+            bitmap.markOpaque();
+        }
+        return bitmap;
     }
 
     // With alpha, converted to sRGB while the colour is still straight, which
     // is what a profile describes, then scaled once premultiplied, so a
     // transparent pixel lends no colour to its neighbours.
     Wic::Ptr<IWICBitmapScaler> scaler;
-    if (Wic::hasAlpha(source.get())) {
+    if (alpha) {
         const Wic::Ptr<IWICBitmapSource> straight = Wic::inSrgb(source.get(), profile.get());
         Wic::Ptr<IWICFormatConverter> premultiplied;
         if (!straight || FAILED(imaging->CreateFormatConverter(premultiplied.put())) ||
@@ -108,7 +115,9 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
         FAILED(scaler->Initialize(source.get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant))) {
         return Bitmap();
     }
-    return Wic::copy(Wic::inSrgb(scaler.get(), profile.get()).get(), nullptr);
+    Bitmap bitmap = Wic::copy(Wic::inSrgb(scaler.get(), profile.get()).get(), nullptr);
+    bitmap.markOpaque();
+    return bitmap;
 }
 
 std::unordered_set<std::string> installedExtensions() {
@@ -166,6 +175,10 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     return decoder ? decode(decoder.get(), maxEdge) : Bitmap();
 }
 
+PixelOrder Bitmap::decodeOrder() {
+    return PixelOrder::BGRA;
+}
+
 bool Bitmap::decodesExtension(const std::string &extension) {
     // A scan asks once per file. Codecs register when they are installed, so
     // the list is gathered once and holds for the run.
@@ -194,7 +207,9 @@ bool Bitmap::savePng(const std::string &path) const {
     Wic::Ptr<IWICBitmapFrameEncode> frame;
     WICPixelFormatGUID format = GUID_WICPixelFormat32bppRGBA;
     // PNG stores straight alpha, and these pixels are premultiplied.
-    return SUCCEEDED(imaging->CreateBitmapFromMemory((UINT)mWidth, (UINT)mHeight, GUID_WICPixelFormat32bppPRGBA,
+    const WICPixelFormatGUID premultiplied =
+        (mOrder == PixelOrder::RGBA) ? GUID_WICPixelFormat32bppPRGBA : GUID_WICPixelFormat32bppPBGRA;
+    return SUCCEEDED(imaging->CreateBitmapFromMemory((UINT)mWidth, (UINT)mHeight, premultiplied,
                                                      (UINT)mWidth * 4, (UINT)mPixels.size(),
                                                      (BYTE *)mPixels.data(), pixels.put())) &&
            SUCCEEDED(imaging->CreateFormatConverter(straight.put())) &&

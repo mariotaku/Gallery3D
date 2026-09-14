@@ -15,18 +15,33 @@ struct PendingDecode {
     std::vector<uint8_t> bytes;
     int maxEdge = 0;
     ImageDecode::Callback done;
+    // Where the JS side writes the decoded pixels.
+    Bitmap bitmap;
 };
 
-// Handed back from JS once the pixels are in memory. `pixels` is a buffer the
-// JS side allocated with malloc and this side owns from here on.
-extern "C" EMSCRIPTEN_KEEPALIVE void gallery3dDecodeDone(void *handle, uint8_t *pixels, int width,
-                                                         int height) {
+// The pixels of a decoded picture of width by height go here, straight from
+// the canvas that read them. Null when the bitmap cannot be allocated.
+extern "C" EMSCRIPTEN_KEEPALIVE uint8_t *gallery3dDecodeTarget(void *handle, int width, int height) {
+    auto *pending = (PendingDecode *)handle;
+    pending->bitmap = Bitmap(width, height);
+    return pending->bitmap.valid() ? pending->bitmap.pixels() : nullptr;
+}
+
+// Handed back from JS once the pixels are in the target, or with written false
+// when the browser could not decode them.
+extern "C" EMSCRIPTEN_KEEPALIVE void gallery3dDecodeDone(void *handle, int written) {
     std::unique_ptr<PendingDecode> pending((PendingDecode *)handle);
     Bitmap bitmap;
-    if (pixels != nullptr && width > 0 && height > 0) {
-        // Convert browser straight-alpha pixels to premultiplied Bitmap storage.
-        bitmap = Bitmap::fromStraightRGBA(pixels, width, height);
-        free(pixels);
+    if (written != 0) {
+        bitmap = std::move(pending->bitmap);
+        const std::vector<uint8_t> &bytes = pending->bytes;
+        if (bytes.size() > 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
+            // A JPEG has no alpha, so it is opaque and premultiplied as it is.
+            bitmap.markOpaque();
+        } else {
+            // The canvas hands out straight alpha.
+            bitmap.premultiply();
+        }
     }
     if (pending->done) {
         pending->done(std::move(bitmap));
@@ -48,7 +63,7 @@ void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done) {
         }
         return;
     }
-    auto *pending = new PendingDecode{std::move(bytes), maxEdge, std::move(done)};
+    auto *pending = new PendingDecode{std::move(bytes), maxEdge, std::move(done), Bitmap()};
 
     // createImageBitmap decodes and downsizes asynchronously. Read pixels through
     // OffscreenCanvas because ImageBitmap has no direct pixel-read API.
@@ -74,13 +89,15 @@ void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done) {
                 context.drawImage(image, 0, 0, width, height);
                 image.close();
                 var pixels = context.getImageData(0, 0, width, height).data;
-                var buffer = _malloc(pixels.length);
-                HEAPU8.set(pixels, buffer);
-                _gallery3dDecodeDone(handle, buffer, width, height);
+                var target = _gallery3dDecodeTarget(handle, width, height);
+                if (target) {
+                    HEAPU8.set(pixels, target);
+                }
+                _gallery3dDecodeDone(handle, target ? 1 : 0);
             })
             .catch(function (error) {
                 console.error('decode failed', error);
-                _gallery3dDecodeDone(handle, 0, 0, 0);
+                _gallery3dDecodeDone(handle, 0);
             });
     }, (int)(intptr_t)pending, (int)(intptr_t)pending->bytes.data(), (int)pending->bytes.size(), maxEdge);
 }

@@ -29,7 +29,9 @@ Bitmap CanvasTexture::load(RenderView *view) {
     if (mCanvasWidth <= 0 || mCanvasHeight <= 0) {
         return Bitmap();
     }
-    Bitmap canvas(mCanvasWidth, mCanvasHeight);
+    // In the order decoded art comes in, so the art drawn into it is copied
+    // without exchanging channels.
+    Bitmap canvas(mCanvasWidth, mCanvasHeight, Bitmap::decodeOrder());
     renderCanvas(canvas, mCanvasWidth, mCanvasHeight);
     return canvas;
 }

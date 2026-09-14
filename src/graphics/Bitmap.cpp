@@ -48,7 +48,7 @@ int64_t parseExifDate(const uint8_t *text, size_t length) {
 
 // Multiplies each colour channel by its alpha. The renderer blends with
 // GL_ONE / GL_ONE_MINUS_SRC_ALPHA, which expects premultiplied source pixels.
-void premultiply(uint8_t *pixels, size_t count) {
+void premultiplyPixels(uint8_t *pixels, size_t count) {
     for (size_t i = 0; i < count; ++i) {
         uint8_t *p = pixels + i * 4;
         unsigned a = p[3];
@@ -61,17 +61,41 @@ void premultiply(uint8_t *pixels, size_t count) {
     }
 }
 
+// SDL's name for a bitmap's byte order, so a surface over its pixels is read
+// in place rather than converted.
+SDL_PixelFormat surfaceFormatFor(PixelOrder order) {
+    return (order == PixelOrder::RGBA) ? SDL_PIXELFORMAT_RGBA32 : SDL_PIXELFORMAT_BGRA32;
+}
+
 SDL_Surface *toSurface(const Bitmap &bitmap) {
     if (!bitmap.valid()) {
         return nullptr;
     }
-    return SDL_CreateSurfaceFrom(bitmap.width(), bitmap.height(), SDL_PIXELFORMAT_RGBA32,
+    return SDL_CreateSurfaceFrom(bitmap.width(), bitmap.height(), surfaceFormatFor(bitmap.order()),
                                  (void *)bitmap.pixels(), bitmap.width() * 4);
 }
 
 }  // namespace
 
-Bitmap::Bitmap(int width, int height) : mWidth(width), mHeight(height) {
+void Bitmap::reorder(PixelOrder order) {
+    if (order == mOrder) {
+        return;
+    }
+    mOrder = order;
+    uint8_t *pixel = mPixels.data();
+    const uint8_t *end = pixel + mPixels.size();
+    for (; pixel < end; pixel += 4) {
+        std::swap(pixel[0], pixel[2]);
+    }
+}
+
+Bitmap Bitmap::inOrder(PixelOrder order) const {
+    Bitmap result = *this;
+    result.reorder(order);
+    return result;
+}
+
+Bitmap::Bitmap(int width, int height, PixelOrder order) : mWidth(width), mHeight(height), mOrder(order) {
     if (width > 0 && height > 0) {
         mPixels.assign((size_t)width * (size_t)height * 4, 0);
     } else {
@@ -95,18 +119,8 @@ bool Bitmap::readFile(const std::string &path, std::vector<uint8_t> *bytes) {
     return !bytes->empty();
 }
 
-Bitmap Bitmap::fromStraightRGBA(const uint8_t *pixels, int width, int height) {
-    if (pixels == nullptr || width <= 0 || height <= 0) {
-        return Bitmap();
-    }
-    Bitmap result(width, height);
-    if (!result.valid()) {
-        return result;
-    }
-    const size_t count = (size_t)width * (size_t)height;
-    std::memcpy(result.pixels(), pixels, count * 4);
-    premultiply(result.pixels(), count);
-    return result;
+void Bitmap::premultiply() {
+    premultiplyPixels(mPixels.data(), (size_t)mWidth * (size_t)mHeight);
 }
 
 Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
@@ -120,12 +134,13 @@ Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
     if (!src) {
         return Bitmap();
     }
-    SDL_Surface *dst = SDL_CreateSurface(newWidth, newHeight, SDL_PIXELFORMAT_RGBA32);
+    SDL_Surface *dst = SDL_CreateSurface(newWidth, newHeight, surfaceFormatFor(mOrder));
     Bitmap result;
     if (dst) {
         SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
         SDL_BlitSurfaceScaled(src, nullptr, dst, nullptr, SDL_SCALEMODE_LINEAR);
-        result = Bitmap(newWidth, newHeight);
+        result = Bitmap(newWidth, newHeight, mOrder);
+        result.mOpaque = mOpaque;
         const uint8_t *pixels = (const uint8_t *)dst->pixels;
         for (int y = 0; y < newHeight; ++y) {
             std::memcpy(result.pixels() + (size_t)y * (size_t)newWidth * 4,
@@ -141,7 +156,9 @@ Bitmap Bitmap::paddedTo(int paddedWidth, int paddedHeight, bool clampEdges) cons
     if (!valid() || paddedWidth < mWidth || paddedHeight < mHeight) {
         return *this;
     }
-    Bitmap result(paddedWidth, paddedHeight);
+    Bitmap result(paddedWidth, paddedHeight, mOrder);
+    // Repeated edges are as opaque as the picture. Transparent padding is not.
+    result.mOpaque = mOpaque && clampEdges;
     for (int y = 0; y < mHeight; ++y) {
         uint8_t *row = result.pixels() + (size_t)y * (size_t)paddedWidth * 4;
         std::memcpy(row, mPixels.data() + (size_t)y * (size_t)mWidth * 4, (size_t)mWidth * 4);
@@ -165,7 +182,7 @@ Bitmap Bitmap::paddedTo(int paddedWidth, int paddedHeight, bool clampEdges) cons
 }
 
 bool Bitmap::hasTransparency() const {
-    if (!valid()) {
+    if (!valid() || mOpaque) {
         return false;
     }
     const size_t count = (size_t)mWidth * (size_t)mHeight;
@@ -182,7 +199,8 @@ Bitmap Bitmap::cropped(int x, int y, int width, int height) const {
     if (!valid() || x < 0 || y < 0 || width <= 0 || height <= 0 || width > mWidth - x || height > mHeight - y) {
         return Bitmap();
     }
-    Bitmap result(width, height);
+    Bitmap result(width, height, mOrder);
+    result.mOpaque = mOpaque;
     for (int row = 0; row < height; ++row) {
         std::memcpy(result.pixels() + (size_t)row * (size_t)width * 4,
                     mPixels.data() + ((size_t)(y + row) * (size_t)mWidth + (size_t)x) * 4, (size_t)width * 4);
@@ -204,7 +222,8 @@ Bitmap Bitmap::coverCropped(int newWidth, int newHeight) const {
 
     int offsetX = (scaledWidth - newWidth) / 2;
     int offsetY = (scaledHeight - newHeight) / 2;
-    Bitmap result(newWidth, newHeight);
+    Bitmap result(newWidth, newHeight, mOrder);
+    result.mOpaque = mOpaque;
     for (int y = 0; y < newHeight; ++y) {
         std::memcpy(result.pixels() + (size_t)y * (size_t)newWidth * 4,
                     scaled.pixels() + ((size_t)(y + offsetY) * (size_t)scaledWidth + (size_t)offsetX) * 4,

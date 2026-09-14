@@ -230,7 +230,7 @@ TEST(one_decoder_serves_every_tile_and_outlives_the_file) {
         // Red follows x in the gradient, so each tile starts where the last
         // one ended.
         if (tile.valid()) {
-            CHECK_NEAR(tile.pixels()[0], (column * 256) % 256, 2);
+            CHECK_NEAR(tile.pixels()[tile.redOffset()], (column * 256) % 256, 2);
         }
     }
 }
@@ -249,9 +249,11 @@ TEST(a_sampled_region_still_lands_on_the_right_part_of_the_picture) {
     }
     const Bitmap tile = decoder->decodeRegion(400, 200, 256, 256, 128, 128);
     CHECK(tile.valid());
+    // A JPEG has no alpha, which the decoder says so the upload need not look.
+    CHECK(tile.knownOpaque());
     if (tile.valid()) {
         const uint8_t *topLeft = tile.pixels();
-        CHECK_NEAR(topLeft[0], 400 % 256, 6);
+        CHECK_NEAR(topLeft[tile.redOffset()], 400 % 256, 6);
         CHECK_NEAR(topLeft[1], 200 % 256, 6);
     }
 
@@ -484,6 +486,7 @@ TEST(a_photo_decodes_reduced_without_being_built_at_full_size_first) {
 
     const Bitmap reduced = Bitmap::loadFromMemory(encoded.data(), encoded.size(), 256);
     CHECK(reduced.valid());
+    CHECK(reduced.knownOpaque());
     // Long edge trimmed to what was asked for, aspect kept.
     CHECK_EQ(reduced.width(), 256);
     CHECK_EQ(reduced.height(), 192);
@@ -492,12 +495,12 @@ TEST(a_photo_decodes_reduced_without_being_built_at_full_size_first) {
     // the picture is the right way up and not cropped.
     if (reduced.valid()) {
         const uint8_t *topLeft = reduced.pixels();
-        CHECK_NEAR(topLeft[0], 0, 12);
+        CHECK_NEAR(topLeft[reduced.redOffset()], 0, 12);
         CHECK_NEAR(topLeft[1], 0, 12);
         const uint8_t *topRight = reduced.pixels() + (size_t)(reduced.width() - 1) * 4;
         // x runs 0..2047 and the gradient wraps every 256, so the last column
         // is near the top of a ramp.
-        CHECK(topRight[0] > 200);
+        CHECK(topRight[reduced.redOffset()] > 200);
     }
 
     // Asking for more than the photo holds must not enlarge it.

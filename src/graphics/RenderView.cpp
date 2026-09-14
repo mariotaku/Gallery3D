@@ -4,12 +4,54 @@
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 #include "app/App.h"
 #include "graphics/Layer.h"
 #include "core/Shared.h"
 
 namespace {
+
+// Fills the part of the bound power of two texture past the bitmap uploaded in
+// its corner. A texture that builds mipmaps repeats its edge pixels there,
+// since a reduced level averages across the boundary. Any other is left
+// transparent, which a quad drawn to the bitmap's extents never samples.
+// Filled here on the GPU rather than by copying the whole bitmap into a padded
+// one first.
+void uploadPadding(const Bitmap &bitmap, int paddedWidth, int paddedHeight, bool clampEdges, GLenum format) {
+    const int width = bitmap.width();
+    const int height = bitmap.height();
+    // Right of the bitmap, beside each of its rows.
+    if (paddedWidth > width) {
+        const int extra = paddedWidth - width;
+        std::vector<uint8_t> strip((size_t)extra * (size_t)height * 4, 0);
+        if (clampEdges) {
+            for (int y = 0; y < height; ++y) {
+                const uint8_t *last = bitmap.pixels() + ((size_t)y * (size_t)width + (size_t)width - 1) * 4;
+                uint8_t *row = strip.data() + (size_t)y * (size_t)extra * 4;
+                for (int x = 0; x < extra; ++x) {
+                    std::memcpy(row + (size_t)x * 4, last, 4);
+                }
+            }
+        }
+        glTexSubImage2D(GL_TEXTURE_2D, 0, width, 0, extra, height, format, GL_UNSIGNED_BYTE, strip.data());
+    }
+    // Below it, across the whole width: one row, uploaded once for each row it
+    // covers.
+    if (paddedHeight > height) {
+        std::vector<uint8_t> row((size_t)paddedWidth * 4, 0);
+        if (clampEdges) {
+            const uint8_t *last = bitmap.pixels() + (size_t)(height - 1) * (size_t)width * 4;
+            std::memcpy(row.data(), last, (size_t)width * 4);
+            for (int x = width; x < paddedWidth; ++x) {
+                std::memcpy(row.data() + (size_t)x * 4, last + (size_t)(width - 1) * 4, 4);
+            }
+        }
+        for (int y = height; y < paddedHeight; ++y) {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, paddedWidth, 1, format, GL_UNSIGNED_BYTE, row.data());
+        }
+    }
+}
 
 const char *const kVertexSingle = R"(
 attribute vec4 aPosition;
@@ -193,6 +235,16 @@ bool RenderView::init(SDL_Window *window) {
     }
     SDL_Log("Anisotropic filtering %s (max %.1f)", (mMaxAnisotropy > 1.0f) ? "on" : "unavailable",
             mMaxAnisotropy);
+    // A BGRA bitmap, which is what WIC decodes to, goes to the GPU as it is
+    // where the context takes that order: desktop GL always, GL ES with an
+    // extension. Anywhere else it is swapped to RGBA on upload.
+    const char *version = (const char *)glGetString(GL_VERSION);
+    if (version != nullptr && SDL_strstr(version, "OpenGL ES") == nullptr) {
+        mBgraInternalFormat = GL_RGBA;
+    } else if (extensions != nullptr && SDL_strstr(extensions, "GL_EXT_texture_format_BGRA8888") != nullptr) {
+        mBgraInternalFormat = GL_BGRA;
+    }
+    SDL_Log("BGRA textures %s", (mBgraInternalFormat != 0) ? "upload as they are" : "are swapped to RGBA first");
 
     mLoadThreadsRunning.store(true);
 #if !defined(__EMSCRIPTEN__)
@@ -580,12 +632,12 @@ void RenderView::applyBitmap(const TexturePtr &texture, Bitmap bitmap) {
         int height = bitmap.height();
         texture->mWidth = width;
         texture->mHeight = height;
-        // Pad to a power of two, so the normalized extents the meshes use stay
-        // meaningful and wrap modes behave everywhere.
+        // The texture is a power of two, so the normalized extents the meshes
+        // use stay meaningful and wrap modes behave everywhere. uploadTexture
+        // puts the bitmap in its corner and fills the rest.
         if (!Shared::isPowerOf2(width) || !Shared::isPowerOf2(height)) {
             int paddedWidth = Shared::nextPowerOf2(width);
             int paddedHeight = Shared::nextPowerOf2(height);
-            bitmap = bitmap.paddedTo(paddedWidth, paddedHeight, texture->wantsMipmaps());
             texture->mNormalizedWidth = (float)width / (float)paddedWidth;
             texture->mNormalizedHeight = (float)height / (float)paddedHeight;
         } else {
@@ -626,17 +678,35 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     const bool repeat = texture->wantsRepeat();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-    // ES 2.0 only accepts a mip chain on a power of two texture, and every
-    // texture that asks for one is padded to a power of two anyway.
-    bool mipmapped = texture->wantsMipmaps() && mMaxAnisotropy > 1.0f &&
-                     Shared::isPowerOf2(texture->mBitmap.width()) &&
-                     Shared::isPowerOf2(texture->mBitmap.height());
+    // Every texture is a power of two, which is also the only size ES 2.0
+    // builds a mip chain for.
+    const int paddedWidth = Shared::nextPowerOf2(width);
+    const int paddedHeight = Shared::nextPowerOf2(height);
+    const bool clampEdges = texture->wantsMipmaps();
+    const bool mipmapped = clampEdges && mMaxAnisotropy > 1.0f;
     const GLint minFilter = mipmapped ? GL_LINEAR_MIPMAP_LINEAR : (repeat ? GL_NEAREST : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, repeat ? GL_NEAREST : GL_LINEAR);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mBitmap.width(), texture->mBitmap.height(), 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, texture->mBitmap.pixels());
+    Bitmap &bitmap = texture->mBitmap;
+    GLint internalFormat = GL_RGBA;
+    GLenum format = GL_RGBA;
+    if (bitmap.order() == PixelOrder::BGRA) {
+        if (mBgraInternalFormat != 0) {
+            internalFormat = mBgraInternalFormat;
+            format = GL_BGRA;
+        } else {
+            bitmap.reorder(PixelOrder::RGBA);
+        }
+    }
+    if (paddedWidth == width && paddedHeight == height) {
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, bitmap.pixels());
+    } else {
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, paddedWidth, paddedHeight, 0, format, GL_UNSIGNED_BYTE,
+                     nullptr);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, format, GL_UNSIGNED_BYTE, bitmap.pixels());
+        uploadPadding(bitmap, paddedWidth, paddedHeight, clampEdges, format);
+    }
     if (mipmapped) {
         glGenerateMipmap(GL_TEXTURE_2D);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, mMaxAnisotropy);
@@ -660,7 +730,7 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         texture->mState = Texture::STATE_LOADED;
         // A full chain is a third again on top of the base level, and the
         // budget has to know or it will hold a third more than it thinks.
-        texture->mBytes = (size_t)width * (size_t)height * 4;
+        texture->mBytes = (size_t)paddedWidth * (size_t)paddedHeight * 4;
         if (mipmapped) {
             texture->mBytes += texture->mBytes / 3;
         }

@@ -73,8 +73,8 @@ IWICImagingFactory *factory();
 // A decoder reading encoded bytes in place. The bytes have to outlive it.
 Ptr<IWICBitmapDecoder> decoderFor(const void *bytes, size_t size);
 
-// A source's pixels at its own size, or a rectangle of them, as premultiplied
-// RGBA like every Bitmap. Invalid when WIC cannot convert them.
+// A source's pixels at its own size, or a rectangle of them, as a premultiplied
+// BGRA Bitmap. Invalid when WIC cannot convert them.
 Bitmap copy(IWICBitmapSource *source, const WICRect *rect);
 
 // Whether the source's pixel format carries alpha.
@@ -90,7 +90,7 @@ Ptr<IWICColorContext> colorProfileOf(IWICBitmapFrameDecode *frame);
 Ptr<IWICBitmapSource> inSrgb(IWICBitmapSource *source, IWICColorContext *profile);
 
 // The bitmap resized with WIC's Fant filter, which averages every pixel it
-// shrinks away rather than sampling a few.
+// shrinks away rather than sampling a few. BGRA, whatever order it came in.
 Bitmap scaled(const Bitmap &bitmap, int width, int height);
 
 // Whether an image stored beside a frame, such as its thumbnail, has the

@@ -1,4 +1,4 @@
-// Stands in for android.graphics.Bitmap: premultiplied 32-bit RGBA for
+// Stands in for android.graphics.Bitmap: premultiplied 32-bit pixels for
 // GL_ONE / GL_ONE_MINUS_SRC_ALPHA blending.
 #pragma once
 
@@ -7,10 +7,18 @@
 #include <string>
 #include <vector>
 
+// The order of a pixel's four bytes, 8 bits a channel and premultiplied either
+// way. A decoder hands back the order it produces, and the GPU takes both, so
+// a picture reaches its texture without its channels being exchanged.
+enum class PixelOrder : uint8_t {
+    RGBA,
+    BGRA,
+};
+
 class Bitmap {
   public:
     Bitmap() = default;
-    Bitmap(int width, int height);
+    Bitmap(int width, int height, PixelOrder order = PixelOrder::RGBA);
 
     bool valid() const {
         return mWidth > 0 && mHeight > 0 && !mPixels.empty();
@@ -32,6 +40,43 @@ class Bitmap {
         return mPixels.data();
     }
 
+    PixelOrder order() const {
+        return mOrder;
+    }
+
+    // Where red and blue sit in each pixel. Green and alpha are at 1 and 3 in
+    // both orders.
+    int redOffset() const {
+        return (mOrder == PixelOrder::RGBA) ? 0 : 2;
+    }
+
+    int blueOffset() const {
+        return 2 - redOffset();
+    }
+
+    // Records that every pixel is fully opaque, which a decoder knows from the
+    // format it decoded, so hasTransparency answers without reading the pixels.
+    // Resizing, cropping and reordering keep it. Code that writes alpha into a
+    // bitmap marks nothing, and its bitmap is scanned.
+    void markOpaque() {
+        mOpaque = true;
+    }
+
+    bool knownOpaque() const {
+        return mOpaque;
+    }
+
+    // Exchanges red and blue in place when the bitmap is not in order already.
+    void reorder(PixelOrder order);
+
+    // A copy in order, for code that reads channels by position.
+    Bitmap inOrder(PixelOrder order) const;
+
+    // The order load and loadFromMemory give on this platform: BGRA from WIC,
+    // RGBA elsewhere. A bitmap that decoded art is drawn into takes this order,
+    // so the art is copied without exchanging channels.
+    static PixelOrder decodeOrder();
+
     // Decodes a file. Returns an invalid bitmap when the file cannot be read.
     // maxEdge scales the result down so neither edge exceeds it; pass 0 to keep
     // the natural size. The decoder is the platform's: WIC on Windows,
@@ -48,8 +93,9 @@ class Bitmap {
     // Writes the bitmap as a PNG, with its alpha made straight again.
     bool savePng(const std::string &path) const;
 
-    // Copies straight RGBA and premultiplies it, including browser-decoded pixels.
-    static Bitmap fromStraightRGBA(const uint8_t *pixels, int width, int height);
+    // Multiplies each colour channel by its alpha in place, for straight
+    // pixels written into the bitmap.
+    void premultiply();
 
     // Reads encoded bytes without decoding.
     static bool readFile(const std::string &path, std::vector<uint8_t> *bytes);
@@ -67,7 +113,8 @@ class Bitmap {
     // Scales to cover the box and centre-crops it.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 
-    // Whether any pixel is less than fully opaque.
+    // Whether any pixel is less than fully opaque. Reads every pixel of an
+    // opaque bitmap unless it is marked as one.
     bool hasTransparency() const;
 
     // What one pass over a JPEG's header yields. Every field stays at its
@@ -98,5 +145,7 @@ class Bitmap {
   private:
     int mWidth = 0;
     int mHeight = 0;
+    PixelOrder mOrder = PixelOrder::RGBA;
+    bool mOpaque = false;
     std::vector<uint8_t> mPixels;
 };

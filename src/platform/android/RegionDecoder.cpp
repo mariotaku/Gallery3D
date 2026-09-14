@@ -33,6 +33,9 @@ jmethodID gHeight = nullptr;
 jmethodID gDecodeRegion = nullptr;
 jmethodID gClose = nullptr;
 jmethodID gRecycle = nullptr;
+// android.graphics.Bitmap.hasAlpha, which is false for a tile of a format
+// without alpha.
+jmethodID gHasAlpha = nullptr;
 
 JNIEnv *jni() {
     // SDL attaches the calling thread and detaches it when the thread ends.
@@ -127,6 +130,9 @@ Bitmap AndroidRegionDecoder::decodeRegion(int x, int y, int width, int height, i
             }
         }
         AndroidBitmap_unlockPixels(env, tile);
+        if (decoded.valid() && env->CallBooleanMethod(tile, gHasAlpha) == JNI_FALSE && !threw(env, "hasAlpha")) {
+            decoded.markOpaque();
+        }
     } else {
         SDL_Log("A decoded region was not in the pixel format expected");
     }
@@ -174,7 +180,12 @@ void RegionDecoder::initAndroid() {
                                            "(Ljava/lang/Object;IIIII)Landroid/graphics/Bitmap;");
     gClose = env->GetStaticMethodID(gBridge, "close", "(Ljava/lang/Object;)V");
     gRecycle = env->GetStaticMethodID(gBridge, "recycle", "(Landroid/graphics/Bitmap;)V");
-    if (threw(env, "initAndroid") || gOpen == nullptr || gDecodeRegion == nullptr) {
+    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+    if (bitmapClass != nullptr) {
+        gHasAlpha = env->GetMethodID(bitmapClass, "hasAlpha", "()Z");
+        env->DeleteLocalRef(bitmapClass);
+    }
+    if (threw(env, "initAndroid") || gOpen == nullptr || gDecodeRegion == nullptr || gHasAlpha == nullptr) {
         SDL_Log("The region decoder bridge is not the shape expected");
         gBridge = nullptr;
     }

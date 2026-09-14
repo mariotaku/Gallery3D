@@ -12,6 +12,9 @@ const char *const kBridgeClass = "me/mariotaku/gallery3d/ImageDecodeBridge";
 jclass gBridge = nullptr;
 jmethodID gDecode = nullptr;
 jmethodID gRecycle = nullptr;
+// android.graphics.Bitmap.hasAlpha, which is false for a picture decoded from
+// a format without alpha.
+jmethodID gHasAlpha = nullptr;
 
 JNIEnv *jni() {
     return (JNIEnv *)SDL_GetAndroidJNIEnv();
@@ -46,7 +49,12 @@ void SubsampledDecode::init() {
     env->DeleteLocalRef(local);
     gDecode = env->GetStaticMethodID(gBridge, "decodeSampled", "([BI)Landroid/graphics/Bitmap;");
     gRecycle = env->GetStaticMethodID(gBridge, "recycle", "(Landroid/graphics/Bitmap;)V");
-    if (threw(env, "init") || gDecode == nullptr || gRecycle == nullptr) {
+    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+    if (bitmapClass != nullptr) {
+        gHasAlpha = env->GetMethodID(bitmapClass, "hasAlpha", "()Z");
+        env->DeleteLocalRef(bitmapClass);
+    }
+    if (threw(env, "init") || gDecode == nullptr || gRecycle == nullptr || gHasAlpha == nullptr) {
         SDL_Log("%s is not the shape expected", kBridgeClass);
         gBridge = nullptr;
     }
@@ -92,6 +100,9 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             }
         }
         AndroidBitmap_unlockPixels(env, image);
+        if (decoded.valid() && env->CallBooleanMethod(image, gHasAlpha) == JNI_FALSE && !threw(env, "hasAlpha")) {
+            decoded.markOpaque();
+        }
     }
 
     env->CallStaticVoidMethod(gBridge, gRecycle, image);

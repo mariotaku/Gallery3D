@@ -184,13 +184,19 @@ const uint8_t *centreOf(const Bitmap &bitmap) {
 }
 
 bool isGreen(const Bitmap &bitmap) {
+    if (!bitmap.valid()) {
+        return false;
+    }
     const uint8_t *pixel = centreOf(bitmap);
-    return bitmap.valid() && pixel[0] < 40 && pixel[1] > 215 && pixel[2] < 40 && pixel[3] == 255;
+    return pixel[bitmap.redOffset()] < 40 && pixel[1] > 215 && pixel[bitmap.blueOffset()] < 40 && pixel[3] == 255;
 }
 
 bool isRed(const Bitmap &bitmap) {
+    if (!bitmap.valid()) {
+        return false;
+    }
     const uint8_t *pixel = centreOf(bitmap);
-    return bitmap.valid() && pixel[0] > 215 && pixel[1] < 40 && pixel[2] < 40 && pixel[3] == 255;
+    return pixel[bitmap.redOffset()] > 215 && pixel[1] < 40 && pixel[bitmap.blueOffset()] < 40 && pixel[3] == 255;
 }
 
 }  // namespace
@@ -202,6 +208,9 @@ TEST(a_photo_with_a_colour_profile_decodes_to_srgb) {
     // scaler.
     CHECK(isGreen(Bitmap::load(path.string(), 0)));
     CHECK(isGreen(Bitmap::load(path.string(), 32)));
+    // The conversion hands out BGRA, but the JPEG under it has no alpha.
+    CHECK(Bitmap::load(path.string(), 0).knownOpaque());
+    CHECK(Bitmap::load(path.string(), 32).knownOpaque());
     std::error_code error;
     fs::remove(path, error);
 }
@@ -221,6 +230,7 @@ TEST(a_translucent_picture_with_a_colour_profile_is_converted_before_premultiply
     for (int maxEdge : {0, 32}) {
         const Bitmap bitmap = Bitmap::load(path.string(), maxEdge);
         CHECK(bitmap.valid());
+        CHECK(!bitmap.knownOpaque());
         if (bitmap.valid()) {
             // Green at half coverage, premultiplied.
             const uint8_t *pixel = centreOf(bitmap);

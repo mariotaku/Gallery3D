@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstring>
 #include <utility>
 #include <vector>
 
@@ -15,28 +14,33 @@
 
 namespace {
 
-// The surface's pixels as a premultiplied Bitmap. Takes ownership of the
-// surface.
+// The surface's pixels as a premultiplied Bitmap, converted straight into the
+// bitmap in one pass. A picture without alpha is premultiplied as it is, so
+// only one with alpha takes a second pass, and the other is marked opaque.
+// Takes ownership of the surface.
 Bitmap fromSurface(SDL_Surface *surface) {
     if (surface == nullptr) {
         return Bitmap();
     }
-    SDL_Surface *rgba =
-        (surface->format == SDL_PIXELFORMAT_RGBA32) ? surface : SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32);
+    // A palette or a colour key hangs off the surface, where SDL_ConvertPixels
+    // cannot see it, so such a picture is converted as a surface first.
+    SDL_Surface *source = (SDL_ISPIXELFORMAT_INDEXED(surface->format) || SDL_SurfaceHasColorKey(surface))
+                              ? SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32)
+                              : surface;
     Bitmap result;
-    if (rgba != nullptr) {
-        if (rgba->pitch == rgba->w * 4) {
-            result = Bitmap::fromStraightRGBA((const uint8_t *)rgba->pixels, rgba->w, rgba->h);
-        } else {
-            std::vector<uint8_t> rows((size_t)rgba->w * (size_t)rgba->h * 4);
-            for (int y = 0; y < rgba->h; ++y) {
-                std::memcpy(rows.data() + (size_t)y * (size_t)rgba->w * 4,
-                            (const uint8_t *)rgba->pixels + (size_t)y * (size_t)rgba->pitch, (size_t)rgba->w * 4);
+    if (source != nullptr) {
+        Bitmap bitmap(source->w, source->h);
+        if (bitmap.valid() && SDL_ConvertPixels(source->w, source->h, source->format, source->pixels, source->pitch,
+                                                SDL_PIXELFORMAT_RGBA32, bitmap.pixels(), source->w * 4)) {
+            if (SDL_ISPIXELFORMAT_ALPHA(source->format)) {
+                bitmap.premultiply();
+            } else {
+                bitmap.markOpaque();
             }
-            result = Bitmap::fromStraightRGBA(rows.data(), rgba->w, rgba->h);
+            result = std::move(bitmap);
         }
-        if (rgba != surface) {
-            SDL_DestroySurface(rgba);
+        if (source != surface) {
+            SDL_DestroySurface(source);
         }
     }
     SDL_DestroySurface(surface);
@@ -86,6 +90,10 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     return trimToMaxEdge(fromSurface(IMG_Load_IO(stream, true)), maxEdge);
 }
 
+PixelOrder Bitmap::decodeOrder() {
+    return PixelOrder::RGBA;
+}
+
 bool Bitmap::decodesExtension(const std::string &extension) {
     // What SDL_image is built to read on the platforms that take this file.
     std::string lower = extension;
@@ -109,7 +117,8 @@ bool Bitmap::savePng(const std::string &path) const {
             }
         }
     }
-    SDL_Surface *surface = SDL_CreateSurfaceFrom(mWidth, mHeight, SDL_PIXELFORMAT_RGBA32, straight.data(), mWidth * 4);
+    const SDL_PixelFormat format = (mOrder == PixelOrder::RGBA) ? SDL_PIXELFORMAT_RGBA32 : SDL_PIXELFORMAT_BGRA32;
+    SDL_Surface *surface = SDL_CreateSurfaceFrom(mWidth, mHeight, format, straight.data(), mWidth * 4);
     if (surface == nullptr) {
         return false;
     }

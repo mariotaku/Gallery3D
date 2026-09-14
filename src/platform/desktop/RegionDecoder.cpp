@@ -121,7 +121,7 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
     // longjmp skips the destructors of anything built after it, so nothing
     // below the setjmp may own an allocation.
     Bitmap decoded;
-    std::vector<uint8_t> row;
+    int decodedLeft = 0;
     int decodedWidth = 0;
     int decodedHeight = 0;
 
@@ -139,7 +139,10 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
         const int denominator = scaleDenominatorFor(width / outWidth);
         cinfo.scale_num = 1;
         cinfo.scale_denom = (unsigned)denominator;
-        cinfo.out_color_space = JCS_RGB;
+        // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
+        // straight into the bitmap. JPEG carries no alpha, so opaque pixels are
+        // already premultiplied.
+        cinfo.out_color_space = JCS_EXT_RGBA;
         jpeg_start_decompress(&cinfo);
 
         // The region arrives in the original's pixels; libjpeg works in the
@@ -161,29 +164,19 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
 
             jpeg_skip_scanlines(&cinfo, (unsigned)scaledTop);
 
-            const int scaledWidth = scaledRight - scaledLeft;
-            decoded = Bitmap(scaledWidth, scaledHeight);
+            // The whole window libjpeg decodes, which is trimmed to the region
+            // past the jump target below.
+            decoded = Bitmap((int)croppedWidth, scaledHeight);
             if (decoded.valid()) {
-                row.resize((size_t)croppedWidth * 3);
+                decoded.markOpaque();
                 for (int line = 0; line < scaledHeight; ++line) {
-                    JSAMPROW rows[1] = {row.data()};
+                    JSAMPROW rows[1] = {decoded.pixels() + (size_t)line * (size_t)croppedWidth * 4};
                     if (jpeg_read_scanlines(&cinfo, rows, 1) != 1) {
                         break;
                     }
-                    // JPEG carries no alpha, so opaque pixels are already
-                    // premultiplied.
-                    const uint8_t *source = row.data() + (size_t)insetX * 3;
-                    uint8_t *destination = decoded.pixels() + (size_t)line * (size_t)scaledWidth * 4;
-                    for (int column = 0; column < scaledWidth; ++column) {
-                        destination[0] = source[0];
-                        destination[1] = source[1];
-                        destination[2] = source[2];
-                        destination[3] = 255;
-                        source += 3;
-                        destination += 4;
-                    }
                 }
-                decodedWidth = scaledWidth;
+                decodedLeft = insetX;
+                decodedWidth = scaledRight - scaledLeft;
                 decodedHeight = scaledHeight;
             }
         }
@@ -194,6 +187,11 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
 
     if (decodedWidth <= 0 || !decoded.valid()) {
         return Bitmap();
+    }
+    // The window can start left of the region and run wider than it, and
+    // only then is it copied down to the region.
+    if (decodedLeft != 0 || decoded.width() != decodedWidth) {
+        decoded = decoded.cropped(decodedLeft, 0, decodedWidth, decodedHeight);
     }
     // Scaling happens past the jump target, where allocating is safe again. A
     // sample size above eight, or an edge tile libjpeg rounded up, still needs

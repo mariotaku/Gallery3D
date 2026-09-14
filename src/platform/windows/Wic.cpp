@@ -64,8 +64,8 @@ Bitmap copy(IWICBitmapSource *source, const WICRect *rect) {
     if (imaging == nullptr || source == nullptr) {
         return Bitmap();
     }
-    // BGRA, which WIC converts to from JPEG's BGR far faster than to RGBA, with
-    // red and blue swapped afterwards.
+    // BGRA, which WIC converts to from JPEG's BGR far faster than to RGBA, and
+    // which the GPU takes as it is.
     Ptr<IWICFormatConverter> converter;
     if (FAILED(imaging->CreateFormatConverter(converter.put())) ||
         FAILED(converter->Initialize(source, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
@@ -85,17 +85,10 @@ Bitmap copy(IWICBitmapSource *source, const WICRect *rect) {
     if ((unsigned long long)width * height * 4 > UINT_MAX) {
         return Bitmap();
     }
-    Bitmap bitmap((int)width, (int)height);
+    Bitmap bitmap((int)width, (int)height, PixelOrder::BGRA);
     if (!bitmap.valid() ||
         FAILED(converter->CopyPixels(rect, width * 4, width * height * 4, bitmap.pixels()))) {
         return Bitmap();
-    }
-    uint8_t *pixel = bitmap.pixels();
-    const uint8_t *end = pixel + (size_t)width * height * 4;
-    for (; pixel < end; pixel += 4) {
-        const uint8_t blue = pixel[0];
-        pixel[0] = pixel[2];
-        pixel[2] = blue;
     }
     return bitmap;
 }
@@ -189,14 +182,20 @@ Bitmap scaled(const Bitmap &bitmap, int width, int height) {
     Ptr<IWICBitmap> pixels;
     Ptr<IWICBitmapScaler> scaler;
     // CreateBitmapFromMemory copies the pixels, so nothing is written back.
-    if (FAILED(imaging->CreateBitmapFromMemory((UINT)bitmap.width(), (UINT)bitmap.height(),
-                                               GUID_WICPixelFormat32bppPRGBA, stride, stride * (UINT)bitmap.height(),
+    const WICPixelFormatGUID format =
+        (bitmap.order() == PixelOrder::RGBA) ? GUID_WICPixelFormat32bppPRGBA : GUID_WICPixelFormat32bppPBGRA;
+    if (FAILED(imaging->CreateBitmapFromMemory((UINT)bitmap.width(), (UINT)bitmap.height(), format, stride,
+                                               stride * (UINT)bitmap.height(),
                                                const_cast<BYTE *>(bitmap.pixels()), pixels.put())) ||
         FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
         FAILED(scaler->Initialize(pixels.get(), (UINT)width, (UINT)height, WICBitmapInterpolationModeFant))) {
         return Bitmap();
     }
-    return copy(scaler.get(), nullptr);
+    Bitmap result = copy(scaler.get(), nullptr);
+    if (bitmap.knownOpaque()) {
+        result.markOpaque();
+    }
+    return result;
 }
 
 bool sameShape(UINT width, UINT height, UINT frameWidth, UINT frameHeight) {

@@ -199,7 +199,8 @@ Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidt
         cropX = 0;
     }
 
-    // Read the crop out as packed ARGB, which is what the filter walks.
+    // Read the crop out as packed ARGB, which is what the filter walks. The
+    // filter treats red and blue alike, so a BGRA crop goes back out as BGRA.
     size_t numPixels = (size_t)cropWidth * (size_t)cropHeight;
     std::vector<uint32_t> in(numPixels);
     std::vector<uint32_t> tmp(numPixels);
@@ -224,7 +225,7 @@ Bitmap AdaptiveBackgroundTexture::backdropFrom(const Bitmap &photo, int destWidt
         boxBlurFilter(tmp.data(), in.data(), cropHeight, cropWidth, fadeFromFor(cropWidth));
     }
 
-    Bitmap filtered(cropWidth, cropHeight);
+    Bitmap filtered(cropWidth, cropHeight, source.order());
     uint8_t *out = filtered.pixels();
     for (size_t i = 0; i < numPixels; ++i) {
         uint32_t argb = in[i];

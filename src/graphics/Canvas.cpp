@@ -14,6 +14,19 @@
 
 namespace {
 
+// Where each byte of a source pixel goes in a destination pixel: straight
+// across when the two share an order, with red and blue exchanged when not.
+struct ChannelMap {
+    int to[4];
+};
+
+ChannelMap channelMap(const Bitmap &src, const Bitmap &dst) {
+    if (src.order() == dst.order()) {
+        return {{0, 1, 2, 3}};
+    }
+    return {{2, 1, 0, 3}};
+}
+
 }  // namespace
 
 namespace Canvas {
@@ -80,6 +93,12 @@ void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, floa
     if (!dst.valid() || !src.valid()) {
         return;
     }
+    // Each side read in its own order, so the tint lands on the channel it
+    // names.
+    const int srcRed = src.redOffset();
+    const int srcBlue = src.blueOffset();
+    const int dstRed = dst.redOffset();
+    const int dstBlue = dst.blueOffset();
     for (int y = 0; y < src.height(); ++y) {
         int ty = dstY + y;
         if (ty < 0 || ty >= dst.height()) {
@@ -102,13 +121,13 @@ void blendOver(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float r, floa
             }
             // Include source coverage in the tint: GL_ONE blending requires premultiplied
             // colour.
-            float sr = (s[0] / 255.0f) * r * sa;
+            float sr = (s[srcRed] / 255.0f) * r * sa;
             float sg = (s[1] / 255.0f) * g * sa;
-            float sb = (s[2] / 255.0f) * b * sa;
+            float sb = (s[srcBlue] / 255.0f) * b * sa;
             float inv = 1.0f - sa;
-            d[0] = (uint8_t)std::min(255.0f, sr * 255.0f + d[0] * inv);
+            d[dstRed] = (uint8_t)std::min(255.0f, sr * 255.0f + d[dstRed] * inv);
             d[1] = (uint8_t)std::min(255.0f, sg * 255.0f + d[1] * inv);
-            d[2] = (uint8_t)std::min(255.0f, sb * 255.0f + d[2] * inv);
+            d[dstBlue] = (uint8_t)std::min(255.0f, sb * 255.0f + d[dstBlue] * inv);
             d[3] = (uint8_t)std::min(255.0f, sa * 255.0f + d[3] * inv);
         }
     }
@@ -118,6 +137,7 @@ void blit(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float alpha) {
     if (!dst.valid() || !src.valid() || alpha <= 0.0f) {
         return;
     }
+    const ChannelMap map = channelMap(src, dst);
     for (int y = 0; y < src.height(); ++y) {
         int ty = dstY + y;
         if (ty < 0 || ty >= dst.height()) {
@@ -140,7 +160,7 @@ void blit(Bitmap &dst, const Bitmap &src, int dstX, int dstY, float alpha) {
             }
             float inv = 1.0f - sa;
             for (int c = 0; c < 4; ++c) {
-                d[c] = (uint8_t)std::min(255.0f, s[c] * alpha + d[c] * inv);
+                d[map.to[c]] = (uint8_t)std::min(255.0f, s[c] * alpha + d[map.to[c]] * inv);
             }
         }
     }
@@ -150,6 +170,7 @@ void stamp(Bitmap &dst, const Bitmap &src, int dstX, int dstY) {
     if (!dst.valid() || !src.valid()) {
         return;
     }
+    const ChannelMap map = channelMap(src, dst);
     for (int y = 0; y < src.height(); ++y) {
         int ty = dstY + y;
         if (ty < 0 || ty >= dst.height()) {
@@ -162,7 +183,11 @@ void stamp(Bitmap &dst, const Bitmap &src, int dstX, int dstY) {
             if (tx < 0 || tx >= dst.width()) {
                 continue;
             }
-            std::memcpy(dstRow + (size_t)tx * 4, srcRow + (size_t)x * 4, 4);
+            const uint8_t *s = srcRow + (size_t)x * 4;
+            uint8_t *d = dstRow + (size_t)tx * 4;
+            for (int c = 0; c < 4; ++c) {
+                d[map.to[c]] = s[c];
+            }
         }
     }
 }
@@ -171,6 +196,7 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, i
     if (!dst.valid() || !src.valid() || width <= 0 || height <= 0 || alpha <= 0.0f) {
         return;
     }
+    const ChannelMap map = channelMap(src, dst);
     // Bilinear interpolation in premultiplied space prevents transparent pixels contributing
     // colour.
     float scaleX = (float)src.width() / (float)width;
@@ -220,7 +246,7 @@ void blitScaled(Bitmap &dst, const Bitmap &src, int dstX, int dstY, int width, i
             }
             float inv = 1.0f - sa;
             for (int c = 0; c < 4; ++c) {
-                d[c] = (uint8_t)std::min(255.0f, sample[c] * alpha + d[c] * inv);
+                d[map.to[c]] = (uint8_t)std::min(255.0f, sample[c] * alpha + d[map.to[c]] * inv);
             }
         }
     }
@@ -231,7 +257,7 @@ static Bitmap subImage(const Bitmap &src, int x, int y, int width, int height) {
     if (!src.valid() || width <= 0 || height <= 0) {
         return Bitmap();
     }
-    Bitmap out(width, height);
+    Bitmap out(width, height, src.order());
     for (int row = 0; row < height; ++row) {
         int sy = y + row;
         if (sy < 0 || sy >= src.height()) {
@@ -445,6 +471,8 @@ void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickne
     const int minY = std::max(0, (int)std::floor(std::min(y0, y1) - half - 1.0f));
     const int maxY = std::min(dst.height() - 1, (int)std::ceil(std::max(y0, y1) + half + 1.0f));
 
+    const int red = dst.redOffset();
+    const int blue = dst.blueOffset();
     for (int py = minY; py <= maxY; ++py) {
         uint8_t *row = dst.pixels() + (size_t)py * (size_t)dst.width() * 4;
         for (int px = minX; px <= maxX; ++px) {
@@ -469,9 +497,9 @@ void drawLine(Bitmap &dst, float x0, float y0, float x1, float y1, float thickne
             const float alpha = a * coverage;
             const float inv = 1.0f - alpha;
             uint8_t *d = row + (size_t)px * 4;
-            d[0] = (uint8_t)std::min(255.0f, r * alpha * 255.0f + d[0] * inv);
+            d[red] = (uint8_t)std::min(255.0f, r * alpha * 255.0f + d[red] * inv);
             d[1] = (uint8_t)std::min(255.0f, g * alpha * 255.0f + d[1] * inv);
-            d[2] = (uint8_t)std::min(255.0f, b * alpha * 255.0f + d[2] * inv);
+            d[blue] = (uint8_t)std::min(255.0f, b * alpha * 255.0f + d[blue] * inv);
             d[3] = (uint8_t)std::min(255.0f, alpha * 255.0f + d[3] * inv);
         }
     }
@@ -482,6 +510,8 @@ void fillRect(Bitmap &dst, int x, int y, int width, int height, float r, float g
         return;
     }
     float inv = 1.0f - a;
+    const int red = dst.redOffset();
+    const int blue = dst.blueOffset();
     for (int py = y; py < y + height; ++py) {
         if (py < 0 || py >= dst.height()) {
             continue;
@@ -492,9 +522,9 @@ void fillRect(Bitmap &dst, int x, int y, int width, int height, float r, float g
                 continue;
             }
             uint8_t *d = row + (size_t)px * 4;
-            d[0] = (uint8_t)std::min(255.0f, r * a * 255.0f + d[0] * inv);
+            d[red] = (uint8_t)std::min(255.0f, r * a * 255.0f + d[red] * inv);
             d[1] = (uint8_t)std::min(255.0f, g * a * 255.0f + d[1] * inv);
-            d[2] = (uint8_t)std::min(255.0f, b * a * 255.0f + d[2] * inv);
+            d[blue] = (uint8_t)std::min(255.0f, b * a * 255.0f + d[blue] * inv);
             d[3] = (uint8_t)std::min(255.0f, a * 255.0f + d[3] * inv);
         }
     }

@@ -59,12 +59,12 @@ fs::path writeQuarteredJpeg(const std::string &name, UINT width, UINT height, US
 
 bool isRed(const Bitmap &bitmap, int x, int y) {
     const uint8_t *pixel = bitmap.pixels() + ((size_t)y * (size_t)bitmap.width() + (size_t)x) * 4;
-    return pixel[0] > 200 && pixel[2] < 60 && pixel[3] == 255;
+    return pixel[bitmap.redOffset()] > 200 && pixel[bitmap.blueOffset()] < 60 && pixel[3] == 255;
 }
 
 bool isBlue(const Bitmap &bitmap, int x, int y) {
     const uint8_t *pixel = bitmap.pixels() + ((size_t)y * (size_t)bitmap.width() + (size_t)x) * 4;
-    return pixel[0] < 60 && pixel[2] > 200 && pixel[3] == 255;
+    return pixel[bitmap.redOffset()] < 60 && pixel[bitmap.blueOffset()] > 200 && pixel[3] == 255;
 }
 
 }  // namespace
@@ -79,6 +79,7 @@ TEST(a_system_thumbnail_comes_back_in_the_stored_orientation) {
         CHECK(!path.empty());
         const Bitmap thumbnail = SystemThumbnail::load(path.string(), 512);
         CHECK(thumbnail.valid());
+        CHECK(thumbnail.knownOpaque());
         if (thumbnail.valid()) {
             CHECK_EQ(thumbnail.width(), 512);
             CHECK_NEAR(thumbnail.height(), 341, 1);
