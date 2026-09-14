@@ -385,7 +385,7 @@ Bitmap blurredCoverage(const Bitmap &src, int radius) {
     if (!src.valid() || radius <= 0) {
         return Bitmap();
     }
-    const int pad = radius;
+    const int pad = blurPadding(radius);
     const int width = src.width() + pad * 2;
     const int height = src.height() + pad * 2;
 
@@ -449,7 +449,8 @@ void drawText(Bitmap &dst, const std::string &text, int x, int y, float fontSize
     if (shadowRadius > 0) {
         Bitmap shadow = blurredCoverage(glyphs, shadowRadius);
         if (shadow.valid()) {
-            blendOver(dst, shadow, x - shadowRadius, y - shadowRadius, 0.0f, 0.0f, 0.0f, shadowAlpha);
+            const int pad = blurPadding(shadowRadius);
+            blendOver(dst, shadow, x - pad, y - pad, 0.0f, 0.0f, 0.0f, shadowAlpha);
         }
     }
     blendOver(dst, glyphs, x, y, r, g, b, a);

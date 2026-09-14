@@ -63,9 +63,16 @@ void blitNinePatch(Bitmap &dst, const NinePatch &patch, int x, int y, int width,
 // a single column, so this is how it becomes a bar.
 void blitScaled(Bitmap &dst, const Bitmap &src, int x, int y, int width, int height, float alpha = 1.0f);
 
+// How far a blur of radius reaches past its source on each side. The blur is
+// two box passes of that radius, so it spreads twice as far as one.
+inline int blurPadding(int radius) {
+    return radius * 2;
+}
+
 // Box blurs the coverage of src and returns it as white with that coverage as
-// its alpha, padded by radius so the halo is not clipped. Stands in for
-// Paint.setShadowLayer, which drew a blurred drop shadow.
+// its alpha, padded by blurPadding(radius) on every side so the halo fades to
+// nothing inside the bitmap. Draw it blurPadding(radius) up and left of src.
+// Stands in for Paint.setShadowLayer, which drew a blurred drop shadow.
 Bitmap blurredCoverage(const Bitmap &src, int radius);
 
 // Draws text with an optional soft black halo behind it, so a label stays

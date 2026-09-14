@@ -16,11 +16,12 @@ const float ICON_SIZE = 39.0f;
 const float JOIN_WIDTH = 21.0f;
 const float CAP_WIDTH = 22.0f;
 const float FONT_SIZE = 18.0f;
-// The black halo behind the label, as soft as StringTexture.Config's default in
-// the original and 30% more opaque. It keeps the label readable where the bar
-// shows a bright photo through it.
-const float SHADOW_RADIUS = 4.0f;
-const float SHADOW_OPACITY = 1.3f;
+// The black halo behind the label, tighter than StringTexture.Config's default
+// in the original. It keeps the label readable where the bar shows a bright
+// photo through it. The opacity stays under 1, since blendOver clamps coverage
+// at 1 and a stronger halo turns into a flat dark box around the text.
+const float SHADOW_RADIUS = 2.8f;
+const float SHADOW_OPACITY = 0.91f;
 // Gap between the icon and the label, and the padding after the label.
 const float TEXT_GAP = 4.0f;
 const float TRAILING_PAD = 10.0f;

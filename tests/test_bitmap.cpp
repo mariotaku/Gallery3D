@@ -282,3 +282,24 @@ TEST(exif_on_a_file_without_it_reports_nothing) {
     CHECK_NEAR(info.latitude, 0.0, 1e-12);
     CHECK_NEAR(info.longitude, 0.0, 1e-12);
 }
+
+TEST(a_blurred_halo_keeps_all_of_its_coverage) {
+    // Two box passes of radius 3 spread a shape 6 pixels. A bitmap padded by
+    // less cuts the halo off, and the cut shows as a hard edge around it. A
+    // blur only moves coverage, so none may go missing.
+    const Bitmap square = solid(4, 4, 255, 255, 255, 255);
+    const Bitmap halo = Canvas::blurredCoverage(square, 3);
+    CHECK(halo.valid());
+    if (!halo.valid()) {
+        return;
+    }
+    CHECK_EQ(halo.width(), 4 + 2 * Canvas::blurPadding(3));
+    CHECK_EQ(halo.height(), 4 + 2 * Canvas::blurPadding(3));
+    double total = 0.0;
+    for (int y = 0; y < halo.height(); ++y) {
+        for (int x = 0; x < halo.width(); ++x) {
+            total += pixelAt(halo, x, y)[3];
+        }
+    }
+    CHECK_NEAR(total, 16.0 * 255.0, 16.0 * 255.0 * 0.02);
+}

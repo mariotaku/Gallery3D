@@ -19,8 +19,8 @@ const float GLYPH_SIZE = 10.0f;
 // The dark halo behind a glyph drawn straight over the picture, which keeps a
 // one pixel white stroke readable on a bright photo. A stroke that thin covers
 // little of the blur, hence the strength.
-const float HALO_RADIUS = 2.0f;
-const float HALO_OPACITY = 3.0f;
+const float HALO_RADIUS = 1.4f;
+const float HALO_OPACITY = 2.1f;
 
 // Close goes red, the other two take a plain wash. These are the system's own
 // colours for a dark window.
@@ -264,7 +264,8 @@ void CaptionButtons::ButtonsTexture::renderCanvas(Bitmap &canvas, int width, int
     const int radius = std::max(1, (int)std::lround(scaled(HALO_RADIUS)));
     const Bitmap halo = Canvas::blurredCoverage(haloed, radius);
     if (halo.valid()) {
-        Canvas::blendOver(canvas, halo, -radius, -radius, 0.0f, 0.0f, 0.0f, HALO_OPACITY);
+        const int pad = Canvas::blurPadding(radius);
+        Canvas::blendOver(canvas, halo, -pad, -pad, 0.0f, 0.0f, 0.0f, HALO_OPACITY);
     }
     Canvas::blit(canvas, haloed, 0, 0);
     mOwner->mNeedsDraw = false;

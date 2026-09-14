@@ -368,7 +368,8 @@ Bitmap StringTexture::load(RenderView *view) {
         // photo, the same job Paint.setShadowLayer did.
         Bitmap shadow = Canvas::blurredCoverage(glyphs, shadowRadius);
         if (shadow.valid()) {
-            Canvas::blendOver(result, shadow, x - shadowRadius, y - shadowRadius, 0.0f, 0.0f, 0.0f, 1.0f);
+            const int pad = Canvas::blurPadding(shadowRadius);
+            Canvas::blendOver(result, shadow, x - pad, y - pad, 0.0f, 0.0f, 0.0f, 1.0f);
         }
     }
     Canvas::blendOver(result, glyphs, x, y, mConfig.r, mConfig.g, mConfig.b, mConfig.a);
