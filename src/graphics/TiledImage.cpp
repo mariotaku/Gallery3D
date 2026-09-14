@@ -127,6 +127,13 @@ void TiledImage::update(RenderView *view, float left, float top, float right, fl
                 found = mTiles.emplace(key, std::move(tile)).first;
                 view->prime(found->second.texture, true);
                 ++started;
+            } else if (found->second.texture && found->second.texture->mState == Texture::STATE_UNLOADED &&
+                       started < kMaxStartsPerUpdate) {
+                // A full load queue drops its oldest request, and the texture
+                // budget unloads what was not drawn lately. Either leaves the
+                // tile unloaded with nothing else to ask for it again.
+                view->prime(found->second.texture, true);
+                ++started;
             }
 
             Tile &tile = found->second;
