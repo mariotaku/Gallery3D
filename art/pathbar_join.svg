@@ -1,10 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 21 39"
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 21 39" width="21" height="39"
      g3d:outputs="drawable=21x39">
-  <!-- Where one crumb meets the next: a chevron cut through the glass, rimmed
-       faintly on both sides, with the bar's shadow falling into the cut. Both
+  <!-- Where one crumb meets the next: a chevron cut through
+       art/templates/capsule.svg's straight middle, the glass moved up two
+       pixels. Each side of the cut carries the capsule's edge at the width it
+       has halfway round an end, 0.75, and the shadow falls into the cut. Both
        edge columns are pathbar_bg's. -->
   <defs>
-    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="31">
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="33">
       <stop offset="0.02" stop-color="#fdfdfd" stop-opacity="0.267"/>
       <stop offset="0.30" stop-color="#eeeeee" stop-opacity="0.243"/>
       <stop offset="0.54" stop-color="#dedede" stop-opacity="0.204"/>
@@ -12,6 +14,10 @@
       <stop offset="0.62" stop-color="#cdcdcd" stop-opacity="0.161"/>
       <stop offset="0.78" stop-color="#bebebe" stop-opacity="0.133"/>
       <stop offset="0.98" stop-color="#b1b1b1" stop-opacity="0.110"/>
+    </linearGradient>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="33">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#bdbdbd" stop-opacity="0.2"/>
     </linearGradient>
     <path id="left" d="M -60 5 H 6.89 L 15.5 19.2 L 6.79 33 H -60 Z"/>
     <path id="right" d="M 80 5 H 9.69 L 18.3 19.2 L 9.59 33 H 80 Z"/>
@@ -21,6 +27,23 @@
     <clipPath id="inRight">
       <use href="#right"/>
     </clipPath>
+    <!-- The edge band inside either piece: 0.75 along the cut, from a stroke
+         twice as wide with its outer half clipped away, and the bar's own
+         rows along the top and bottom. -->
+    <mask id="bandLeft" maskUnits="userSpaceOnUse" x="-80" y="-10" width="180" height="60">
+      <g clip-path="url(#inLeft)">
+        <use href="#left" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+        <rect x="-60" y="5" width="140" height="0.5" fill="#ffffff"/>
+        <rect x="-60" y="32" width="140" height="1" fill="#ffffff"/>
+      </g>
+    </mask>
+    <mask id="bandRight" maskUnits="userSpaceOnUse" x="-80" y="-10" width="180" height="60">
+      <g clip-path="url(#inRight)">
+        <use href="#right" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+        <rect x="-60" y="5" width="140" height="0.5" fill="#ffffff"/>
+        <rect x="-60" y="32" width="140" height="1" fill="#ffffff"/>
+      </g>
+    </mask>
     <filter id="shadow" filterUnits="userSpaceOnUse" x="-80" y="-10" width="180" height="60">
       <feGaussianBlur stdDeviation="1.6"/>
     </filter>
@@ -29,12 +52,6 @@
       <use href="#left" fill="#000000"/>
       <use href="#right" fill="#000000"/>
     </mask>
-    <g id="bar">
-      <rect x="-60" y="5" width="140" height="1" fill="#ffffff" fill-opacity="0.349"/>
-      <rect x="-60" y="6" width="140" height="25" fill="url(#glass)"/>
-      <rect x="-60" y="31" width="140" height="1" fill="#dbdbdb" fill-opacity="0.141"/>
-      <rect x="-60" y="32" width="140" height="1" fill="#b4b4b4" fill-opacity="0.161"/>
-    </g>
   </defs>
   <g mask="url(#outside)">
     <g transform="translate(0 -0.25)" fill="#000000" opacity="0.205" filter="url(#shadow)">
@@ -42,12 +59,12 @@
       <use href="#right"/>
     </g>
   </g>
-  <g clip-path="url(#inLeft)">
-    <use href="#bar"/>
-    <path d="M 6.89 5 L 15.5 19.2 L 6.79 33" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2.4"/>
+  <use href="#left" fill="url(#glass)"/>
+  <use href="#right" fill="url(#glass)"/>
+  <g mask="url(#bandLeft)">
+    <rect x="-60" y="0" width="140" height="39" fill="url(#edge)"/>
   </g>
-  <g clip-path="url(#inRight)">
-    <use href="#bar"/>
-    <path d="M 9.69 5 L 18.3 19.2 L 9.59 33" fill="none" stroke="#ffffff" stroke-opacity="0.02" stroke-width="2.4"/>
+  <g mask="url(#bandRight)">
+    <rect x="-60" y="0" width="140" height="39" fill="url(#edge)"/>
   </g>
 </svg>

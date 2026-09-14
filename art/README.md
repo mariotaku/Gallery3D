@@ -14,6 +14,12 @@ The attributes that name a file's outputs, frames and nine-patch guides are
 described at the top of `tools/art/render.py`. `--sheet out.png --original DIR`
 also writes pages of the old PNGs beside the new ones, on grey and on black.
 
+`art/templates` holds shapes that drawables are cut from rather than
+drawables. `render.py` skips it. `templates/capsule.svg` is the glass capsule
+behind the path bar's `pathbar_bg`, `pathbar_cap` and `pathbar_join` and the
+zoom tabs, `gallery_zoom_*`. Change it first, then carry the numbers into the
+pieces.
+
 ## Sizes
 
 Chrome is drawn at the display's density and never enlarged: the path bar,

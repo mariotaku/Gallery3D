@@ -1,43 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 66 42"
      g3d:outputs="drawable=66x42">
-  <!-- The zoom out tab held down: gallery_zoom_out.svg's shape in solid gold,
-       darker toward the bottom, edged in yellow and glowing, with a cream
-       magnifier and its brown edge. -->
+  <!-- The zoom out tab held down: gallery_zoom_in_touch.svg turned left for
+       right, on gallery_zoom_out.svg's outline, with a minus in the cream
+       magnifier. -->
   <defs>
-    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="8.054" x2="0" y2="30.108">
-      <stop offset="0" stop-color="#fad64f"/>
-      <stop offset="0.592" stop-color="#edb62d"/>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="8.5" x2="0" y2="33.5">
+      <stop offset="0" stop-color="#fad54f"/>
+      <stop offset="0.556" stop-color="#edb62d"/>
       <stop offset="1" stop-color="#df910f"/>
     </linearGradient>
-    <!-- The tab stops square short of the right edge of the canvas. -->
-    <clipPath id="glowEnd">
-      <rect x="-100" y="-20" width="100" height="80" transform="translate(67 0)"/>
-    </clipPath>
-    <clipPath id="edgeEnd">
-      <rect x="-100" y="-20" width="100" height="80" transform="translate(65 0)"/>
-    </clipPath>
-    <clipPath id="goldEnd">
-      <rect x="-100" y="-20" width="100" height="80" transform="translate(64 0)"/>
-    </clipPath>
-    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="80">
+    <filter id="glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="106" height="82">
       <feGaussianBlur stdDeviation="2.2"/>
     </filter>
-    <filter id="edge" filterUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="80">
+    <filter id="glyphEdge" filterUnits="userSpaceOnUse" x="-20" y="-20" width="106" height="82">
       <feGaussianBlur stdDeviation="2.4"/>
     </filter>
+    <path id="shape" d="M 65 7 H 20 A 14 14 0 0 0 20 35 H 65 Z"/>
+    <path id="body" d="M 63.5 8.5 H 20 A 12.5 12.5 0 0 0 20 33.5 H 63.5 Z"/>
     <g id="glyph">
-      <circle cx="25.944" cy="20.944" r="7.203" fill="none" stroke-width="2.688"/>
-      <line x1="32.4" y1="27.4" x2="37.95" y2="32.7" stroke-width="2.844" stroke-linecap="round"/>
-      <rect x="23" y="20" width="6.6" height="2" stroke="none"/>
+      <circle cx="25.963" cy="20.942" r="7.198" fill="none" stroke-width="2.55"/>
+      <line x1="32.4" y1="27.375" x2="37.9" y2="32.692" stroke-width="2.875" stroke-linecap="round"/>
+      <rect x="22.813" y="19.942" width="6.3" height="2" stroke="none"/>
     </g>
   </defs>
 
-  <g opacity="0.987" filter="url(#glow)">
-    <rect x="6.112" y="5.115" width="100" height="31" rx="12.388" fill="#e9ad2b" clip-path="url(#glowEnd)"/>
-  </g>
-  <rect x="7.575" y="6.75" width="100" height="27.758" rx="11.25" fill="rgb(97%,79.229%,10.167%)" clip-path="url(#edgeEnd)"/>
-  <rect x="9.221" y="8.054" width="100" height="25.198" rx="8.688" fill="url(#gold)" clip-path="url(#goldEnd)"/>
+  <use href="#shape" fill="#e9ad2b" opacity="0.984" filter="url(#glow)"/>
+  <use href="#shape" fill="rgb(97%,80.375%,11.5%)"/>
+  <use href="#body" fill="url(#gold)"/>
 
-  <use href="#glyph" fill="#9a6400" stroke="#9a6400" opacity="0.875" filter="url(#edge)"/>
-  <use href="#glyph" fill="rgb(98.5%,98.5%,94.375%)" stroke="rgb(98.5%,98.5%,94.375%)" opacity="0.997"/>
+  <use href="#glyph" fill="#9a6400" stroke="#9a6400" opacity="0.893" filter="url(#glyphEdge)"/>
+  <use href="#glyph" fill="rgb(98.5%,99.25%,96.625%)" stroke="rgb(98.5%,99.25%,96.625%)" opacity="0.993"/>
 </svg>

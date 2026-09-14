@@ -1,11 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 1 39"
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 1 39" width="1" height="39"
      g3d:outputs="drawable=1x39">
-  <!-- The column PathBarLayer stretches along the bar. Row 5 is the glass's top
-       highlight, rows 6 to 30 the glass, 31 and 32 its lip, and a shadow fades
-       out for three rows above and below. pathbar_cap and pathbar_join draw
-       the same rows, so they meet this column without a seam. -->
+  <!-- The column PathBarLayer stretches along the bar: a slice through the
+       straight middle of art/templates/capsule.svg, moved up two pixels so
+       the glass is rows 5 to 32. Its edge is half a pixel along the top,
+       where the edge colour has faded to nothing, and a pixel along the
+       bottom. The shadow fades out for three rows above and below.
+       pathbar_cap and pathbar_join draw the same rows, so they meet this
+       column without a seam. -->
   <defs>
-    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="31">
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="33">
       <stop offset="0.02" stop-color="#fdfdfd" stop-opacity="0.267"/>
       <stop offset="0.30" stop-color="#eeeeee" stop-opacity="0.243"/>
       <stop offset="0.54" stop-color="#dedede" stop-opacity="0.204"/>
@@ -14,8 +17,16 @@
       <stop offset="0.78" stop-color="#bebebe" stop-opacity="0.133"/>
       <stop offset="0.98" stop-color="#b1b1b1" stop-opacity="0.110"/>
     </linearGradient>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="33">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#bdbdbd" stop-opacity="0.2"/>
+    </linearGradient>
+    <!-- Blurred up and down only. The canvas is one column, so a blur across
+         it would lose what spreads past the sides and leave this shadow half
+         as dark as the cap's and the join's. Across a shape this wide, a blur
+         sideways changes nothing anyway. -->
     <filter id="shadow" filterUnits="userSpaceOnUse" x="-80" y="-10" width="160" height="60">
-      <feGaussianBlur stdDeviation="1.6"/>
+      <feGaussianBlur stdDeviation="0 1.6"/>
     </filter>
     <mask id="outside" maskUnits="userSpaceOnUse" x="-80" y="-10" width="160" height="60">
       <rect x="-80" y="-10" width="160" height="60" fill="#ffffff"/>
@@ -23,10 +34,9 @@
     </mask>
   </defs>
   <g mask="url(#outside)">
-    <rect x="-60" y="4.75" width="120" height="28" fill="#000000" opacity="0.41" filter="url(#shadow)"/>
+    <rect x="-60" y="4.75" width="120" height="28" fill="#000000" opacity="0.205" filter="url(#shadow)"/>
   </g>
-  <rect x="-60" y="5" width="120" height="1" fill="#ffffff" fill-opacity="0.349"/>
-  <rect x="-60" y="6" width="120" height="25" fill="url(#glass)"/>
-  <rect x="-60" y="31" width="120" height="1" fill="#dbdbdb" fill-opacity="0.141"/>
-  <rect x="-60" y="32" width="120" height="1" fill="#b4b4b4" fill-opacity="0.161"/>
+  <rect x="-60" y="5" width="120" height="28" fill="url(#glass)"/>
+  <rect x="-60" y="5" width="120" height="0.5" fill="url(#edge)"/>
+  <rect x="-60" y="32" width="120" height="1" fill="url(#edge)"/>
 </svg>

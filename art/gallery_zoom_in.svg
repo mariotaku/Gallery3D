@@ -1,50 +1,55 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 66 42"
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 66 42" width="66" height="42"
      g3d:outputs="drawable=66x42">
-  <!-- The zoom in tab: frosted glass coming in from the left edge, rounded at
-       its right end, lighter at the top, rimmed in light and casting a soft
-       shadow, with a white magnifier and its dark edge. -->
+  <!-- The zoom in tab: gallery_zoom_out.svg's glass mirrored, the right half
+       of art/templates/capsule.svg with its straight cut on the left. A white
+       magnifier with a plus sits on the glass, with its dark edge. -->
   <defs>
-    <linearGradient id="body" gradientUnits="userSpaceOnUse" x1="0" y1="7.456" x2="0" y2="32.652">
-      <stop offset="0" stop-color="rgb(99.5%,99.5%,99.5%)" stop-opacity="0.224"/>
-      <stop offset="0.5" stop-color="rgb(85.5%,85.5%,85.5%)" stop-opacity="0.17"/>
-      <stop offset="1" stop-color="rgb(52.583%,52.583%,52.583%)" stop-opacity="0.069"/>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="35">
+      <stop offset="0.02" stop-color="#fdfdfd" stop-opacity="0.267"/>
+      <stop offset="0.30" stop-color="#eeeeee" stop-opacity="0.243"/>
+      <stop offset="0.54" stop-color="#dedede" stop-opacity="0.204"/>
+      <stop offset="0.58" stop-color="#d6d6d6" stop-opacity="0.180"/>
+      <stop offset="0.62" stop-color="#cdcdcd" stop-opacity="0.161"/>
+      <stop offset="0.78" stop-color="#bebebe" stop-opacity="0.133"/>
+      <stop offset="0.98" stop-color="#b1b1b1" stop-opacity="0.110"/>
     </linearGradient>
-    <clipPath id="inside">
-      <rect x="-40" y="7.456" width="98.219" height="26.862" rx="11.196"/>
-    </clipPath>
-    <mask id="outside" maskUnits="userSpaceOnUse" x="-60" y="-20" width="140" height="80">
-      <rect x="-60" y="-20" width="140" height="80" fill="#ffffff"/>
-      <rect x="-40" y="7.456" width="98.219" height="26.862" rx="11.196" fill="#000000"/>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="35">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#bdbdbd" stop-opacity="0.2"/>
+    </linearGradient>
+    <!-- gallery_zoom_out.svg's outline turned left for right. -->
+    <path id="shape" d="M 1 7 H 46 A 14 14 0 0 1 46 35 H 1 Z"/>
+    <path id="inner" d="M 1.75 7.5 H 46 A 13.25 13.25 0 0 1 46 34 H 1.75 Z"/>
+    <mask id="band" maskUnits="userSpaceOnUse" x="0" y="0" width="66" height="42">
+      <use href="#shape" fill="#ffffff"/>
+      <use href="#inner" fill="#000000"/>
     </mask>
-    <filter id="shadow" filterUnits="userSpaceOnUse" x="-60" y="-20" width="140" height="80">
-      <feGaussianBlur stdDeviation="1.451"/>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-20" y="-20" width="106" height="82">
+      <rect x="-20" y="-20" width="106" height="82" fill="#ffffff"/>
+      <use href="#shape" fill="#000000"/>
+    </mask>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="106" height="82">
+      <feGaussianBlur stdDeviation="1.6"/>
     </filter>
-    <filter id="edge" filterUnits="userSpaceOnUse" x="-60" y="-20" width="140" height="80">
-      <feGaussianBlur stdDeviation="2.022"/>
+    <filter id="glyphEdge" filterUnits="userSpaceOnUse" x="-20" y="-20" width="106" height="82">
+      <feGaussianBlur stdDeviation="2.4"/>
     </filter>
     <g id="glyph">
-      <circle cx="39.494" cy="20.906" r="7.188" fill="none" stroke-width="2.525"/>
-      <line x1="45.781" y1="27.3" x2="51.3" y2="32.467" stroke-width="2.812" stroke-linecap="round"/>
-      <rect x="35.75" y="19.75" width="7.15" height="2" stroke="none"/>
-      <rect x="39" y="18.5" width="1.15" height="6" stroke="none"/>
+      <circle cx="40.037" cy="20.942" r="7.198" fill="none" stroke-width="2.55"/>
+      <line x1="46.474" y1="27.375" x2="51.974" y2="32.692" stroke-width="2.875" stroke-linecap="round"/>
+      <rect x="36.887" y="19.942" width="6.3" height="2" stroke="none"/>
+      <rect x="39.037" y="17.792" width="2" height="6.3" stroke="none"/>
     </g>
   </defs>
 
   <g mask="url(#outside)">
-    <rect x="-40" y="7.456" width="98.219" height="26.862" rx="11.196" fill="#000000" opacity="0.14" filter="url(#shadow)"/>
+    <use href="#shape" transform="translate(0 -0.25)" fill="#000000" opacity="0.205" filter="url(#shadow)"/>
   </g>
-  <rect x="-40" y="7.456" width="98.219" height="26.862" rx="11.196" fill="url(#body)"/>
-  <g clip-path="url(#inside)">
-    <rect x="-40" y="7.456" width="98.219" height="26.862" rx="11.196" fill="none" stroke="#ffffff" stroke-opacity="0"
-          stroke-width="1.587"/>
-    <!-- A lit row along the top edge and another along the bottom. -->
-    <rect x="-40" y="7.456" width="120" height="0.6" fill="#ffffff" opacity="0"/>
-    <rect x="-40" y="32.668" width="120" height="1" fill="#ffffff" opacity="0.1"/>
+  <use href="#shape" fill="url(#glass)"/>
+  <g mask="url(#band)">
+    <rect x="0" y="0" width="66" height="42" fill="url(#edge)"/>
   </g>
-  <!-- A grey line under the glass, where its edge catches the light below. -->
-  <rect x="-40" y="8.131" width="98.219" height="26.756" rx="11.196" fill="rgb(53%,53%,53%)" opacity="0.067"
-        mask="url(#outside)"/>
 
-  <use href="#glyph" fill="#000000" stroke="#000000" opacity="0.342" filter="url(#edge)"/>
-  <use href="#glyph" fill="#ffffff" stroke="#ffffff" opacity="0.967"/>
+  <use href="#glyph" fill="#000000" stroke="#000000" opacity="0.258" filter="url(#glyphEdge)"/>
+  <use href="#glyph" fill="#ffffff" stroke="#ffffff" opacity="0.961"/>
 </svg>

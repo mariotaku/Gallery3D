@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 42" width="132" height="42">
+  <!-- The capsule every glass button on the chrome is cut from: the path bar's
+       crumbs, cap and joins, and the zoom out and zoom in tabs. It is one
+       symmetrical shape, so a piece cut from its left half and a piece cut
+       from its right half light the same way.
+
+       Not a drawable. tools/art/render.py skips this folder. The drawables
+       copy these numbers, moved to their own canvas.
+
+       Units are mdpi pixels. The canvas is the two zoom tabs side by side, 66
+       each, and x = 66 is the line between them. The glass is 28 tall, and
+       each end is a half circle of radius 14. The glass gradient runs from
+       its top row to its bottom row.
+
+       The edge is the band between the outline and a second capsule inside
+       it, radius 13.25 and centred a quarter pixel higher. The band is half a
+       pixel deep along the top and 1 along the bottom, thinner above than
+       below as the original's highlight row and lip were, and 0.75 at the
+       middle of each end, changing smoothly all the way round. It fades from
+       nothing along the top to grey along the bottom. A soft shadow falls outside the outline, a quarter pixel higher
+       than the glass. -->
+  <defs>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="35">
+      <stop offset="0.02" stop-color="#fdfdfd" stop-opacity="0.267"/>
+      <stop offset="0.30" stop-color="#eeeeee" stop-opacity="0.243"/>
+      <stop offset="0.54" stop-color="#dedede" stop-opacity="0.204"/>
+      <stop offset="0.58" stop-color="#d6d6d6" stop-opacity="0.180"/>
+      <stop offset="0.62" stop-color="#cdcdcd" stop-opacity="0.161"/>
+      <stop offset="0.78" stop-color="#bebebe" stop-opacity="0.133"/>
+      <stop offset="0.98" stop-color="#b1b1b1" stop-opacity="0.110"/>
+    </linearGradient>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="35">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#bdbdbd" stop-opacity="0.2"/>
+    </linearGradient>
+    <rect id="shape" x="6" y="7" width="120" height="28" rx="14"/>
+    <rect id="inner" x="6.75" y="7.5" width="118.5" height="26.5" rx="13.25"/>
+    <mask id="band" maskUnits="userSpaceOnUse" x="0" y="0" width="132" height="42">
+      <use href="#shape" fill="#ffffff"/>
+      <use href="#inner" fill="#000000"/>
+    </mask>
+    <mask id="outside" maskUnits="userSpaceOnUse" x="-20" y="-20" width="172" height="82">
+      <rect x="-20" y="-20" width="172" height="82" fill="#ffffff"/>
+      <use href="#shape" fill="#000000"/>
+    </mask>
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="172" height="82">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+
+  <g mask="url(#outside)">
+    <use href="#shape" transform="translate(0 -0.25)" fill="#000000" opacity="0.205" filter="url(#shadow)"/>
+  </g>
+  <use href="#shape" fill="url(#glass)"/>
+  <g mask="url(#band)">
+    <rect x="0" y="0" width="132" height="42" fill="url(#edge)"/>
+  </g>
+</svg>

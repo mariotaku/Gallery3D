@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 22 39"
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:g3d="urn:gallery3d:art" viewBox="0 0 22 39" width="22" height="39"
      g3d:outputs="drawable=22x39">
-  <!-- The rounded end of the last crumb. Its left column is pathbar_bg's, and
-       the glass ends in a curve with a faint rim, casting the bar's shadow
-       around it. -->
+  <!-- The rounded end of the last crumb: the right end of
+       art/templates/capsule.svg, moved up two pixels. A half circle of radius
+       14 centred on column 3, with the capsule's edge following it round and
+       the shadow falling outside it. Its left column is pathbar_bg's. -->
   <defs>
-    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="31">
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="33">
       <stop offset="0.02" stop-color="#fdfdfd" stop-opacity="0.267"/>
       <stop offset="0.30" stop-color="#eeeeee" stop-opacity="0.243"/>
       <stop offset="0.54" stop-color="#dedede" stop-opacity="0.204"/>
@@ -13,10 +14,17 @@
       <stop offset="0.78" stop-color="#bebebe" stop-opacity="0.133"/>
       <stop offset="0.98" stop-color="#b1b1b1" stop-opacity="0.110"/>
     </linearGradient>
-    <path id="shape" d="M -60 5 H 8.2 C 11.8 5.4 16.8 11.5 17 16 V 21 C 17 27 11.8 33 9.3 33 H -60 Z"/>
-    <clipPath id="inside">
-      <use href="#shape"/>
-    </clipPath>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="33">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#bdbdbd" stop-opacity="0.2"/>
+    </linearGradient>
+    <path id="shape" d="M -60 5 H 3 A 14 14 0 0 1 3 33 H -60 Z"/>
+    <!-- The capsule's inner outline: radius 13.25, a quarter pixel higher. -->
+    <path id="inner" d="M -60 5.5 H 3 A 13.25 13.25 0 0 1 3 32 H -60 Z"/>
+    <mask id="band" maskUnits="userSpaceOnUse" x="-80" y="-10" width="160" height="60">
+      <use href="#shape" fill="#ffffff"/>
+      <use href="#inner" fill="#000000"/>
+    </mask>
     <filter id="shadow" filterUnits="userSpaceOnUse" x="-80" y="-10" width="160" height="60">
       <feGaussianBlur stdDeviation="1.6"/>
     </filter>
@@ -28,12 +36,8 @@
   <g mask="url(#outside)">
     <use href="#shape" transform="translate(0 -0.25)" fill="#000000" opacity="0.205" filter="url(#shadow)"/>
   </g>
-  <g clip-path="url(#inside)">
-    <rect x="-60" y="5" width="120" height="1" fill="#ffffff" fill-opacity="0.349"/>
-    <rect x="-60" y="6" width="120" height="25" fill="url(#glass)"/>
-    <rect x="-60" y="31" width="120" height="1" fill="#dbdbdb" fill-opacity="0.141"/>
-    <rect x="-60" y="32" width="120" height="1" fill="#b4b4b4" fill-opacity="0.161"/>
-    <path d="M 8.2 5 C 11.8 5.4 16.8 11.5 17 16 V 21 C 17 27 11.8 33 9.3 33" fill="none" stroke="#ffffff"
-          stroke-opacity="0.06" stroke-width="2.4"/>
+  <use href="#shape" fill="url(#glass)"/>
+  <g mask="url(#band)">
+    <rect x="-60" y="0" width="120" height="39" fill="url(#edge)"/>
   </g>
 </svg>
