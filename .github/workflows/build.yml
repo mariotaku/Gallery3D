@@ -1,6 +1,6 @@
 # Builds every platform on each push and pull request, and runs the tests on
-# the three that have a console to run them in. Each job keeps what it built
-# as an artifact.
+# Linux, macOS, Windows and an Android emulator. Each build job keeps what it
+# built as an artifact.
 name: Build
 
 on:
@@ -136,6 +136,47 @@ jobs:
         with:
           name: gallery3d-android
           path: android/app/build/outputs/apk/release/*.apk
+
+  android-tests:
+    name: Android tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - name: Install the NDK and CMake the build pins
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+      - name: Fetch SDL archives
+        run: sh android/fetch-deps.sh
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Build
+        working-directory: android
+        # Before the emulator starts, so its time goes to the tests alone.
+        run: sh ./gradlew assembleConformance assembleConformanceAndroidTest
+      - name: Test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          working-directory: android
+          script: sh ./gradlew connectedConformanceAndroidTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-report
+          path: android/app/build/reports/androidTest/connected
 
   ios:
     name: iOS
