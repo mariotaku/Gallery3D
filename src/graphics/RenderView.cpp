@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "app/App.h"
+#include "core/AppPause.h"
 #include "graphics/Layer.h"
 #include "core/Shared.h"
 
@@ -586,6 +587,7 @@ void RenderView::loadTexture(const TexturePtr &texture) {
     }
     if (texture->mState == Texture::STATE_UNLOADED || texture->mState == Texture::STATE_QUEUED) {
         texture->mState = Texture::STATE_LOADING;
+        texture->mLoadEpoch = AppPause::epoch();
         loadTextureAsync(texture);
         uploadTexture(texture);
     }
@@ -663,7 +665,10 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     const int width = texture->mBitmap.valid() ? texture->mBitmap.width() : 0;
     const int height = texture->mBitmap.valid() ? texture->mBitmap.height() : 0;
     if (!texture->mBitmap.valid()) {
-        texture->mState = Texture::STATE_ERROR;
+        // Pausing cancels what the providers were still reading, and that
+        // photo is not broken. It loads again once it is drawn.
+        texture->mState =
+            texture->mLoadEpoch != AppPause::epoch() ? Texture::STATE_UNLOADED : Texture::STATE_ERROR;
         texture->mBitmap = Bitmap();
         return;
     }
@@ -867,6 +872,9 @@ void RenderView::textureLoadThread(int index) {
     // Thread 0 drains the cached queue and thread 1 the video queue, matching
     // the original assignment.
     while (mLoadThreadsRunning.load()) {
+        // Nothing new starts in the background. A load reads through other
+        // apps' providers, which Android will not let a frozen app keep open.
+        AppPause::waitUntilResumed([this]() { return !mLoadThreadsRunning.load(); });
         TexturePtr texture;
         {
             std::unique_lock<std::mutex> lock(mQueueMutex);
@@ -903,6 +911,7 @@ void RenderView::textureLoadThread(int index) {
             texture = queue->front();
             queue->pop_front();
             ++mLoadsRunning;
+            texture->mLoadEpoch = AppPause::epoch();
         }
 
         if (index != 0) {

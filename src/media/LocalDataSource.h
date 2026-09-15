@@ -96,6 +96,15 @@ class DataSource {
         return false;
     }
 
+    // The EXIF orientation, 1 to 8, to turn the item's pixels by once they are
+    // decoded from these bytes, for a source that learns a photo's rotation
+    // only from its bytes. 1 leaves them as stored for the item's rotation.
+    virtual int orientationToApply(MediaItem *item, const std::vector<uint8_t> &bytes) {
+        (void)item;
+        (void)bytes;
+        return 1;
+    }
+
     // Whether this item can be drawn from cropped regions rather than one
     // downscaled decode. It takes the item because a local source answers per
     // file: only some formats have a region decoder behind them.

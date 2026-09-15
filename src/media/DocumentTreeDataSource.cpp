@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
 
+#include "core/AppPause.h"
 #include "core/JsonValue.h"
 #include "core/StableId.h"
 #include "graphics/Bitmap.h"
@@ -124,7 +125,11 @@ void DocumentTreeDataSource::loadMediaSets(MediaFeed *feed) {
     pending.emplace_back(mTreeUri, std::string());
     std::unordered_set<std::string> visited;
     while (!pending.empty() && !feed->isCancelled()) {
-        const std::string folderUri = std::move(pending.front().first);
+        AppPause::waitUntilResumed([feed]() { return feed->isCancelled(); });
+        if (feed->isCancelled()) {
+            break;
+        }
+        const std::string folderUri = pending.front().first;
         std::string name = std::move(pending.front().second);
         pending.pop_front();
         // A provider can list one folder under two parents, or lead back up
@@ -133,7 +138,14 @@ void DocumentTreeDataSource::loadMediaSets(MediaFeed *feed) {
             continue;
         }
 
+        const uint64_t epoch = AppPause::epoch();
         const nlohmann::json folder = parseObject(mClient.listFolder(folderUri));
+        if (!folder.is_object() && epoch != AppPause::epoch()) {
+            // Cancelled by a pause, not unreadable: listed again once resumed.
+            visited.erase(folderUri);
+            pending.emplace_front(folderUri, name);
+            continue;
+        }
         if (!folder.is_object()) {
             if (folderUri == mTreeUri) {
                 SDL_Log("Could not read the folder tree %s", mTreeUri.c_str());
@@ -242,6 +254,17 @@ bool DocumentTreeDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap 
     return true;
 }
 
+int DocumentTreeDataSource::orientationToApply(MediaItem *item, const std::vector<uint8_t> &bytes) {
+    if (item == nullptr) {
+        return 1;
+    }
+    const Known known = knownFor(item->mId);
+    if (known.providerRotation || known.rotationFromFile) {
+        return 1;
+    }
+    return Bitmap::readExif(bytes.data(), bytes.size()).orientation;
+}
+
 DocumentTreeDataSource::Known DocumentTreeDataSource::knownFor(int64_t id) {
     std::lock_guard<std::mutex> lock(mKnownMutex);
     const auto found = mKnown.find(id);
@@ -253,12 +276,19 @@ DocumentTreeDataSource::Known DocumentTreeDataSource::readExifOnce(MediaItem *it
     if (before.exifRead) {
         return before;
     }
+    const uint64_t epoch = AppPause::epoch();
     const nlohmann::json exif = parseObject(mClient.readExif(item->mContentUri, item->mMimeType));
     std::lock_guard<std::mutex> lock(mKnownMutex);
     Known &known = mKnown[item->mId];
+    if (!exif.is_object() && epoch != AppPause::epoch()) {
+        // Cancelled by a pause: read again the next time the photo loads.
+        return known;
+    }
     if (!known.exifRead) {
         known.exifRead = true;
         if (exif.is_object()) {
+            const auto fromFile = exif.find("fromFile");
+            known.rotationFromFile = fromFile == exif.end() || !fromFile->is_boolean() || fromFile->get<bool>();
             if (!known.providerRotation) {
                 known.rotation = rotationFor(intOr(exif, "orientation", 0));
             }

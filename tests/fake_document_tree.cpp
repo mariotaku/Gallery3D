@@ -9,6 +9,10 @@ std::string FakeDocumentTree::listFolder(const std::string &requested) {
     if (onListFolder) {
         onListFolder(requested);
     }
+    if (!failOnce.empty() && requested == failOnce) {
+        failOnce.clear();
+        return std::string();
+    }
     const bool root = requested == treeUri;
     const FakeFolder *folder = nullptr;
     for (const FakeFolder &candidate : folders) {
@@ -46,12 +50,25 @@ std::string FakeDocumentTree::listFolder(const std::string &requested) {
 std::string FakeDocumentTree::readExif(const std::string &uri, const std::string &mime) {
     (void)mime;
     ++exifReads;
+    if (onReadExif) {
+        onReadExif(uri);
+    }
+    if (!failOnce.empty() && uri == failOnce) {
+        failOnce.clear();
+        return std::string();
+    }
     for (const FakeDocument &document : documents) {
         if (document.uri == uri) {
+            if (!document.exifFromFile) {
+                return nlohmann::json({{"orientation", 0}, {"dateTaken", 0}, {"width", 0}, {"height", 0},
+                                       {"fromFile", false}})
+                    .dump();
+            }
             return nlohmann::json({{"orientation", document.orientation},
                                    {"dateTaken", document.dateTaken},
                                    {"width", document.width},
-                                   {"height", document.height}})
+                                   {"height", document.height},
+                                   {"fromFile", true}})
                 .dump();
         }
     }

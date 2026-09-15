@@ -35,6 +35,9 @@ struct FakeDocument {
     Bitmap thumbnail;
     // The rotation the provider reports with the thumbnail, or -1 for none.
     int thumbnailOrientation = -1;
+    // False for a cloud provider, whose EXIF answer is only what it keeps and
+    // leaves orientation at 0.
+    bool exifFromFile = true;
 };
 
 class FakeDocumentTree : public DocumentTreeClient {
@@ -50,6 +53,11 @@ class FakeDocumentTree : public DocumentTreeClient {
     std::vector<FakeDocument> documents;
     // Called with each folder asked for, before the answer.
     std::function<void(const std::string &folderUri)> onListFolder;
+    // Called with each photo whose EXIF is asked for, before the answer.
+    std::function<void(const std::string &uri)> onReadExif;
+    // A folder or photo uri answered as unreadable the next time it is asked
+    // for, and read normally after.
+    std::string failOnce;
 
     std::atomic<int> folderQueries{0};
     std::atomic<int> exifReads{0};

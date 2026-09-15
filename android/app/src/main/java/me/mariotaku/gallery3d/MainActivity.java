@@ -56,6 +56,22 @@ public class MainActivity extends SDLActivity {
     }
 
     @Override
+    protected void onPause() {
+        // SDL tells the native loaders first, so a call that fails from here on
+        // is known there as cancelled, not taken for a folder or photo that
+        // cannot be read. Then the calls still open are cancelled: one open
+        // when Android freezes the app gets the app and the provider killed.
+        super.onPause();
+        StorageBridge.pause();
+    }
+
+    @Override
+    protected void onResume() {
+        StorageBridge.resume();
+        super.onResume();
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // The folder picker's answer. Anything else is SDL's own file dialog.
         if (requestCode == StorageBridge.PICK_FOLDER_REQUEST) {

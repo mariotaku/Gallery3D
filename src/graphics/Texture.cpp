@@ -38,6 +38,18 @@ void Texture::clear() {
 
 namespace {
 
+// The orientation that undoes this one. toStoredOrientation with it turns
+// stored pixels upright.
+int inverseOrientation(int orientation) {
+    if (orientation == 6) {
+        return 8;
+    }
+    if (orientation == 8) {
+        return 6;
+    }
+    return orientation;
+}
+
 // Decode source bytes, falling back to a local path. Source and decoder
 // callbacks may complete inline or later.
 void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
@@ -63,8 +75,16 @@ void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
         return;
     }
 
-    source->requestItemBytes(item, [path, decodeBytes, done](bool ok, std::vector<uint8_t> bytes) {
+    source->requestItemBytes(item, [source, item, path, maxEdge, decodeBytes, done](bool ok,
+                                                                                    std::vector<uint8_t> bytes) {
         if (ok && !bytes.empty()) {
+            const int orientation = source->orientationToApply(item, bytes);
+            if (orientation > 1) {
+                ImageDecode::decode(std::move(bytes), maxEdge, [orientation, done](Bitmap bitmap) {
+                    done(bitmap.toStoredOrientation(inverseOrientation(orientation)));
+                });
+                return;
+            }
             decodeBytes(std::move(bytes));
             return;
         }
@@ -222,7 +242,11 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
 
     // Cache cropped thumbnails by modification time and density-dependent crop size.
     char suffix[64];
-    SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d", (long long)mItem->mDateModifiedInSec, side, height);
+    // The version goes up when what a cached thumbnail holds changes, so an
+    // older one is not taken for the current kind.
+    const int kCacheVersion = 2;
+    SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d|v%d", (long long)mItem->mDateModifiedInSec, side, height,
+                 kCacheVersion);
     const std::string key = cacheIdentity(mItem) + suffix;
     DiskCache &cache = DiskCache::thumbnails();
     Bitmap cached = cache.get(key);

@@ -22,6 +22,7 @@ import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
@@ -34,7 +35,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -60,8 +65,41 @@ public final class StorageBridge {
 
     private static final String EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents";
 
+    /**
+     * Providers of files already on this device, where opening a photo for its
+     * EXIF reads a few kilobytes. A cloud provider downloads the whole file to
+     * open it, so its photos' rotation comes only from what the provider keeps:
+     * EXTRA_ORIENTATION with a thumbnail, or its document metadata.
+     */
+    private static final Set<String> LOCAL_AUTHORITIES = new HashSet<>(Arrays.asList(
+            EXTERNAL_STORAGE_AUTHORITY,
+            "com.android.providers.downloads.documents",
+            "com.android.providers.media.documents"));
+
+    /** Providers already described in the log, one line each for what they offer. */
+    private static final Set<String> sDescribed = Collections.synchronizedSet(new HashSet<>());
+
     /** How long a folder that is still loading is waited for. */
     private static final long LOADING_LIMIT_MS = 30000;
+
+    /**
+     * Given to every provider call, and cancelled when the app pauses. Android
+     * freezes a paused app, and kills it and the provider together when a call
+     * such as a cloud download is still open.
+     */
+    private static volatile CancellationSignal sSignal = new CancellationSignal();
+
+    /** Cancels the provider calls under way. Called from MainActivity.onPause. */
+    static void pause() {
+        sSignal.cancel();
+    }
+
+    /** A fresh signal for the calls made once the app is back. */
+    static void resume() {
+        if (sSignal.isCanceled()) {
+            sSignal = new CancellationSignal();
+        }
+    }
 
     private static final String[] PHOTO_COLUMNS = {
         DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -220,6 +258,7 @@ public final class StorageBridge {
             return "";
         }
         Uri folder = Uri.parse(folderText);
+        final CancellationSignal signal = sSignal;
         JSONObject answer = new JSONObject();
         JSONArray folders = new JSONArray();
         JSONArray photos = new JSONArray();
@@ -233,7 +272,7 @@ public final class StorageBridge {
                 answer.put("name", treeName(resolver, folder, documentId));
             }
             Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, documentId);
-            try (Cursor cursor = queryChildren(resolver, children)) {
+            try (Cursor cursor = queryChildren(resolver, children, signal)) {
                 if (cursor == null) {
                     return "";
                 }
@@ -252,6 +291,10 @@ public final class StorageBridge {
                         folders.put(child);
                     } else if (mime.startsWith("image/")) {
                         final int flags = cursor.isNull(4) ? 0 : cursor.getInt(4);
+                        describeOnce(folder.getAuthority() + " listing",
+                                mime + " flags 0x" + Integer.toHexString(flags) + " (thumbnail "
+                                        + ((flags & DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL) != 0)
+                                        + ", metadata " + ((flags & (1 << 14)) != 0) + ")");
                         photos.put(photoRow(uri, name, mime, cursor.isNull(3) ? 0 : cursor.getLong(3),
                                 (flags & DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL) != 0));
                     }
@@ -260,10 +303,13 @@ public final class StorageBridge {
             answer.put("folders", folders);
             answer.put("photos", photos);
         } catch (JSONException | RuntimeException error) {
-            Log.w(TAG, "Could not list " + folderText, error);
+            if (!signal.isCanceled()) {
+                Log.w(TAG, "Could not list " + folderText, error);
+            }
             return "";
         }
-        return answer.toString();
+        // A listing cut short by a pause is no listing: the walk asks again.
+        return signal.isCanceled() ? "" : answer.toString();
     }
 
     /** The bytes of one document. */
@@ -272,7 +318,8 @@ public final class StorageBridge {
         if (resolver == null || uri == null) {
             return null;
         }
-        try (InputStream input = resolver.openInputStream(Uri.parse(uri))) {
+        try (AssetFileDescriptor file = resolver.openAssetFileDescriptor(Uri.parse(uri), "r", sSignal);
+             InputStream input = file != null ? file.createInputStream() : null) {
             return input != null ? readAll(input) : null;
         } catch (Exception error) {
             Log.w(TAG, "Could not read " + uri, error);
@@ -296,13 +343,16 @@ public final class StorageBridge {
         Bundle options = new Bundle();
         options.putParcelable(EXTRA_SIZE, new Point(size, size));
         options.putParcelable(EXTRA_THUMBNAIL_SIZE, new Point(size, size));
-        try (AssetFileDescriptor file = resolver.openTypedAssetFile(Uri.parse(uri), "image/*", options, null)) {
+        try (AssetFileDescriptor file = resolver.openTypedAssetFile(Uri.parse(uri), "image/*", options, sSignal)) {
             if (file == null) {
                 return null;
             }
             Bundle extras = file.getExtras();
             final int reported = extras != null && extras.containsKey(DocumentsContract.EXTRA_ORIENTATION)
                     ? extras.getInt(DocumentsContract.EXTRA_ORIENTATION) : -1;
+            describeOnce(Uri.parse(uri).getAuthority() + " thumbnail",
+                    "extras " + (extras != null ? extras.keySet() : "none") + ", orientation "
+                            + (reported >= 0 ? reported : "not reported"));
             byte[] encoded;
             try (InputStream input = file.createInputStream()) {
                 encoded = readAll(input);
@@ -355,10 +405,13 @@ public final class StorageBridge {
      * notification, or after a second when none comes, until the list is whole
      * or LOADING_LIMIT_MS have passed.
      */
-    private static Cursor queryChildren(ContentResolver resolver, Uri children) {
-        Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null);
+    private static Cursor queryChildren(ContentResolver resolver, Uri children, CancellationSignal signal) {
+        Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null, signal);
         final long deadline = SystemClock.uptimeMillis() + LOADING_LIMIT_MS;
         while (cursor != null && cursor.getExtras().getBoolean(DocumentsContract.EXTRA_LOADING, false)) {
+            if (signal.isCanceled()) {
+                break;
+            }
             final long left = deadline - SystemClock.uptimeMillis();
             if (left <= 0) {
                 Log.w(TAG, "Gave up waiting for " + children + " to finish loading");
@@ -381,7 +434,7 @@ public final class StorageBridge {
             }
             cursor.unregisterContentObserver(observer);
             cursor.close();
-            cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null);
+            cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null, signal);
         }
         return cursor;
     }
@@ -437,7 +490,7 @@ public final class StorageBridge {
     private static String treeName(ContentResolver resolver, Uri tree, String documentId) {
         Uri document = DocumentsContract.buildDocumentUriUsingTree(tree, documentId);
         try (Cursor cursor = resolver.query(document,
-                new String[] {DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
+                new String[] {DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null, sSignal)) {
             if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) {
                 return cursor.getString(0);
             }
@@ -478,30 +531,51 @@ public final class StorageBridge {
         if (resolver == null || uri == null || mime == null) {
             return "";
         }
+        final CancellationSignal signal = sSignal;
         try {
             JSONObject exif = new JSONObject();
-            readExif(resolver, Uri.parse(uri), mime, exif);
-            return exif.toString();
+            readExif(resolver, Uri.parse(uri), mime, signal, exif);
+            // Cut short by a pause, the zeros would read as a photo with no
+            // rotation. The native side reads it again instead.
+            return signal.isCanceled() ? "" : exif.toString();
         } catch (JSONException | RuntimeException error) {
             Log.i(TAG, "No EXIF for " + uri + ": " + error);
             return "";
         }
     }
 
-    private static void readExif(ContentResolver resolver, Uri uri, String mime, JSONObject photo)
-            throws JSONException {
+    private static void readExif(ContentResolver resolver, Uri uri, String mime, CancellationSignal signal,
+            JSONObject photo) throws JSONException {
         int orientation = 0;
         long taken = 0;
         int width = 0;
         int height = 0;
-        // RAW files have EXIF too, but a RAW beside its JPEG is not shown, and
-        // reading a whole RAW over a cloud provider to find out is slow.
+        if (!LOCAL_AUTHORITIES.contains(uri.getAuthority())) {
+            Bundle exif = providerExif(resolver, uri);
+            if (exif != null) {
+                orientation = degreesFor(intFrom(exif, ExifInterface.TAG_ORIENTATION));
+                taken = dateFor(exif.get(ExifInterface.TAG_DATETIME_ORIGINAL) != null
+                        ? String.valueOf(exif.get(ExifInterface.TAG_DATETIME_ORIGINAL)) : null);
+                width = intFrom(exif, ExifInterface.TAG_IMAGE_WIDTH);
+                height = intFrom(exif, ExifInterface.TAG_IMAGE_LENGTH);
+            }
+            photo.put("orientation", orientation);
+            photo.put("dateTaken", taken);
+            photo.put("width", width);
+            photo.put("height", height);
+            photo.put("fromFile", false);
+            return;
+        }
+        // ExifInterface tells the format from the file, so a camera RAW is read
+        // whatever type its provider names it. The decoder hands out its
+        // preview as stored, which leaves a portrait RAW on its side without
+        // the tag. Only GIF and BMP carry no orientation.
         final boolean jpeg = mime.equals("image/jpeg");
-        if (jpeg || mime.equals("image/heic") || mime.equals("image/heif") || mime.equals("image/webp")) {
+        if (!mime.equals("image/gif") && !mime.equals("image/bmp")) {
             ExifInterface exif = null;
             // A file descriptor lets ExifInterface seek to the metadata. From a
             // stream it copies a HEIF or WebP whole into memory first.
-            try (ParcelFileDescriptor file = resolver.openFileDescriptor(uri, "r")) {
+            try (ParcelFileDescriptor file = resolver.openFileDescriptor(uri, "r", signal)) {
                 if (file != null) {
                     exif = new ExifInterface(file.getFileDescriptor());
                 }
@@ -509,7 +583,8 @@ public final class StorageBridge {
                 // A cloud provider can answer with a pipe, which cannot seek.
                 // Only a JPEG is worth reading from the start then.
                 if (jpeg) {
-                    try (InputStream input = resolver.openInputStream(uri)) {
+                    try (AssetFileDescriptor asset = resolver.openAssetFileDescriptor(uri, "r", signal);
+                         InputStream input = asset != null ? asset.createInputStream() : null) {
                         if (input != null) {
                             exif = new ExifInterface(input);
                         }
@@ -530,6 +605,52 @@ public final class StorageBridge {
         photo.put("dateTaken", taken);
         photo.put("width", width);
         photo.put("height", height);
+        photo.put("fromFile", true);
+    }
+
+    /**
+     * The EXIF a provider keeps for a document, from DocumentsContract.getDocumentMetadata
+     * on Android 10 and later. Null when it keeps none. A provider that answers
+     * this does so from what it already has, without the file.
+     */
+    private static Bundle providerExif(ContentResolver resolver, Uri uri) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return null;
+        }
+        final long started = SystemClock.uptimeMillis();
+        try {
+            Bundle metadata = DocumentsContract.getDocumentMetadata(resolver, uri);
+            Bundle exif = metadata != null ? metadata.getBundle(DocumentsContract.METADATA_EXIF) : null;
+            describeOnce(uri.getAuthority() + " metadata", (exif != null ? "exif " + exif.keySet() : "no exif")
+                    + " in " + (SystemClock.uptimeMillis() - started) + " ms");
+            return exif;
+        } catch (Exception error) {
+            describeOnce(uri.getAuthority() + " metadata", "none: " + error + " in "
+                    + (SystemClock.uptimeMillis() - started) + " ms");
+            return null;
+        }
+    }
+
+    private static int intFrom(Bundle bundle, String key) {
+        final Object value = bundle.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException error) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    /** Logs what a provider offers, the first time it is seen doing so. */
+    private static void describeOnce(String what, String description) {
+        if (sDescribed.add(what)) {
+            Log.i(TAG, what + ": " + description);
+        }
     }
 
     private static int degreesFor(int orientation) {

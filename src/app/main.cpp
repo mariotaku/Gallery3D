@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "app/App.h"
+#include "core/AppPause.h"
 #include "core/Backtrace.h"
 #include "app/Settings.h"
 #include "graphics/Bitmap.h"
@@ -990,6 +991,19 @@ int main(int argc, char **argv) {
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
         return (windowWidth > 0) ? ((float)pixelWidth / (float)windowWidth) : 1.0f;
     };
+
+    // The platform pauses the app from its own thread, and the event loop below
+    // stops until it resumes, so the loaders hear about it here as it happens.
+    SDL_AddEventWatch(
+        [](void *, SDL_Event *lifecycle) {
+            if (lifecycle->type == SDL_EVENT_WILL_ENTER_BACKGROUND) {
+                AppPause::setPaused(true);
+            } else if (lifecycle->type == SDL_EVENT_DID_ENTER_FOREGROUND) {
+                AppPause::setPaused(false);
+            }
+            return true;
+        },
+        nullptr);
 
     int frameNumber = 0;
     // Require elapsed time as well as --frames so nonblocking swaps cannot outrun

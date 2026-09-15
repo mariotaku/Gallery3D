@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "core/AppPause.h"
 #include "decode_fixtures.h"
 #include "fake_document_tree.h"
 #include "graphics/Bitmap.h"
@@ -367,6 +368,128 @@ TEST(document_tree_bytes_come_from_the_document) {
     MediaItem *gone = itemCaptioned(setNamed(feed, "Trip"), "scan.png");
     std::vector<uint8_t> none;
     CHECK(!source.readItemBytes(gone, &none));
+}
+
+TEST(a_folder_listing_cut_short_by_a_pause_is_listed_again) {
+    FakeDocumentTree tree;
+    fillTree(tree);
+    tree.failOnce = kTrip;
+    int tripQueries = 0;
+    tree.onListFolder = [&tripQueries](const std::string &folderUri) {
+        if (folderUri == kTrip && ++tripQueries == 1) {
+            // The app going to the background while the listing is out.
+            AppPause::setPaused(true);
+            AppPause::setPaused(false);
+        }
+    };
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+    CHECK_EQ(tripQueries, 2);
+    CHECK(setNamed(feed, "Trip") != nullptr);
+}
+
+TEST(a_folder_that_cannot_be_read_is_not_asked_for_again) {
+    FakeDocumentTree tree;
+    fillTree(tree);
+    tree.failOnce = kTrip;
+    int tripQueries = 0;
+    tree.onListFolder = [&tripQueries](const std::string &folderUri) {
+        if (folderUri == kTrip) {
+            ++tripQueries;
+        }
+    };
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+    CHECK_EQ(tripQueries, 1);
+    CHECK(setNamed(feed, "Trip") == nullptr);
+}
+
+TEST(an_exif_read_cut_short_by_a_pause_is_read_again) {
+    FakeDocumentTree tree;
+    fillTree(tree);
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+
+    MediaItem *photo = itemCaptioned(setNamed(feed, "Pictures"), "IMG_1.jpg");
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        tree.failOnce = photo->mContentUri;
+        tree.onReadExif = [](const std::string &) {
+            AppPause::setPaused(true);
+            AppPause::setPaused(false);
+        };
+        source.prepareItem(photo, DataSource::ItemLoad::Whole);
+        CHECK(!photo->takeLateDetails());
+
+        tree.onReadExif = nullptr;
+        source.prepareItem(photo, DataSource::ItemLoad::Whole);
+        CHECK_EQ(tree.exifReads.load(), 2);
+        CHECK(photo->takeLateDetails());
+        CHECK_EQ(photo->mRotation, 90.0f);
+    }
+}
+
+TEST(a_cloud_photo_is_turned_upright_by_the_bytes_read_for_its_decode) {
+    // A RAW whose first IFD says to turn it a quarter clockwise.
+    const std::vector<uint8_t> raw = {'I', 'I', 42, 0, 8, 0, 0, 0, 1, 0, 0x12, 0x01, 3, 0, 1, 0,
+                                      0, 0, 6, 0, 0, 0, 0, 0, 0, 0};
+    FakeDocumentTree tree;
+    fillTree(tree);
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+    MediaItem *photo = itemCaptioned(setNamed(feed, "Pictures"), "IMG_1.jpg");
+    CHECK(photo != nullptr);
+    if (photo == nullptr) {
+        return;
+    }
+
+    // Opened for its EXIF, the photo's rotation already turns what is stored.
+    source.prepareItem(photo, DataSource::ItemLoad::Whole);
+    CHECK_EQ(source.orientationToApply(photo, raw), 1);
+
+    // A cloud provider keeps no orientation and hands out upright thumbnails,
+    // so the photo keeps a rotation of 0 and its decoded pixels are turned.
+    FakeDocumentTree cloud;
+    fillTree(cloud);
+    cloud.documents[0].exifFromFile = false;
+    DocumentTreeDataSource cloudSource(cloud, kTree);
+    MediaFeed cloudFeed(&cloudSource, nullptr);
+    cloudSource.loadMediaSets(&cloudFeed);
+    cloudFeed.pumpListener();
+    MediaItem *cloudPhoto = itemCaptioned(setNamed(cloudFeed, "Pictures"), "IMG_1.jpg");
+    CHECK(cloudPhoto != nullptr);
+    if (cloudPhoto != nullptr) {
+        cloudSource.prepareItem(cloudPhoto, DataSource::ItemLoad::Whole);
+        CHECK(cloudPhoto->takeLateDetails());
+        CHECK_EQ(cloudPhoto->mRotation, 0.0f);
+        CHECK_EQ(cloudSource.orientationToApply(cloudPhoto, raw), 6);
+    }
+
+    // A rotation the provider reported with a thumbnail wins, as always.
+    FakeDocumentTree reported;
+    fillTree(reported);
+    reported.documents[0].exifFromFile = false;
+    reported.documents[0].thumbnail = Bitmap(4, 2);
+    reported.documents[0].thumbnailOrientation = 90;
+    DocumentTreeDataSource reportedSource(reported, kTree);
+    MediaFeed reportedFeed(&reportedSource, nullptr);
+    reportedSource.loadMediaSets(&reportedFeed);
+    reportedFeed.pumpListener();
+    MediaItem *reportedPhoto = itemCaptioned(setNamed(reportedFeed, "Pictures"), "IMG_1.jpg");
+    CHECK(reportedPhoto != nullptr);
+    if (reportedPhoto != nullptr) {
+        Bitmap thumbnail;
+        CHECK(reportedSource.readThumbnail(reportedPhoto, 256, &thumbnail));
+        CHECK_EQ(reportedSource.orientationToApply(reportedPhoto, raw), 1);
+    }
 }
 
 TEST(a_document_tree_that_cannot_be_read_finishes_with_no_albums) {

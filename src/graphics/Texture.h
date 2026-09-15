@@ -125,6 +125,8 @@ class Texture {
     // a different length of time on a 60Hz panel and a 120Hz one, so counting
     // them would throw work away twice as fast on the faster screen.
     uint64_t mLastUsedMs = 0;
+    // AppPause::epoch() when its last load began.
+    uint64_t mLoadEpoch = 0;
 };
 
 // A bitmap built in code rather than decoded.

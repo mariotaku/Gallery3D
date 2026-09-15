@@ -420,6 +420,29 @@ TEST(exif_reads_a_gps_position) {
     std::remove(path.c_str());
 }
 
+TEST(a_raw_in_a_tiff_container_reports_its_orientation) {
+    // The first IFD of an ARW, CR2, DNG or NEF: one Orientation entry.
+    const uint8_t little[] = {'I', 'I', 42, 0, 8, 0, 0, 0,             // header, IFD0 at 8
+                              1, 0,                                    // one entry
+                              0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0,  // Orientation, SHORT, 6
+                              0, 0, 0, 0};
+    Bitmap::ExifInfo info = Bitmap::readExif(little, sizeof(little));
+    CHECK_EQ(info.orientation, 6);
+    CHECK_EQ(info.rotationDegrees, 90.0f);
+
+    const uint8_t big[] = {'M', 'M', 0, 42, 0, 0, 0, 8,
+                           0, 1,
+                           0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 8, 0, 0,  // Orientation, SHORT, 8
+                           0, 0, 0, 0};
+    info = Bitmap::readExif(big, sizeof(big));
+    CHECK_EQ(info.orientation, 8);
+    CHECK_EQ(info.rotationDegrees, 270.0f);
+
+    // An IFD that runs past the end reads nothing.
+    info = Bitmap::readExif(little, 12);
+    CHECK_EQ(info.orientation, 1);
+}
+
 TEST(exif_on_a_file_without_it_reports_nothing) {
     std::string path = std::string(GALLERY3D_ASSET_ROOT) + "/drawable/icon_home_small.png";
     Bitmap::ExifInfo info = Bitmap::readExif(path);

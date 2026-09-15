@@ -45,6 +45,11 @@ class DocumentTreeDataSource : public DataSource {
     // orientation the photo is stored in. False when the provider makes none.
     bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) override;
 
+    // A cloud provider that reports no rotation hands out upright thumbnails,
+    // and its photos keep a rotation of 0. The bytes read for a decode carry
+    // the photo's own orientation, which turns those pixels upright too.
+    int orientationToApply(MediaItem *item, const std::vector<uint8_t> &bytes) override;
+
     // BitmapRegionDecoder reads the same document uri.
     bool supportsRegions(const MediaItem *item) const override;
     void requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
@@ -56,6 +61,9 @@ class DocumentTreeDataSource : public DataSource {
         bool exifRead = false;
         // The rotation came from the provider, and the EXIF leaves it be.
         bool providerRotation = false;
+        // The EXIF was read from the photo itself rather than from what a
+        // cloud provider keeps.
+        bool rotationFromFile = false;
         float rotation = 0.0f;
         int64_t dateTakenMs = 0;
         int width = 0;

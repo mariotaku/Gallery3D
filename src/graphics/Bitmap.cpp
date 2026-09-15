@@ -574,6 +574,44 @@ Bitmap::ExifInfo Bitmap::readExif(const void *bytes, size_t size) {
     ExifInfo info;
     const uint8_t *header = (const uint8_t *)bytes;
     const size_t read = size;
+    // A camera RAW in a TIFF container, such as ARW, CR2, DNG or NEF, keeps
+    // its orientation in its first IFD, as a JPEG's APP1 does.
+    if (bytes != nullptr && read >= 8 &&
+        ((header[0] == 'I' && header[1] == 'I' && header[2] == 42 && header[3] == 0) ||
+         (header[0] == 'M' && header[1] == 'M' && header[2] == 0 && header[3] == 42))) {
+        const bool bigEndian = header[0] == 'M';
+        auto read16 = [&](size_t offset) -> unsigned {
+            if (offset + 2 > read) {
+                return 0;
+            }
+            return bigEndian ? (unsigned)((header[offset] << 8) | header[offset + 1])
+                             : (unsigned)((header[offset + 1] << 8) | header[offset]);
+        };
+        auto read32 = [&](size_t offset) -> unsigned {
+            if (offset + 4 > read) {
+                return 0;
+            }
+            if (bigEndian) {
+                return ((unsigned)header[offset] << 24) | ((unsigned)header[offset + 1] << 16) |
+                       ((unsigned)header[offset + 2] << 8) | (unsigned)header[offset + 3];
+            }
+            return ((unsigned)header[offset + 3] << 24) | ((unsigned)header[offset + 2] << 16) |
+                   ((unsigned)header[offset + 1] << 8) | (unsigned)header[offset];
+        };
+        const unsigned ifdOffset = read32(4);
+        const unsigned entryCount = read16(ifdOffset);
+        for (unsigned i = 0; i < entryCount; ++i) {
+            const size_t entry = (size_t)ifdOffset + 2 + (size_t)i * 12;
+            if (entry + 12 > read) {
+                break;
+            }
+            if (read16(entry) == 0x0112) {
+                info.orientation = (int)read16(entry + 8);
+                info.rotationDegrees = degreesForOrientation(read16(entry + 8));
+            }
+        }
+        return info;
+    }
     if (bytes == nullptr || read < 12 || header[0] != 0xFF || header[1] != 0xD8) {
         return info;
     }

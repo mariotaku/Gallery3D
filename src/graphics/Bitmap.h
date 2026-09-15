@@ -191,7 +191,8 @@ class Bitmap {
     static Sampling samplingOfMimeType(const std::string &mimeType);
 
     // What one pass over a JPEG's header yields. Every field stays at its
-    // default when the tag is missing or the file is not a JPEG.
+    // default when the tag is missing or the file is not a JPEG. A camera RAW
+    // in a TIFF container yields its orientation alone.
     struct ExifInfo {
         float rotationDegrees = 0.0f;
         int64_t dateTakenMs = 0;

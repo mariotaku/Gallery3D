@@ -40,6 +40,7 @@ set(GALLERY3D_TEST_SOURCES
     test_runner.h
     test_safearea.cpp
     test_settings.cpp
+    test_app_pause.cpp
     test_system_thumbnail.cpp
     test_text.cpp
     test_thumbnailcache.cpp

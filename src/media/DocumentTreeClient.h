@@ -27,8 +27,9 @@ class DocumentTreeClient {
 
     // JSON: one object with what the photo's EXIF says: orientation in degrees,
     // dateTaken in milliseconds (0 when it has none), width and height (0 when
-    // unknown). Empty when the photo cannot be read. Opens the photo, so it is
-    // asked for only when the photo is about to be shown.
+    // unknown), and fromFile, false when the answer is only what the provider
+    // keeps because opening the photo would download it. Empty when the photo
+    // cannot be read. Asked for only when the photo is about to be shown.
     virtual std::string readExif(const std::string &uri, const std::string &mime) = 0;
 
     // The provider's thumbnail of a photo listed with thumbnail, near maxEdge
