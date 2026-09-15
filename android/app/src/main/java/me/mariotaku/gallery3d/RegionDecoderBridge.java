@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
+import java.io.FileInputStream;
 import java.io.InputStream;
 
 /**
@@ -28,14 +29,28 @@ public final class RegionDecoderBridge {
     private RegionDecoderBridge() {
     }
 
-    /** A decoder for the photo at this content uri, or null. */
-    public static Object open(String uri) {
+    /**
+     * The photo's bytes: a content uri through the resolver, which is what the
+     * media store hands out, or an absolute path the app may read, such as a
+     * test fixture in its own storage.
+     */
+    private static InputStream openSource(String source) throws Exception {
+        if (source.startsWith("/")) {
+            return new FileInputStream(source);
+        }
         Context context = MainActivity.getContext();
-        if (context == null || uri == null) {
+        if (context == null) {
             return null;
         }
-        ContentResolver resolver = context.getContentResolver();
-        try (InputStream input = resolver.openInputStream(Uri.parse(uri))) {
+        return context.getContentResolver().openInputStream(Uri.parse(source));
+    }
+
+    /** A decoder for the photo at this content uri or path, or null. */
+    public static Object open(String uri) {
+        if (uri == null) {
+            return null;
+        }
+        try (InputStream input = openSource(uri)) {
             if (input == null) {
                 return null;
             }
@@ -53,13 +68,12 @@ public final class RegionDecoderBridge {
         }
     }
 
-    /** The mime type the platform reads the photo at this content uri as, or null. */
+    /** The mime type the platform reads the photo at this content uri or path as, or null. */
     public static String mimeType(String uri) {
-        Context context = MainActivity.getContext();
-        if (context == null || uri == null) {
+        if (uri == null) {
             return null;
         }
-        try (InputStream input = context.getContentResolver().openInputStream(Uri.parse(uri))) {
+        try (InputStream input = openSource(uri)) {
             if (input == null) {
                 return null;
             }

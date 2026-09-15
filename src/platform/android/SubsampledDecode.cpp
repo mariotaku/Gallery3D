@@ -61,7 +61,9 @@ void SubsampledDecode::init() {
 }
 
 Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
-    if (bytes == nullptr || size == 0 || maxEdge <= 0) {
+    // A maxEdge of 0 or below is the whole picture, which goes through the
+    // platform too, so it is colour converted as a reduced decode is.
+    if (bytes == nullptr || size == 0) {
         return Bitmap();
     }
     JNIEnv *env = jni();

@@ -130,11 +130,18 @@ PixelOrder Bitmap::decodeOrder() {
 }
 
 bool Bitmap::decodesExtension(const std::string &extension) {
-    // What SDL_image is built to read on the platforms that take this file.
     std::string lower = extension;
     std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+#if defined(__ANDROID__)
+    // What BitmapFactory reads, which is where every decode goes on Android.
+    // It has no TIFF decoder.
+    return lower == ".jpg" || lower == ".jpeg" || lower == ".png" || lower == ".bmp" || lower == ".gif" ||
+           lower == ".webp" || lower == ".heic" || lower == ".heif";
+#else
+    // What SDL_image is built to read on the platforms that take this file.
     return lower == ".jpg" || lower == ".jpeg" || lower == ".png" || lower == ".bmp" || lower == ".gif" ||
            lower == ".webp" || lower == ".tif" || lower == ".tiff";
+#endif
 }
 
 bool Bitmap::savePng(const std::string &path) const {

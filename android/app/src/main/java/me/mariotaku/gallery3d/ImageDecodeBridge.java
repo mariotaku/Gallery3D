@@ -27,7 +27,9 @@ public final class ImageDecodeBridge {
      * this decoder's sizes, so nothing is scaled after.
      */
     public static Bitmap decodeSampled(byte[] encoded, int maxEdge) {
-        if (encoded == null || encoded.length == 0 || maxEdge <= 0) {
+        // A maxEdge of 0 or below decodes whole, still through the platform, so
+        // the colours are converted the same way at every size.
+        if (encoded == null || encoded.length == 0) {
             return null;
         }
         try {
@@ -44,7 +46,7 @@ public final class ImageDecodeBridge {
             // sample stops before a halving would fall short of maxEdge, as
             // Bitmap::sampleSizeFor does.
             int sample = 1;
-            while (longest / (sample * 2) >= maxEdge) {
+            while (maxEdge > 0 && longest / (sample * 2) >= maxEdge) {
                 sample *= 2;
             }
             options.inSampleSize = sample;
