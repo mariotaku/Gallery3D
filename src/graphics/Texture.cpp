@@ -244,7 +244,7 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     char suffix[64];
     // The version goes up when what a cached thumbnail holds changes, so an
     // older one is not taken for the current kind.
-    const int kCacheVersion = 2;
+    const int kCacheVersion = 3;
     SDL_snprintf(suffix, sizeof(suffix), "|%lld|%dx%d|v%d", (long long)mItem->mDateModifiedInSec, side, height,
                  kCacheVersion);
     const std::string key = cacheIdentity(mItem) + suffix;
