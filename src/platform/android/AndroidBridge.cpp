@@ -1,5 +1,6 @@
 #include "platform/android/AndroidBridge.h"
 
+#include <android/bitmap.h>
 #include <jni.h>
 
 #include <atomic>
@@ -355,6 +356,59 @@ void AndroidBridge::setChosenSource(const std::string &id) {
 
 std::string AndroidBridge::treeName(const std::string &tree) {
     return callStorage("treeName", &tree);
+}
+
+Bitmap AndroidBridge::appIcon(const std::string &packageName, int size) {
+    ScopedEnv env;
+    if (!env || gStorage == nullptr || packageName.empty() || size <= 0) {
+        return Bitmap();
+    }
+    jmethodID method =
+        env->GetStaticMethodID(gStorage, "appIcon", "(Ljava/lang/String;I)Landroid/graphics/Bitmap;");
+    if (method == nullptr || failed(env.get(), "appIcon")) {
+        return Bitmap();
+    }
+    jstring text = env->NewStringUTF(packageName.c_str());
+    jobject image = env->CallStaticObjectMethod(gStorage, method, text, (jint)size);
+    env->DeleteLocalRef(text);
+    if (failed(env.get(), "appIcon") || image == nullptr) {
+        return Bitmap();
+    }
+
+    Bitmap icon;
+    AndroidBitmapInfo info {};
+    void *pixels = nullptr;
+    if (AndroidBitmap_getInfo(env.get(), image, &info) == ANDROID_BITMAP_RESULT_SUCCESS &&
+        info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 &&
+        AndroidBitmap_lockPixels(env.get(), image, &pixels) == ANDROID_BITMAP_RESULT_SUCCESS) {
+        icon = Bitmap((int)info.width, (int)info.height);
+        if (icon.valid()) {
+            // RGBA_8888 is premultiplied and in this port's byte order, so only
+            // the stride differs.
+            const uint8_t *source = (const uint8_t *)pixels;
+            uint8_t *destination = icon.pixels();
+            const size_t rowBytes = (size_t)info.width * 4;
+            for (unsigned line = 0; line < info.height; ++line) {
+                SDL_memcpy(destination, source, rowBytes);
+                source += info.stride;
+                destination += rowBytes;
+            }
+            icon.markOpaqueUnlessTransparent();
+        }
+        AndroidBitmap_unlockPixels(env.get(), image);
+    }
+
+    jclass bitmapClass = env->GetObjectClass(image);
+    jmethodID recycle = bitmapClass != nullptr ? env->GetMethodID(bitmapClass, "recycle", "()V") : nullptr;
+    if (recycle != nullptr) {
+        env->CallVoidMethod(image, recycle);
+    }
+    failed(env.get(), "recycle");
+    if (bitmapClass != nullptr) {
+        env->DeleteLocalRef(bitmapClass);
+    }
+    env->DeleteLocalRef(image);
+    return icon;
 }
 
 std::string AndroidBridge::listFolder(const std::string &folder) {

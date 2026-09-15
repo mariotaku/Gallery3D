@@ -7,7 +7,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.UriPermission;
+import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
@@ -63,7 +68,9 @@ public final class StorageBridge {
      * What the home pill offers, in order: the media store, each mounted
      * storage volume, each folder granted before, and the picker for the rest,
      * which lists the cloud providers that share folders. One object each, with
-     * kind (library, volume, tree or picker), id and name.
+     * kind (library, volume, tree or picker), id and name. A granted folder also
+     * has location, the volume or app it is in, and package, the app whose
+     * provider serves it.
      */
     public static String sources() {
         Context context = MainActivity.getContext();
@@ -87,10 +94,20 @@ public final class StorageBridge {
                     }
                 }
             }
+            PackageManager packages = context.getPackageManager();
             for (UriPermission permission : context.getContentResolver().getPersistedUriPermissions()) {
                 Uri uri = permission.getUri();
                 if (permission.isReadPermission() && DocumentsContract.isTreeUri(uri)) {
-                    sources.put(source("tree", uri.toString(), treeName(context, uri)));
+                    JSONObject tree = source("tree", uri.toString(), treeName(context, uri));
+                    ProviderInfo provider = packages.resolveContentProvider(uri.getAuthority(), 0);
+                    if (provider != null) {
+                        tree.put("package", provider.packageName);
+                    }
+                    String location = treeLocation(context, packages, provider, uri);
+                    if (location != null) {
+                        tree.put("location", location);
+                    }
+                    sources.put(tree);
                 }
             }
             sources.put(source("picker", "picker", "Other storage…"));
@@ -313,6 +330,46 @@ public final class StorageBridge {
             Log.w(TAG, "Could not name " + tree, error);
         }
         return "";
+    }
+
+    /**
+     * An app's launcher icon drawn size by size pixels, such as that of the app
+     * whose provider serves a granted folder. Null when the app is not there.
+     */
+    public static Bitmap appIcon(String packageName, int size) {
+        Context context = MainActivity.getContext();
+        if (context == null || packageName == null || size <= 0) {
+            return null;
+        }
+        try {
+            Drawable icon = context.getPackageManager().getApplicationIcon(packageName);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            icon.setBounds(0, 0, size, size);
+            icon.draw(new Canvas(bitmap));
+            return bitmap;
+        } catch (PackageManager.NameNotFoundException | RuntimeException error) {
+            Log.i(TAG, "No icon for " + packageName + ": " + error);
+            return null;
+        }
+    }
+
+    /**
+     * Where a granted folder is: the storage volume for a folder on the device,
+     * such as "Internal shared storage" or an SD card's name, and otherwise the
+     * name of the app whose provider serves it. Null when neither is known.
+     */
+    private static String treeLocation(Context context, PackageManager packages, ProviderInfo provider, Uri tree) {
+        if (EXTERNAL_STORAGE_AUTHORITY.equals(tree.getAuthority())) {
+            // ExternalStorageProvider's document ids start with the volume's
+            // root id: "primary:Pictures" or "1234-5678:DCIM".
+            String documentId = DocumentsContract.getTreeDocumentId(tree);
+            int colon = documentId.indexOf(':');
+            StorageVolume volume = colon > 0 ? findVolume(context, documentId.substring(0, colon)) : null;
+            if (volume != null) {
+                return volume.getDescription(context);
+            }
+        }
+        return provider != null ? String.valueOf(provider.applicationInfo.loadLabel(packages)) : null;
     }
 
     /**

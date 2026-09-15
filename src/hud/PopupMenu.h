@@ -23,7 +23,13 @@ class PopupMenu : public Layer {
         std::string title;
         std::string icon;
         Action action;
+        // Drawn in place of the named drawable when valid, such as another
+        // app's icon.
+        Bitmap iconBitmap;
     };
+
+    // The side of the square a row's icon is drawn in, in pixels.
+    static int iconPixels();
 
     PopupMenu();
     ~PopupMenu() override;

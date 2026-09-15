@@ -34,6 +34,8 @@
 #include "media/LocalDataSource.h"
 #include "media/PhotoLibrary.h"
 #if defined(__ANDROID__)
+#include <map>
+
 #include <nlohmann/json.hpp>
 
 #include "core/JsonValue.h"
@@ -901,7 +903,10 @@ int main(int argc, char **argv) {
     } else {
         SDL_Log("Reading the photo library from the media store");
     }
-    gridLayer.getHud()->setSourceMenu([chooseSource]() {
+    // Provider apps' icons, by package and size, so the menu asks Java for each
+    // one once rather than every time it opens.
+    std::map<std::string, Bitmap> appIcons;
+    gridLayer.getHud()->setSourceMenu([chooseSource, &appIcons]() {
         std::vector<PopupMenu::Option> options;
         const nlohmann::json sources = nlohmann::json::parse(AndroidBridge::storageSources(), nullptr, false);
         if (!sources.is_array()) {
@@ -911,9 +916,27 @@ int main(int argc, char **argv) {
             const std::string kind = stringOr(entry, "kind", "");
             const std::string id = stringOr(entry, "id", "");
             const std::string name = stringOr(entry, "name", "");
-            if (kind == "library" || kind == "tree") {
-                options.push_back({name, kind == "library" ? "icon_home_small" : "icon_folder_small",
-                                   [chooseSource, id]() { chooseSource(id); }});
+            if (kind == "library") {
+                options.push_back({name, "icon_home_small", [chooseSource, id]() { chooseSource(id); }});
+            } else if (kind == "tree") {
+                // The folder, where it is, and the icon of the app that keeps it.
+                const std::string location = stringOr(entry, "location", "");
+                std::string title = name;
+                if (!location.empty()) {
+                    title = name.empty() ? location : name + " \xC2\xB7 " + location;
+                }
+                PopupMenu::Option option{title, "icon_folder_small", [chooseSource, id]() { chooseSource(id); }};
+                const std::string packageName = stringOr(entry, "package", "");
+                if (!packageName.empty()) {
+                    const int size = PopupMenu::iconPixels();
+                    const std::string key = packageName + "@" + std::to_string(size);
+                    auto found = appIcons.find(key);
+                    if (found == appIcons.end()) {
+                        found = appIcons.emplace(key, AndroidBridge::appIcon(packageName, size)).first;
+                    }
+                    option.iconBitmap = found->second;
+                }
+                options.push_back(std::move(option));
             } else if (kind == "volume") {
                 // A volume is not readable until the user grants a folder on it.
                 options.push_back({name, "icon_folder_small", [id]() { AndroidBridge::pickFolder(id); }});

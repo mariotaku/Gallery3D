@@ -205,6 +205,10 @@ PopupMenu::PopupMenu() {
 
 PopupMenu::~PopupMenu() = default;
 
+int PopupMenu::iconPixels() {
+    return (int)scaled(ICON_SIZE);
+}
+
 void PopupMenu::ensureArt() {
     if (mArtLoaded) {
         return;
@@ -411,8 +415,9 @@ void PopupMenu::PopupTexture::renderCanvas(Bitmap &canvas, int width, int height
             Canvas::blitNinePatch(canvas, mOwner->mHighlight, left, top, contentRight - left, rowHeight);
         }
 
-        if (!row.option.icon.empty()) {
-            Bitmap icon = DrawableLoad::load(row.option.icon).bitmap;
+        if (row.option.iconBitmap.valid() || !row.option.icon.empty()) {
+            Bitmap icon =
+                row.option.iconBitmap.valid() ? row.option.iconBitmap : DrawableLoad::load(row.option.icon).bitmap;
             if (icon.valid()) {
                 Canvas::blitScaled(canvas, icon, iconLeft, top + (rowHeight - iconSize) / 2, iconSize, iconSize);
             }

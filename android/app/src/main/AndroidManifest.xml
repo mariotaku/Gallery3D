@@ -10,6 +10,15 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- The apps whose documents providers serve a granted folder, so the
+         source menu can name them and draw their icons from Android 11 on,
+         where other apps are hidden unless declared. -->
+    <queries>
+        <intent>
+            <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+        </intent>
+    </queries>
+
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"

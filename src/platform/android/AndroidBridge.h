@@ -10,6 +10,8 @@
 
 #include <SDL3/SDL_stdinc.h>
 
+#include "graphics/Bitmap.h"
+
 namespace AndroidBridge {
 
 // Finds the Java helper and holds on to it. Call this from the thread SDL calls
@@ -61,6 +63,10 @@ void setChosenSource(const std::string &id);
 
 // The display name of a tree's folder.
 std::string treeName(const std::string &tree);
+
+// An app's launcher icon, size by size pixels, premultiplied. Invalid when the
+// app is not installed.
+Bitmap appIcon(const std::string &packageName, int size);
 
 // StorageBridge.listFolder, readExif and readDocument, for
 // AndroidDocumentTreeClient.
