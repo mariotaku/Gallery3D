@@ -157,6 +157,12 @@ class GridLayer : public RootLayer, public MediaFeed::Listener, public TimeBar::
     bool tapGesture(int slotIndex, bool metadata);
 
     void enterSelectionMode();
+    // Makes the photo shown fullscreen the only selected item, without entering
+    // selection mode, for an action from the fullscreen bar. False when no photo
+    // is shown.
+    bool selectOnlyCurrentItem();
+    // Empties the selection without changing the mode.
+    void clearSelectedItems();
     void zoomInToSelectedItem();
     void zoomOutFromSelectedItem();
     void rotateSelectedItems(float f);

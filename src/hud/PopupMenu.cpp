@@ -1,6 +1,7 @@
 #include "hud/PopupMenu.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include <SDL3/SDL.h>
 
@@ -24,12 +25,32 @@ const float ICON_SIZE = 34.0f;
 const float FONT_SIZE = 17.0f;
 // IconTitleDrawable adds this past the title before the padding.
 const float TITLE_TRAIL = 15.0f;
-// Triangle dimensions in layout units; art is resized for display density.
+// The span the point is centred in, in layout units.
 const float TRIANGLE_WIDTH = 43.0f;
-const float TRIANGLE_HEIGHT = 28.0f;
-// Panel bottom offset accounts for the nine-patch shadow, aligning its border
-// with the triangle's top rows.
+// How far the texture reaches below the panel body, for the point.
 const float POPUP_TRIANGLE_EXTRA_HEIGHT = 14.0f;
+
+// The panel and its point, in layout units, as art/popup.9.svg and
+// art/popup_triangle_bottom.svg draw them: smoked glass in a white border,
+// with a shadow cast downward. They are drawn here as one shape, so the border
+// runs into the point and the shadow falls under both without a seam at any
+// density.
+const float BOX_LEFT = 8.3f;
+const float BOX_TOP = 4.45f;
+const float BOX_RIGHT = 8.1f;
+// Up from the bottom of the panel body.
+const float BOX_BOTTOM = 12.9f;
+const float BOX_RADIUS = 5.5f;
+const float BORDER_WIDTH = 2.0f;
+// The point's half width where its sides leave the border's middle, and how
+// far below that its tip is.
+const float POINT_HALF_WIDTH = 15.64f;
+const float POINT_DEPTH = 14.55f;
+const float GLASS_GREY = 38.0f / 255.0f;
+const float GLASS_ALPHA = 0.9f;
+const float SHADOW_OFFSET = 4.0f;
+const float SHADOW_SIGMA = 3.4f;
+const float SHADOW_ALPHA = 0.78f;
 
 const float OPEN_SECONDS = 0.4f;
 const float CLOSE_SECONDS = 0.3f;
@@ -39,6 +60,133 @@ const float CLOSE_SECONDS = 0.3f;
 // is a whole number of pixels wide.
 float scaled(float value) {
     return (float)App::uiPixels(value);
+}
+
+// The middle of the border, as a signed distance in pixels: negative inside.
+// A rounded rectangle joined to a triangle whose top is sunk into it, so the
+// border has no line across the point's opening.
+struct Outline {
+    float left, top, right, bottom, radius;
+    float pointX[3];
+    float pointY[3];
+
+    float distance(float x, float y) const {
+        // The rounded rectangle.
+        const float halfWidth = (right - left) * 0.5f;
+        const float halfHeight = (bottom - top) * 0.5f;
+        const float qx = std::fabs(x - (left + halfWidth)) - halfWidth + radius;
+        const float qy = std::fabs(y - (top + halfHeight)) - halfHeight + radius;
+        const float ox = std::max(qx, 0.0f);
+        const float oy = std::max(qy, 0.0f);
+        const float box = std::sqrt(ox * ox + oy * oy) + std::min(std::max(qx, qy), 0.0f) - radius;
+
+        // The triangle, as the furthest of its three edges. That keeps its
+        // corners sharp, as the art's mitred strokes are.
+        float point = -1e9f;
+        for (int i = 0; i < 3; ++i) {
+            const int j = (i + 1) % 3;
+            const int k = (i + 2) % 3;
+            float nx = pointY[j] - pointY[i];
+            float ny = pointX[i] - pointX[j];
+            const float length = std::sqrt(nx * nx + ny * ny);
+            nx /= length;
+            ny /= length;
+            // Outward: away from the corner the edge does not touch.
+            if (nx * (pointX[k] - pointX[i]) + ny * (pointY[k] - pointY[i]) > 0.0f) {
+                nx = -nx;
+                ny = -ny;
+            }
+            point = std::max(point, nx * (x - pointX[i]) + ny * (y - pointY[i]));
+        }
+        return std::min(box, point);
+    }
+};
+
+// The radius of two box passes whose blur is closest to a gaussian of sigma.
+int boxRadiusFor(float sigma) {
+    // Two passes of width 2r + 1 have a variance of 2(r^2 + r) / 3.
+    const float radius = (-1.0f + std::sqrt(1.0f + 6.0f * sigma * sigma)) * 0.5f;
+    return std::max(1, (int)(radius + 0.5f));
+}
+
+// Draws the panel, its point and their shadow over canvas. pointCenter is the
+// x of the tip, and bodyHeight the bottom of the panel body.
+void drawPanel(Bitmap &canvas, int bodyHeight, float pointCenter) {
+    const float unit = App::UI_DENSITY;
+    const float halfBorder = BORDER_WIDTH * unit * 0.5f;
+    const int width = canvas.width();
+    const int height = canvas.height();
+
+    Outline outline;
+    outline.left = BOX_LEFT * unit + halfBorder;
+    outline.top = BOX_TOP * unit + halfBorder;
+    outline.right = (float)width - BOX_RIGHT * unit - halfBorder;
+    outline.bottom = (float)bodyHeight - BOX_BOTTOM * unit - halfBorder;
+    outline.radius = BOX_RADIUS * unit - halfBorder;
+    // The sides carry on up into the box, past the border and its edge
+    // blending, so the two shapes share no edge.
+    const float sink = BORDER_WIDTH * unit * 2.0f;
+    const float depth = POINT_DEPTH * unit;
+    const float topHalfWidth = POINT_HALF_WIDTH * unit * (depth + sink) / depth;
+    outline.pointX[0] = pointCenter - topHalfWidth;
+    outline.pointY[0] = outline.bottom - sink;
+    outline.pointX[1] = pointCenter + topHalfWidth;
+    outline.pointY[1] = outline.bottom - sink;
+    outline.pointX[2] = pointCenter;
+    outline.pointY[2] = outline.bottom + depth;
+
+    // Pixel coverage of the shape out to the border's outer edge, measured at
+    // the pixel's centre.
+    auto coverage = [&outline, halfBorder](float x, float y) {
+        return std::min(1.0f, std::max(0.0f, halfBorder - outline.distance(x, y) + 0.5f));
+    };
+
+    const float shadowOffset = SHADOW_OFFSET * unit;
+    Bitmap cast(width, height);
+    uint8_t *castPixels = cast.pixels();
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            castPixels[((size_t)y * (size_t)width + (size_t)x) * 4 + 3] =
+                (uint8_t)(coverage((float)x + 0.5f, (float)y + 0.5f - shadowOffset) * 255.0f + 0.5f);
+        }
+    }
+    const int radius = boxRadiusFor(SHADOW_SIGMA * unit);
+    const Bitmap shadow = Canvas::blurredCoverage(cast, radius);
+    const int pad = Canvas::blurPadding(radius);
+
+    uint8_t *pixels = canvas.pixels();
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const float px = (float)x + 0.5f;
+            const float py = (float)y + 0.5f;
+            const float distance = outline.distance(px, py);
+            const float inside = std::min(1.0f, std::max(0.0f, halfBorder - distance + 0.5f));
+            const float border = std::min(1.0f, std::max(0.0f, halfBorder - std::fabs(distance) + 0.5f));
+            const float blurred =
+                shadow.valid() ? shadow.pixels()[((size_t)(y + pad) * (size_t)shadow.width() + (size_t)(x + pad)) * 4 + 3] / 255.0f
+                               : 0.0f;
+            // The shadow only shows outside the shape, as the art masks it.
+            const float shadowAlpha = blurred * SHADOW_ALPHA * (1.0f - inside);
+            const float glassAlpha = inside * GLASS_ALPHA;
+
+            // Premultiplied grey, layered shadow, glass, border. Every layer is
+            // grey, so the channel order does not matter.
+            uint8_t *pixel = pixels + ((size_t)y * (size_t)width + (size_t)x) * 4;
+            float value = pixel[0] / 255.0f;
+            float alpha = pixel[3] / 255.0f;
+            value = value * (1.0f - shadowAlpha);
+            alpha = shadowAlpha + alpha * (1.0f - shadowAlpha);
+            value = GLASS_GREY * glassAlpha + value * (1.0f - glassAlpha);
+            alpha = glassAlpha + alpha * (1.0f - glassAlpha);
+            value = border + value * (1.0f - border);
+            alpha = border + alpha * (1.0f - border);
+            const uint8_t grey = (uint8_t)(std::min(1.0f, value) * 255.0f + 0.5f);
+            pixel[0] = grey;
+            pixel[1] = grey;
+            pixel[2] = grey;
+            pixel[3] = (uint8_t)(std::min(1.0f, alpha) * 255.0f + 0.5f);
+        }
+    }
 }
 
 }  // namespace
@@ -55,15 +203,7 @@ void PopupMenu::ensureArt() {
         return;
     }
     mArtLoaded = true;
-    mBackground = Canvas::loadNinePatch("popup.9");
     mHighlight = Canvas::loadNinePatch("popup_option_selected.9");
-    // Resized on load, because it is stamped rather than stretched: its top row
-    // is opaque and full width so that it merges with the bottom of the panel,
-    // and showAtPoint needs its width before anything has been drawn.
-    Bitmap triangle = DrawableLoad::load("popup_triangle_bottom").bitmap;
-    if (triangle.valid()) {
-        mTriangle = triangle.scaled((int)scaled(TRIANGLE_WIDTH), (int)scaled(TRIANGLE_HEIGHT));
-    }
 }
 
 void PopupMenu::setOptions(const std::vector<Option> &options) {
@@ -130,7 +270,7 @@ void PopupMenu::showAtPoint(float pointX, float pointY, float boundsLeft, float 
 
     // The triangle stays under the point even after the popup has been pushed
     // back inside, which is what keeps it pointing at the button.
-    float triangleHalf = mTriangle.valid() ? ((float)mTriangle.width() * 0.5f) : 0.0f;
+    float triangleHalf = scaled(TRIANGLE_WIDTH) * 0.5f;
     float margin = scaled(POPUP_TRIANGLE_X_MARGIN);
     float triangleX = halfWidth + (x - clampedX) - triangleHalf;
     mTriangleX = std::min(std::max(triangleX, margin), std::max(margin, mPopupWidth - margin * 2.0f));
@@ -226,18 +366,7 @@ void PopupMenu::PopupTexture::renderCanvas(Bitmap &canvas, int width, int height
     mOwner->ensureArt();
 
     int bodyHeight = height - (int)scaled(POPUP_TRIANGLE_EXTRA_HEIGHT);
-    if (mOwner->mBackground.valid()) {
-        Canvas::blitNinePatch(canvas, mOwner->mBackground, 0, 0, width, bodyHeight);
-    } else {
-        Canvas::fillRect(canvas, 0, 0, width, bodyHeight, 0.0f, 0.0f, 0.0f, 0.85f);
-    }
-    if (mOwner->mTriangle.valid()) {
-        // Stamped, not blended. Its opaque top rows have to replace the panel's
-        // bottom border so the outline runs down into the point instead of
-        // straight across behind it.
-        Canvas::stamp(canvas, mOwner->mTriangle, (int)mOwner->mTriangleX,
-                      height - mOwner->mTriangle.height() - 1);
-    }
+    drawPanel(canvas, bodyHeight, mOwner->mTriangleX + scaled(TRIANGLE_WIDTH) * 0.5f);
 
     int left = (int)scaled(PADDING_LEFT);
     int contentRight = width - (int)scaled(PADDING_RIGHT);

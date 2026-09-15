@@ -32,8 +32,7 @@ void blendOver(Bitmap &dst, const Bitmap &src, int x, int y, float r, float g, f
 // Blends a premultiplied source, which is what Bitmap::load returns.
 void blit(Bitmap &dst, const Bitmap &src, int x, int y, float alpha = 1.0f);
 
-// Replaces pixels, including alpha (PorterDuff.Mode.SRC). Used to replace the
-// popup's bottom border with its triangle outline.
+// Replaces pixels, including alpha (PorterDuff.Mode.SRC).
 void stamp(Bitmap &dst, const Bitmap &src, int x, int y);
 
 // Nine-patch caps stay fixed while the middle stretches. loadNinePatch strips

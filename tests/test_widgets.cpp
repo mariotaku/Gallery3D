@@ -7,6 +7,7 @@
 // span was left uncovered or landed in the wrong place.
 #include "tests.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -208,6 +209,45 @@ TEST(popup_menu_composes_a_panel_and_its_pointer) {
     // missing or misplaced this would not hold.
     CHECK(rowHasInk(composed, 2));
     CHECK(opaquePixels(composed) > 0);
+}
+
+TEST(popup_menu_border_does_not_cross_the_opening_of_its_pointer) {
+    // At a density between the art's buckets, the panel's bottom border showed
+    // as a light line across the top of the pointer.
+    ScopedDensity density(kFractionalDensity);
+    PopupMenu menu;
+    menu.setOptions({{"Rotate left", "ic_menu_rotate_left", nullptr}, {"Details", "ic_menu_view_details", nullptr}});
+    // In the middle of a wide band, so the pointer is under the middle of the
+    // popup.
+    menu.showAtPoint(640.0f, 700.0f, 0.0f, 1280.0f);
+    Bitmap composed = menu.compose();
+    CHECK(composed.valid());
+    if (!composed.valid()) {
+        return;
+    }
+    const int x = composed.width() / 2;
+    auto grey = [&composed, x](int y) {
+        return (int)composed.pixels()[((size_t)y * (size_t)composed.width() + (size_t)x) * 4];
+    };
+    auto alpha = [&composed, x](int y) {
+        return (int)composed.pixels()[((size_t)y * (size_t)composed.width() + (size_t)x) * 4 + 3];
+    };
+
+    // Up from the bottom, past the shadow and the pointer's white tip, to the
+    // glass inside the pointer.
+    int y = composed.height() - 1;
+    while (y > 0 && !(alpha(y) > 200 && grey(y) < 100)) {
+        --y;
+    }
+    CHECK(y > 0);
+    // From there up to the bottom of the last row it is glass all the way:
+    // nothing as light as the border.
+    const int rowsBottom = composed.height() - (int)(40.0f * kFractionalDensity);
+    int brightest = 0;
+    for (; y > rowsBottom; --y) {
+        brightest = std::max(brightest, grey(y));
+    }
+    CHECK_DETAIL(brightest < 100, "a grey of " + std::to_string(brightest) + " inside the pointer");
 }
 
 TEST(popup_menu_widens_for_a_longer_option) {

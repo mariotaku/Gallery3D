@@ -76,9 +76,7 @@ class PopupMenu : public Layer {
 
     std::vector<Row> mRows;
     std::shared_ptr<PopupTexture> mTexture;
-    Canvas::NinePatch mBackground;
     Canvas::NinePatch mHighlight;
-    Bitmap mTriangle;
     bool mArtLoaded = false;
 
     // Where the popup itself is drawn, as opposed to the layer rect, which

@@ -244,7 +244,7 @@ void HudLayer::computeBottomMenu() {
                                                           [grid]() { grid->rotateSelectedItems(90.0f); }});
                                    }
                                    options.push_back({"Details", "ic_menu_view_details",
-                                                      [this, grid, moreIndex]() { showDetails(moreIndex); }});
+                                                      [this, moreIndex]() { showDetails(mMenuBar, moreIndex); }});
                                    showPopupFor(mMenuBar, moreIndex, options);
                                }});
         }
@@ -265,9 +265,9 @@ void HudLayer::computeBottomMenu() {
                                    setAlpha(1.0f);
                                }
                            }});
-        buttons.push_back({"icon_more", "Menu", [this, grid]() {
+        buttons.push_back({"icon_more", "More", [this]() {
                                if (getAlpha() == 1.0f) {
-                                   grid->enterSelectionMode();
+                                   showFullscreenMore(1);
                                } else {
                                    setAlpha(1.0f);
                                }
@@ -311,7 +311,52 @@ void HudLayer::showPopupFor(const MenuBar &bar, size_t index, const std::vector<
                            mWidth - App::SAFE_AREA.left - App::SAFE_AREA.right);
 }
 
-void HudLayer::showDetails(size_t buttonIndex) {
+void HudLayer::showFullscreenMore(size_t buttonIndex) {
+    GridLayer *grid = mGridLayer;
+    // The actions work on the selection. The photo on screen is the selection
+    // only while an action runs, so selection mode entered later starts empty.
+    if (grid == nullptr || !grid->selectOnlyCurrentItem()) {
+        return;
+    }
+    const bool canDelete = !grid->noDeleteMode();
+    const bool canRotate = grid->selectionSupports(MediaFeed::OPERATION_ROTATE);
+    grid->clearSelectedItems();
+
+    std::vector<PopupMenu::Option> options;
+    if (canDelete) {
+        options.push_back({"Delete", "icon_delete", [this, grid, buttonIndex]() {
+                               showPopupFor(mFullscreenMenu, buttonIndex,
+                                            {{"Confirm delete", "icon_delete",
+                                              [grid]() {
+                                                  if (grid->selectOnlyCurrentItem()) {
+                                                      grid->deleteSelection();
+                                                  }
+                                              }},
+                                             {"Cancel", "icon_cancel", nullptr}});
+                           }});
+    }
+    if (canRotate) {
+        for (float degrees : {-90.0f, 90.0f}) {
+            options.push_back({degrees < 0.0f ? "Rotate left" : "Rotate right",
+                               degrees < 0.0f ? "ic_menu_rotate_left" : "ic_menu_rotate_right",
+                               [grid, degrees]() {
+                                   if (grid->selectOnlyCurrentItem()) {
+                                       grid->rotateSelectedItems(degrees);
+                                       grid->clearSelectedItems();
+                                   }
+                               }});
+        }
+    }
+    options.push_back({"Details", "ic_menu_view_details", [this, grid, buttonIndex]() {
+                           if (grid->selectOnlyCurrentItem()) {
+                               showDetails(mFullscreenMenu, buttonIndex);
+                               grid->clearSelectedItems();
+                           }
+                       }});
+    showPopupFor(mFullscreenMenu, buttonIndex, options);
+}
+
+void HudLayer::showDetails(const MenuBar &bar, size_t buttonIndex) {
     std::vector<PopupMenu::Option> options;
     for (const std::string &line : MediaDetails::linesFor(mGridLayer->getSelectedBucketList())) {
         options.push_back({line, "", nullptr});
@@ -320,7 +365,7 @@ void HudLayer::showDetails(size_t buttonIndex) {
         return;
     }
     options.push_back({"OK", "", nullptr});
-    showPopupFor(mMenuBar, buttonIndex, options);
+    showPopupFor(bar, buttonIndex, options);
 }
 
 void HudLayer::closeSelectionMenu() {
@@ -412,6 +457,12 @@ bool HudLayer::update(RenderView *view, float frameInterval) {
     // answers a tap immediately but leaves gently.
     float factor = (mAlpha == 1.0f) ? 4.0f : 1.0f;
     mAnimAlpha = FloatUtils::animate(mAnimAlpha, mAlpha, frameInterval * factor);
+
+    // An open popup is being read, so the chrome it hangs off stays up, and
+    // the idle clock starts again when it closes.
+    if (mPopupMenu.isShowing() && mAlpha == 1.0f) {
+        mLastTimeFullOpacity = SDL_GetTicks();
+    }
 
     if (mAutoHide && mAlpha == 1.0f && mMode != MODE_SELECT) {
         if (SDL_GetTicks() - mLastTimeFullOpacity >= AUTO_HIDE_MS) {

@@ -449,8 +449,8 @@ void printUsage() {
     SDL_Log("  --select             enter selection mode and pick one item");
     SDL_Log("  --rotate             rotate the selection (needs --select)");
     SDL_Log("  --delete             delete the selection (needs --select)");
-    SDL_Log("  --popup N[,R]        tap button N on the selection bar, then row R of the");
-    SDL_Log("                       popup it opens (needs --select)");
+    SDL_Log("  --popup N[,R]        tap button N on the bottom bar, then row R of the");
+    SDL_Log("                       popup it opens (needs --select or --fullscreen)");
     SDL_Log("  --scrub [0..1]       hold a drag on the time bar (needs --open)");
     SDL_Log("  --tilt N             lean the wall as though the accelerometer read N along");
     SDL_Log("                       the screen, for a machine that has no sensor");
@@ -1094,7 +1094,8 @@ int main(int argc, char **argv) {
         if (popupButton >= 0 && frameNumber == (screenshotFrames * 7) / 8) {
             // A press and a release on the button, since a popup opens on the
             // release, and there is no pointer here to do it.
-            MenuBar *bar = gridLayer.getHud()->getMenuBar();
+            // The selection bar with --select, and the fullscreen bar without.
+            MenuBar *bar = select ? gridLayer.getHud()->getMenuBar() : gridLayer.getHud()->getFullscreenMenu();
             MotionEvent press;
             press.xs[0] = bar->buttonCenterX((size_t)popupButton);
             press.ys[0] = bar->getY() + bar->getHeight() * 0.5f;

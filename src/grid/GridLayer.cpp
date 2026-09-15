@@ -1324,6 +1324,20 @@ void GridLayer::enterSelectionMode() {
     addSlotToSelectedItems(currentSlot, false, true);
 }
 
+bool GridLayer::selectOnlyCurrentItem() {
+    mSelectedBucketList.clear();
+    const int currentSlot = mInputProcessor->getCurrentSelectedSlot();
+    if (currentSlot == Shared::INVALID || mFeedAboutToChange || !mMediaFeed) {
+        return false;
+    }
+    mSelectedBucketList.add(currentSlot, mMediaFeed.get(), false);
+    return mSelectedBucketList.size() > 0;
+}
+
+void GridLayer::clearSelectedItems() {
+    mSelectedBucketList.clear();
+}
+
 float GridLayer::getFillScreenZoomValue() {
     return GridCameraManager::getFillScreenZoomValue(mCamera.get(), mCurrentFocusItemWidth, mCurrentFocusItemHeight);
 }

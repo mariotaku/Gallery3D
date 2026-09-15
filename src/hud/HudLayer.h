@@ -107,9 +107,12 @@ class HudLayer : public Layer {
     // Opens the popup above a bar button, pointing back at it.
     void showPopupFor(const MenuBar &bar, size_t index, const std::vector<PopupMenu::Option> &options);
 
-    // Reopens the popup over the same button, holding what is known about the
-    // selection. The rows carry no action; the last one closes it.
-    void showDetails(size_t buttonIndex);
+    // The fullscreen bar's More: delete, rotate and details for the photo on
+    // screen, in a popup over button buttonIndex.
+    void showFullscreenMore(size_t buttonIndex);
+    // Reopens the popup over the same button of bar, holding what is known
+    // about the selection. The rows carry no action; the last one closes it.
+    void showDetails(const MenuBar &bar, size_t buttonIndex);
     void updateNumItemsSelected(int count);
     // Fullscreen puts the photo's position in the path bar instead of the album
     // name, and a tap on it swaps to the caption.
