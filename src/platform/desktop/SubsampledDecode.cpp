@@ -58,6 +58,10 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     IccToSrgb toSrgb;
     int originalWidth = 0;
     int originalHeight = 0;
+    // A four channel JPEG, and whether an Adobe marker says its values are
+    // stored inverted, as Photoshop writes them.
+    bool cmyk = false;
+    bool adobeInverted = false;
 
     if (setjmp(error.escape) == 0) {
         jpeg_create_decompress(&cinfo);
@@ -88,8 +92,11 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             cinfo.scale_denom = 8;
             // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
             // straight into the bitmap. JPEG carries no alpha, so opaque
-            // pixels are already premultiplied.
-            cinfo.out_color_space = JCS_EXT_RGBA;
+            // pixels are already premultiplied. A four channel JPEG comes out
+            // as CMYK in the same four bytes, and is converted below.
+            cmyk = cinfo.jpeg_color_space == JCS_CMYK || cinfo.jpeg_color_space == JCS_YCCK;
+            adobeInverted = cmyk && cinfo.saw_Adobe_marker;
+            cinfo.out_color_space = cmyk ? JCS_CMYK : JCS_EXT_RGBA;
             jpeg_start_decompress(&cinfo);
 
             const int width = (int)cinfo.output_width;
@@ -117,6 +124,23 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     jpeg_destroy_decompress(&cinfo);
     if (!decoded.valid()) {
         return Bitmap();
+    }
+    if (cmyk) {
+        // Without colour management, the way every platform here converts a
+        // four channel JPEG that embeds no CMYK profile.
+        uint8_t *pixel = decoded.pixels();
+        const uint8_t *end = pixel + (size_t)decoded.width() * (size_t)decoded.height() * 4;
+        for (; pixel < end; pixel += 4) {
+            // How much of each ink there is, from 0 to 255.
+            const unsigned c = adobeInverted ? 255u - pixel[0] : pixel[0];
+            const unsigned m = adobeInverted ? 255u - pixel[1] : pixel[1];
+            const unsigned y = adobeInverted ? 255u - pixel[2] : pixel[2];
+            const unsigned k = adobeInverted ? 255u - pixel[3] : pixel[3];
+            pixel[0] = (uint8_t)(((255u - c) * (255u - k) + 127u) / 255u);
+            pixel[1] = (uint8_t)(((255u - m) * (255u - k) + 127u) / 255u);
+            pixel[2] = (uint8_t)(((255u - y) * (255u - k) + 127u) / 255u);
+            pixel[3] = 255;
+        }
     }
     const size_t count = (size_t)decoded.width() * (size_t)decoded.height();
     if (toSrgb) {

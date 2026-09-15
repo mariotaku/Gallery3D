@@ -30,6 +30,37 @@ Wic::Ptr<IWICBitmapSource> embeddedCovering(HRESULT fetched, Wic::Ptr<IWICBitmap
     return image;
 }
 
+// A four channel picture with no CMYK profile, converted without colour
+// management, the way every platform here converts one. WIC would otherwise run
+// it through a system CMYK profile, and the colours would depend on Windows.
+Bitmap fromCmyk(IWICBitmapSource *source, UINT width, UINT height, UINT targetWidth, UINT targetHeight) {
+    if ((unsigned long long)width * height * 4 > UINT_MAX) {
+        return Bitmap();
+    }
+    std::vector<BYTE> inks((size_t)width * height * 4);
+    const WICRect all = {0, 0, (INT)width, (INT)height};
+    if (FAILED(source->CopyPixels(&all, width * 4, (UINT)inks.size(), inks.data()))) {
+        return Bitmap();
+    }
+    Bitmap bitmap((int)width, (int)height, PixelOrder::BGRA);
+    if (!bitmap.valid()) {
+        return Bitmap();
+    }
+    for (size_t i = 0; i < (size_t)width * height; ++i) {
+        const unsigned c = inks[i * 4];
+        const unsigned m = inks[i * 4 + 1];
+        const unsigned y = inks[i * 4 + 2];
+        const unsigned k = inks[i * 4 + 3];
+        uint8_t *pixel = bitmap.pixels() + i * 4;
+        pixel[2] = (uint8_t)(((255u - c) * (255u - k) + 127u) / 255u);
+        pixel[1] = (uint8_t)(((255u - m) * (255u - k) + 127u) / 255u);
+        pixel[0] = (uint8_t)(((255u - y) * (255u - k) + 127u) / 255u);
+        pixel[3] = 255;
+    }
+    bitmap.markOpaque();
+    return bitmap.scaled((int)targetWidth, (int)targetHeight);
+}
+
 Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     IWICImagingFactory *imaging = Wic::factory();
     Wic::Ptr<IWICBitmapFrameDecode> frame;
@@ -78,6 +109,10 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     UINT sourceWidth = 0;
     UINT sourceHeight = 0;
     source->GetSize(&sourceWidth, &sourceHeight);
+    WICPixelFormatGUID sourceFormat = {};
+    if (!profile && SUCCEEDED(source->GetPixelFormat(&sourceFormat)) && sourceFormat == GUID_WICPixelFormat32bppCMYK) {
+        return fromCmyk(source.get(), sourceWidth, sourceHeight, targetWidth, targetHeight);
+    }
     // A format with no alpha channel decodes fully opaque, which saves the
     // upload a pass over the pixels to find that out.
     const bool alpha = Wic::hasAlpha(source.get());
