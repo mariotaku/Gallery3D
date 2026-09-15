@@ -123,7 +123,15 @@ endfunction()
 # Everything but the entry point, compiled once and linked into both the app
 # and the tests. Each directory under src/ adds its own files to it, and an
 # include names a file by its path from src/.
-add_library(gallery3d_core OBJECT)
+if(CMAKE_GENERATOR STREQUAL "Xcode")
+    # Several files share a name in different folders (media/FileOperations.cpp
+    # and platform/generic/FileOperations.cpp). Xcode renames such objects, and
+    # an object library still hands the link the plain names. A static library
+    # links what Xcode actually built.
+    add_library(gallery3d_core STATIC)
+else()
+    add_library(gallery3d_core OBJECT)
+endif()
 target_include_directories(gallery3d_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(gallery3d_core PUBLIC
     SDL3::SDL3
