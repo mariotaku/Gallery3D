@@ -23,7 +23,10 @@ void MediaFeed::addMediaSet(std::unique_ptr<MediaSet> set) {
         std::lock_guard<std::mutex> lock(mPendingMutex);
         mPendingChanges.push_back(std::move(change));
     }
-    updateListener(true);
+    // Appended, so no slot the wall has laid out moves, and it asks for no
+    // relayout. A relayout recentres the camera on its anchor, which stops a
+    // scroll every time a set arrives while a source is still listing.
+    updateListener(false);
 }
 
 void MediaFeed::addItems(MediaSet *set, std::vector<std::unique_ptr<MediaItem>> items,
@@ -55,12 +58,19 @@ void MediaFeed::applyPendingChanges() {
     for (PendingChange &change : changes) {
         if (change.set) {
             const int64_t setId = change.set->mId;
-            auto same = std::find_if(mMediaSets.begin(), mMediaSets.end(),
-                                     [setId](const std::unique_ptr<MediaSet> &existing) { return existing->mId == setId; });
-            if (same != mMediaSets.end()) {
-                // A rescan's set replaces the one it found before.
-                mMediaSets.erase(same);
+            const bool known =
+                std::any_of(mMediaSets.begin(), mMediaSets.end(),
+                            [setId](const std::unique_ptr<MediaSet> &existing) { return existing->mId == setId; });
+            if (known) {
+                // The wall may be drawing this set, have it open or hold a
+                // selection of its photos, all by pointer, and it finds the
+                // open album by position. Replacing the set would free those
+                // photos and move every set after it, so the one there stays.
+                SDL_Log("Skipped a second album with id %lld", (long long)setId);
+                continue;
             }
+            // Only ever appended, so a set's position, and every slot the wall
+            // keeps, holds while more arrive.
             mMediaSets.push_back(std::move(change.set));
             continue;
         }

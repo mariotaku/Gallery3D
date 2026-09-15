@@ -22,10 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayDeque;
 import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -56,8 +53,6 @@ public final class StorageBridge {
         DocumentsContract.Document.COLUMN_LAST_MODIFIED,
     };
 
-    /** The photo rows listFolders found, by folder uri, until listPhotos takes them. */
-    private static final Map<String, JSONArray> WALKED_PHOTOS = new ConcurrentHashMap<>();
     private static final String PREFERENCES = "storage";
     private static final String CHOSEN_SOURCE = "source";
 
@@ -180,103 +175,60 @@ public final class StorageBridge {
     }
 
     /**
-     * Every folder in the tree that holds photos, the tree's own folder
-     * included, with id (the folder's document uri), name and count. Hidden
-     * folders are skipped. Empty when the tree cannot be read.
+     * One folder of a tree, in one query to the provider: its subfolders, each
+     * with id (the folder's document uri) and name, and its photos, each with
+     * uri, name, mime and dateModified in milliseconds. Hidden entries are left
+     * out, and no photo is opened. Given the tree uri itself, the tree's own
+     * folder, with its name. Empty when the folder cannot be read.
      */
-    public static String listFolders(String treeText) {
-        ContentResolver resolver = resolver();
-        if (resolver == null || treeText == null) {
-            return "";
-        }
-        Uri tree = Uri.parse(treeText);
-        JSONArray folders = new JSONArray();
-        try {
-            String rootId = DocumentsContract.getTreeDocumentId(tree);
-            ArrayDeque<String[]> pending = new ArrayDeque<>();
-            pending.add(new String[] {rootId, treeName(resolver, tree, rootId)});
-            while (!pending.isEmpty()) {
-                String[] folder = pending.poll();
-                JSONArray photos = new JSONArray();
-                Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folder[0]);
-                try (Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null)) {
-                    if (cursor == null) {
-                        continue;
-                    }
-                    while (cursor.moveToNext()) {
-                        String id = cursor.getString(0);
-                        String name = cursor.getString(1);
-                        String mime = cursor.getString(2);
-                        if (id == null || name == null || name.startsWith(".")) {
-                            continue;
-                        }
-                        if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
-                            pending.add(new String[] {id, name});
-                        } else if (mime != null && mime.startsWith("image/")) {
-                            photos.put(photoRow(DocumentsContract.buildDocumentUriUsingTree(tree, id), name, mime,
-                                    cursor.isNull(3) ? 0 : cursor.getLong(3)));
-                        }
-                    }
-                }
-                if (photos.length() > 0) {
-                    String folderUri = DocumentsContract.buildDocumentUriUsingTree(tree, folder[0]).toString();
-                    // Each child query is a round trip to the provider, so the
-                    // rows found here answer the listPhotos that follows.
-                    WALKED_PHOTOS.put(folderUri, photos);
-                    JSONObject entry = new JSONObject();
-                    entry.put("id", folderUri);
-                    entry.put("name", folder[1]);
-                    entry.put("count", photos.length());
-                    folders.put(entry);
-                }
-            }
-        } catch (JSONException | RuntimeException error) {
-            Log.w(TAG, "Could not list the folders in " + treeText, error);
-            return "";
-        }
-        return folders.toString();
-    }
-
-    /**
-     * The photos directly in one folder, with uri, name, mime and dateModified
-     * in milliseconds. Nothing that needs a photo opened: readExif is asked for
-     * that one photo at a time.
-     */
-    public static String listPhotos(String folderText) {
+    public static String listFolder(String folderText) {
         ContentResolver resolver = resolver();
         if (resolver == null || folderText == null) {
-            return "[]";
-        }
-        JSONArray walked = WALKED_PHOTOS.remove(folderText);
-        if (walked != null) {
-            return walked.toString();
+            return "";
         }
         Uri folder = Uri.parse(folderText);
+        JSONObject answer = new JSONObject();
+        JSONArray folders = new JSONArray();
         JSONArray photos = new JSONArray();
         try {
-            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(folder,
-                    DocumentsContract.getDocumentId(folder));
+            // content://authority/tree/<id> is the tree's own folder, and
+            // content://authority/tree/<id>/document/<id> one inside it.
+            final boolean root = folder.getPathSegments().size() == 2;
+            String documentId = root ? DocumentsContract.getTreeDocumentId(folder)
+                    : DocumentsContract.getDocumentId(folder);
+            if (root) {
+                answer.put("name", treeName(resolver, folder, documentId));
+            }
+            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, documentId);
             try (Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null)) {
                 if (cursor == null) {
-                    return "[]";
+                    return "";
                 }
                 while (cursor.moveToNext()) {
                     String id = cursor.getString(0);
                     String name = cursor.getString(1);
                     String mime = cursor.getString(2);
-                    if (id == null || name == null || name.startsWith(".") || mime == null
-                            || !mime.startsWith("image/")) {
+                    if (id == null || name == null || name.startsWith(".") || mime == null) {
                         continue;
                     }
-                    photos.put(photoRow(DocumentsContract.buildDocumentUriUsingTree(folder, id), name, mime,
-                            cursor.isNull(3) ? 0 : cursor.getLong(3)));
+                    Uri uri = DocumentsContract.buildDocumentUriUsingTree(folder, id);
+                    if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
+                        JSONObject child = new JSONObject();
+                        child.put("id", uri.toString());
+                        child.put("name", name);
+                        folders.put(child);
+                    } else if (mime.startsWith("image/")) {
+                        photos.put(photoRow(uri, name, mime, cursor.isNull(3) ? 0 : cursor.getLong(3)));
+                    }
                 }
             }
+            answer.put("folders", folders);
+            answer.put("photos", photos);
         } catch (JSONException | RuntimeException error) {
-            Log.w(TAG, "Could not list the photos in " + folderText, error);
-            return "[]";
+            Log.w(TAG, "Could not list " + folderText, error);
+            return "";
         }
-        return photos.toString();
+        return answer.toString();
     }
 
     /** The bytes of one document. */

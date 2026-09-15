@@ -236,15 +236,16 @@ TEST(a_set_joins_the_feed_whole_and_only_between_frames) {
     CHECK_EQ(itemsWhenFinished, 2);
     CHECK(handed->getItems()[1]->mParentMediaSet == handed);
 
-    // A page for a set replaced in the meantime is dropped rather than written
-    // into a set the feed no longer has.
-    auto replacement = std::make_unique<MediaSet>();
-    replacement->mId = 7;
-    feed.addMediaSet(std::move(replacement));
+    // A second set with the same id does not replace the one there, whose slot
+    // and photos the wall may be holding, and a page for it still lands in the
+    // set the feed kept.
+    auto duplicate = std::make_unique<MediaSet>();
+    duplicate->mId = 7;
+    feed.addMediaSet(std::move(duplicate));
     std::vector<std::unique_ptr<MediaItem>> late;
     late.push_back(std::make_unique<MediaItem>());
     feed.addItems(handed, std::move(late));
     feed.pumpListener();
-    CHECK(feed.getMediaSets().size() == 1);
-    CHECK_EQ(feed.getMediaSets()[0]->getNumItems(), 0);
+    CHECK(feed.getMediaSets().size() == 1 && feed.getMediaSets()[0] == handed);
+    CHECK_EQ(handed->getNumItems(), 3);
 }

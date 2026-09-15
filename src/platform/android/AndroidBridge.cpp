@@ -357,12 +357,8 @@ std::string AndroidBridge::treeName(const std::string &tree) {
     return callStorage("treeName", &tree);
 }
 
-std::string AndroidBridge::listFolders(const std::string &tree) {
-    return callStorage("listFolders", &tree);
-}
-
-std::string AndroidBridge::listPhotos(const std::string &folder) {
-    return callStorage("listPhotos", &folder);
+std::string AndroidBridge::listFolder(const std::string &folder) {
+    return callStorage("listFolder", &folder);
 }
 
 std::string AndroidBridge::readExif(const std::string &uri, const std::string &mime) {

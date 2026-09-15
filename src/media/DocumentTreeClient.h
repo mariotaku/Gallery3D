@@ -12,16 +12,15 @@ class DocumentTreeClient {
   public:
     virtual ~DocumentTreeClient() = default;
 
-    // JSON: one object per folder in the tree that holds photos, the tree's
-    // own folder included, with id (the folder's document uri), name and count.
-    // Empty or invalid when the tree cannot be read, for instance once its
-    // permission is revoked.
-    virtual std::string listFolders(const std::string &treeUri) = 0;
-
-    // JSON: one object per photo directly in the folder, with uri (the photo's
-    // document uri), name, mime and dateModified in milliseconds. Nothing that
-    // needs the photo opened, which keeps a large tree quick to list.
-    virtual std::string listPhotos(const std::string &folderUri) = 0;
+    // JSON: one object for one folder of the tree, with folders (its
+    // subfolders, each with id, the folder's document uri, and name) and photos
+    // (each with uri, the photo's document uri, name, mime and dateModified in
+    // milliseconds). Hidden entries are left out. folderUri is a folder's
+    // document uri, or the tree uri itself for the tree's own folder, whose
+    // object also carries its name. Empty when the folder cannot be read, for
+    // instance once the tree's permission is revoked. Opens no photo, so a
+    // folder takes one query to the provider.
+    virtual std::string listFolder(const std::string &folderUri) = 0;
 
     // JSON: one object with what the photo's EXIF says: orientation in degrees,
     // dateTaken in milliseconds (0 when it has none), width and height (0 when

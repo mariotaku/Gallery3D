@@ -21,6 +21,8 @@ class DocumentTreeDataSource : public DataSource {
     DocumentTreeDataSource(DocumentTreeClient &client, std::string treeUri)
         : mClient(client), mTreeUri(std::move(treeUri)) {}
 
+    // Walks the tree a folder at a time and hands each album to the feed as
+    // soon as its folder is listed. Stops early when the feed shuts down.
     void loadMediaSets(MediaFeed *feed) override;
     // loadMediaSets fills every set, so this only reports that there is no
     // next page.
@@ -39,8 +41,6 @@ class DocumentTreeDataSource : public DataSource {
                        RegionCallback done) override;
 
   private:
-    void loadFolderItems(MediaSet &set, const std::string &folderUri);
-
     DocumentTreeClient &mClient;
     const std::string mTreeUri;
     RegionDecoderCache mDecoders;

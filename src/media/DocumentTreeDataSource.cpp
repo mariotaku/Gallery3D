@@ -1,7 +1,9 @@
 #include "media/DocumentTreeDataSource.h"
 
+#include <deque>
 #include <memory>
 #include <unordered_set>
+#include <utility>
 
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
@@ -14,16 +16,12 @@
 
 namespace {
 
-nlohmann::json parse(const std::string &text, const char *what) {
+nlohmann::json parseObject(const std::string &text) {
     if (text.empty()) {
-        return nlohmann::json::array();
+        return nlohmann::json();
     }
     nlohmann::json parsed = nlohmann::json::parse(text, nullptr, false);
-    if (parsed.is_discarded() || !parsed.is_array()) {
-        SDL_Log("Could not read the %s the folder tree returned", what);
-        return nlohmann::json::array();
-    }
-    return parsed;
+    return parsed.is_object() ? parsed : nlohmann::json();
 }
 
 // Whole quarter turns only. The other EXIF orientations mirror, which a
@@ -41,50 +39,8 @@ float rotationFor(int64_t degrees) {
     }
 }
 
-}  // namespace
-
-void DocumentTreeDataSource::loadMediaSets(MediaFeed *feed) {
-    if (feed == nullptr) {
-        return;
-    }
-    const uint64_t started = SDL_GetTicks();
-    const nlohmann::json folders = parse(mClient.listFolders(mTreeUri), "folder list");
-    SDL_Log("The folder tree has %d folders of photos, listed in %u ms", (int)folders.size(),
-            (unsigned)(SDL_GetTicks() - started));
-
-    int photos = 0;
-    for (const nlohmann::json &folder : folders) {
-        const std::string folderUri = stringOr(folder, "id", "");
-        if (folderUri.empty()) {
-            continue;
-        }
-        auto set = std::make_unique<MediaSet>();
-        set->mId = stableIdFor(folderUri);
-        set->mDataSource = this;
-        set->mName = stringOr(folder, "name", "");
-        set->mType = MediaSet::TYPE_FOLDER;
-        set->mIsLocal = true;
-        loadFolderItems(*set, folderUri);
-        // A folder of nothing but RAW files beside their JPEGs cannot happen,
-        // but one whose photos all failed to list can.
-        if (set->getNumItems() == 0) {
-            continue;
-        }
-        photos += set->getNumItems();
-        feed->addMediaSet(std::move(set));
-    }
-    SDL_Log("Read %d photos from the folder tree in %u ms", photos, (unsigned)(SDL_GetTicks() - started));
-    feed->finishLoadingMediaSets();
-}
-
-void DocumentTreeDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
-    if (feed != nullptr) {
-        feed->finishLoadingItemsForSet(parentSet);
-    }
-}
-
-void DocumentTreeDataSource::loadFolderItems(MediaSet &set, const std::string &folderUri) {
-    const nlohmann::json photos = parse(mClient.listPhotos(folderUri), "photo list");
+// Fills a set with the photos one folder listed.
+void fillItems(MediaSet &set, const nlohmann::json &photos) {
     // One folder, so names alone find a RAW and the JPEG or HEIF beside it.
     std::vector<std::string> names;
     names.reserve(photos.size());
@@ -126,6 +82,84 @@ void DocumentTreeDataSource::loadFolderItems(MediaSet &set, const std::string &f
     set.generateTitle(true);
 }
 
+}  // namespace
+
+void DocumentTreeDataSource::loadMediaSets(MediaFeed *feed) {
+    if (feed == nullptr) {
+        return;
+    }
+    const uint64_t started = SDL_GetTicks();
+    uint64_t firstAlbumMs = 0;
+    int albums = 0;
+    int photos = 0;
+
+    // Breadth first, one query per folder, and each album goes to the feed as
+    // soon as its folder is listed: a large tree fills the wall as it is walked
+    // rather than after its last folder.
+    std::deque<std::pair<std::string, std::string>> pending;
+    pending.emplace_back(mTreeUri, std::string());
+    std::unordered_set<std::string> visited;
+    while (!pending.empty() && !feed->isCancelled()) {
+        const std::string folderUri = std::move(pending.front().first);
+        std::string name = std::move(pending.front().second);
+        pending.pop_front();
+        // A provider can list one folder under two parents, or lead back up
+        // through a shortcut. Each folder is one album, walked once.
+        if (!visited.insert(folderUri).second) {
+            continue;
+        }
+
+        const nlohmann::json folder = parseObject(mClient.listFolder(folderUri));
+        if (!folder.is_object()) {
+            if (folderUri == mTreeUri) {
+                SDL_Log("Could not read the folder tree %s", mTreeUri.c_str());
+            }
+            continue;
+        }
+        if (name.empty()) {
+            name = stringOr(folder, "name", "");
+        }
+        const auto children = folder.find("folders");
+        if (children != folder.end() && children->is_array()) {
+            for (const nlohmann::json &child : *children) {
+                const std::string childUri = stringOr(child, "id", "");
+                if (!childUri.empty()) {
+                    pending.emplace_back(childUri, stringOr(child, "name", ""));
+                }
+            }
+        }
+        const auto listed = folder.find("photos");
+        if (listed == folder.end() || !listed->is_array() || listed->empty()) {
+            continue;
+        }
+
+        auto set = std::make_unique<MediaSet>();
+        set->mId = stableIdFor(folderUri);
+        set->mDataSource = this;
+        set->mName = name;
+        set->mType = MediaSet::TYPE_FOLDER;
+        set->mIsLocal = true;
+        fillItems(*set, *listed);
+        if (set->getNumItems() == 0) {
+            continue;
+        }
+        photos += set->getNumItems();
+        if (++albums == 1) {
+            firstAlbumMs = SDL_GetTicks() - started;
+        }
+        feed->addMediaSet(std::move(set));
+    }
+    SDL_Log("Read %d photos in %d albums from the folder tree in %u ms, the first album after %u ms", photos, albums,
+            (unsigned)(SDL_GetTicks() - started), (unsigned)firstAlbumMs);
+    feed->finishLoadingMediaSets();
+}
+
+void DocumentTreeDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
+    if (feed != nullptr) {
+        feed->finishLoadingItemsForSet(parentSet);
+    }
+}
+
 bool DocumentTreeDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
     if (item == nullptr || item->mContentUri.empty()) {
         return false;
@@ -143,8 +177,7 @@ void DocumentTreeDataSource::prepareItem(MediaItem *item) {
             return;
         }
     }
-    const std::string text = mClient.readExif(item->mContentUri, item->mMimeType);
-    const nlohmann::json exif = text.empty() ? nlohmann::json() : nlohmann::json::parse(text, nullptr, false);
+    const nlohmann::json exif = parseObject(mClient.readExif(item->mContentUri, item->mMimeType));
     if (!exif.is_object()) {
         return;
     }

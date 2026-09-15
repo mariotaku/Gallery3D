@@ -62,10 +62,9 @@ void setChosenSource(const std::string &id);
 // The display name of a tree's folder.
 std::string treeName(const std::string &tree);
 
-// StorageBridge.listFolders, listPhotos and readDocument, for
+// StorageBridge.listFolder, readExif and readDocument, for
 // AndroidDocumentTreeClient.
-std::string listFolders(const std::string &tree);
-std::string listPhotos(const std::string &folder);
+std::string listFolder(const std::string &folder);
 std::string readExif(const std::string &uri, const std::string &mime);
 bool readDocument(const std::string &uri, std::vector<uint8_t> *bytes);
 

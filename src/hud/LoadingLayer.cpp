@@ -50,9 +50,12 @@ bool LoadingLayer::isContentReady(RenderView *view) const {
             return false;
         }
     }
-    // And wait for the first scan, or the sheet lifts on an empty wall.
+    // And wait for the first album, or the end of the first scan when there is
+    // none, or the sheet lifts on an empty wall. A source that lists album by
+    // album, such as a large folder tree, shows each one as it arrives rather
+    // than behind the sheet until the last.
     MediaFeed *feed = mGridLayer->getFeed();
-    return feed != nullptr && !feed->isLoading();
+    return feed != nullptr && (!feed->isLoading() || !feed->getMediaSets().empty());
 }
 
 bool LoadingLayer::update(RenderView *view, float frameInterval) {

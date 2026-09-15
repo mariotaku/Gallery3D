@@ -1,43 +1,45 @@
 #include "fake_document_tree.h"
 
-#include <algorithm>
-
 #include <nlohmann/json.hpp>
 
 #include "graphics/Bitmap.h"
 
-std::string FakeDocumentTree::listFolders(const std::string &requested) {
-    if (requested != treeUri) {
-        // What the bridge answers for a tree it may no longer read.
+std::string FakeDocumentTree::listFolder(const std::string &requested) {
+    ++folderQueries;
+    if (onListFolder) {
+        onListFolder(requested);
+    }
+    const bool root = requested == treeUri;
+    const FakeFolder *folder = nullptr;
+    for (const FakeFolder &candidate : folders) {
+        if (root ? candidate.parentUri.empty() : (!candidate.parentUri.empty() && candidate.uri == requested)) {
+            folder = &candidate;
+            break;
+        }
+    }
+    if (folder == nullptr) {
+        // What the bridge answers for a folder it may no longer read.
         return std::string();
     }
-    nlohmann::json folders = nlohmann::json::array();
-    for (const FakeDocument &document : documents) {
-        auto found = std::find_if(folders.begin(), folders.end(), [&document](const nlohmann::json &folder) {
-            return folder["id"] == document.folderUri;
-        });
-        if (found == folders.end()) {
-            folders.push_back({{"id", document.folderUri}, {"name", document.folderName}, {"count", 1}});
-        } else {
-            (*found)["count"] = (*found)["count"].get<int>() + 1;
-        }
-    }
-    return folders.dump();
-}
 
-std::string FakeDocumentTree::listPhotos(const std::string &folderUri) {
-    ++photoQueries;
-    nlohmann::json photos = nlohmann::json::array();
-    for (const FakeDocument &document : documents) {
-        if (document.folderUri != folderUri) {
-            continue;
-        }
-        photos.push_back({{"uri", document.uri},
-                          {"name", document.name},
-                          {"mime", document.mime},
-                          {"dateModified", document.dateModified}});
+    nlohmann::json answer = {{"folders", nlohmann::json::array()}, {"photos", nlohmann::json::array()}};
+    if (root) {
+        answer["name"] = folder->name;
     }
-    return photos.dump();
+    for (const FakeFolder &child : folders) {
+        if (child.parentUri == folder->uri) {
+            answer["folders"].push_back({{"id", child.uri}, {"name", child.name}});
+        }
+    }
+    for (const FakeDocument &document : documents) {
+        if (document.folderUri == folder->uri) {
+            answer["photos"].push_back({{"uri", document.uri},
+                                        {"name", document.name},
+                                        {"mime", document.mime},
+                                        {"dateModified", document.dateModified}});
+        }
+    }
+    return answer.dump();
 }
 
 std::string FakeDocumentTree::readExif(const std::string &uri, const std::string &mime) {

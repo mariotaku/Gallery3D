@@ -943,6 +943,9 @@ void GridLayer::onFeedAboutToChange(MediaFeed *feed) {
 
 void GridLayer::onFeedChanged(MediaFeed *feed, bool needsLayout) {
     if (!needsLayout && !mFeedAboutToChange) {
+        // Sets appended at the end: the rows follow the new slot count, but the
+        // camera stays where the user has it.
+        updateRowsForLayout(mState);
         mFeedChanged = true;
         forceRecomputeVisibleRange();
         if (mState == STATE_GRID_VIEW || mState == STATE_FULL_SCREEN) {
