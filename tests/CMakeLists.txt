@@ -23,6 +23,8 @@ add_executable(gallery3d_tests
     test_photoindex.cpp
     test_photolibrary.cpp
     test_regiondecoder.cpp
+    test_runner.cpp
+    test_runner.h
     test_safearea.cpp
     test_settings.cpp
     test_systemthumbnail.cpp

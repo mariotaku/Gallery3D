@@ -1,6 +1,6 @@
 # Builds every platform on each push and pull request, and runs the tests on
-# the two that have a console to run them in. Each job keeps what it built as
-# an artifact.
+# the three that have a console to run them in. Each job keeps what it built
+# as an artifact.
 name: Build
 
 on:
@@ -29,6 +29,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure
         run: cmake --preset linux
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  macos:
+    name: macOS
+    # The only run of the Linux and macOS code on a case-insensitive disk.
+    runs-on: macos-15
+    steps:
+      - name: Install dependencies
+        run: brew install ninja pkgconf sdl3 sdl3_image sdl3_ttf jpeg-turbo little-cms2 nlohmann-json
+      - uses: actions/checkout@v4
+      - name: Configure
+        # Homebrew keeps jpeg-turbo apart from the system's libjpeg, so CMake
+        # is told where it is.
+        run: cmake --preset linux -DCMAKE_PREFIX_PATH="$(brew --prefix jpeg-turbo)"
       - name: Build
         run: cmake --build build
       - name: Test

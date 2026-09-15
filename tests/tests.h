@@ -14,6 +14,16 @@ struct TestCase {
 
 void registerTest(const char *name, void (*fn)());
 void reportFailure(const char *file, int line, const char *expression, const std::string &detail);
+void reportSkip(const std::string &reason);
+
+// Ends the test and counts it as skipped, with the reason in the report. For a
+// test that cannot run on this platform or in this environment, so it shows up
+// in the summary instead of being compiled out.
+#define SKIP(reason)                                                                               \
+    do {                                                                                           \
+        reportSkip(reason);                                                                        \
+        return;                                                                                    \
+    } while (false)
 
 #define TEST(name)                                                                                 \
     static void name();                                                                            \
