@@ -27,8 +27,11 @@ const float FONT_SIZE = 17.0f;
 const float TITLE_TRAIL = 15.0f;
 // The span the point is centred in, in layout units.
 const float TRIANGLE_WIDTH = 43.0f;
-// How far the texture reaches below the panel body, for the point.
+// How far the texture reaches past the panel body, for the point.
 const float POPUP_TRIANGLE_EXTRA_HEIGHT = 14.0f;
+// How far above the point a popup that opens downward starts, so its tip
+// overlaps the point by as much as an upward one's does.
+const float BELOW_Y_OFFSET = 11.55f;
 
 // The panel and its point, in layout units, as art/popup.9.svg and
 // art/popup_triangle_bottom.svg draw them: smoked glass in a white border,
@@ -36,6 +39,7 @@ const float POPUP_TRIANGLE_EXTRA_HEIGHT = 14.0f;
 // runs into the point and the shadow falls under both without a seam at any
 // density.
 const float BOX_LEFT = 8.3f;
+// Down from the top of the panel body.
 const float BOX_TOP = 4.45f;
 const float BOX_RIGHT = 8.1f;
 // Up from the bottom of the panel body.
@@ -109,9 +113,10 @@ int boxRadiusFor(float sigma) {
     return std::max(1, (int)(radius + 0.5f));
 }
 
-// Draws the panel, its point and their shadow over canvas. pointCenter is the
-// x of the tip, and bodyHeight the bottom of the panel body.
-void drawPanel(Bitmap &canvas, int bodyHeight, float pointCenter) {
+// Draws the panel, its point and their shadow over canvas. boxTop and
+// boxBottom are the box's outer edges, pointCenter is the x of the tip, and
+// pointUp puts the point above the box instead of below it.
+void drawPanel(Bitmap &canvas, float boxTop, float boxBottom, float pointCenter, bool pointUp) {
     const float unit = App::UI_DENSITY;
     const float halfBorder = BORDER_WIDTH * unit * 0.5f;
     const int width = canvas.width();
@@ -119,21 +124,23 @@ void drawPanel(Bitmap &canvas, int bodyHeight, float pointCenter) {
 
     Outline outline;
     outline.left = BOX_LEFT * unit + halfBorder;
-    outline.top = BOX_TOP * unit + halfBorder;
+    outline.top = boxTop + halfBorder;
     outline.right = (float)width - BOX_RIGHT * unit - halfBorder;
-    outline.bottom = (float)bodyHeight - BOX_BOTTOM * unit - halfBorder;
+    outline.bottom = boxBottom - halfBorder;
     outline.radius = BOX_RADIUS * unit - halfBorder;
-    // The sides carry on up into the box, past the border and its edge
-    // blending, so the two shapes share no edge.
+    // The sides carry on into the box, past the border and its edge blending,
+    // so the two shapes share no edge.
     const float sink = BORDER_WIDTH * unit * 2.0f;
     const float depth = POINT_DEPTH * unit;
-    const float topHalfWidth = POINT_HALF_WIDTH * unit * (depth + sink) / depth;
-    outline.pointX[0] = pointCenter - topHalfWidth;
-    outline.pointY[0] = outline.bottom - sink;
-    outline.pointX[1] = pointCenter + topHalfWidth;
-    outline.pointY[1] = outline.bottom - sink;
+    const float baseHalfWidth = POINT_HALF_WIDTH * unit * (depth + sink) / depth;
+    const float edge = pointUp ? outline.top : outline.bottom;
+    const float inward = pointUp ? 1.0f : -1.0f;
+    outline.pointX[0] = pointCenter - baseHalfWidth;
+    outline.pointY[0] = edge + inward * sink;
+    outline.pointX[1] = pointCenter + baseHalfWidth;
+    outline.pointY[1] = edge + inward * sink;
     outline.pointX[2] = pointCenter;
-    outline.pointY[2] = outline.bottom + depth;
+    outline.pointY[2] = edge - inward * depth;
 
     // Pixel coverage of the shape out to the border's outer edge, measured at
     // the pixel's centre.
@@ -237,7 +244,10 @@ void PopupMenu::layout() {
     }
 
     float rowHeight = scaled(ROW_HEIGHT);
-    float top = scaled(PADDING_TOP);
+    // Opening downward, the point takes the room above the rows instead of
+    // below them.
+    const float pointRoom = scaled(POPUP_TRIANGLE_EXTRA_HEIGHT);
+    float top = scaled(PADDING_TOP) + (mBelow ? pointRoom : 0.0f);
     for (Row &row : mRows) {
         row.top = top;
         row.bottom = top + rowHeight;
@@ -247,13 +257,25 @@ void PopupMenu::layout() {
     mPopupWidth = scaled(PADDING_LEFT) + contentWidth + scaled(PADDING_RIGHT);
     // The bottom padding is where the triangle lives, which is why it is so
     // much deeper than the top.
-    mPopupHeight = top + scaled(PADDING_BOTTOM);
+    mPopupHeight = top + scaled(PADDING_BOTTOM) - (mBelow ? pointRoom : 0.0f);
     mTexture->setSize((int)(mPopupWidth + 0.5f), (int)(mPopupHeight + 0.5f));
     mTexture->setNeedsDraw();
 }
 
 void PopupMenu::showAtPoint(float pointX, float pointY, float boundsLeft, float boundsWidth) {
+    show(pointX, pointY, boundsLeft, boundsWidth, false);
+}
+
+void PopupMenu::showBelowPoint(float pointX, float pointY, float boundsLeft, float boundsWidth) {
+    show(pointX, pointY, boundsLeft, boundsWidth, true);
+}
+
+void PopupMenu::show(float pointX, float pointY, float boundsLeft, float boundsWidth, bool below) {
     ensureArt();
+    if (mBelow != below) {
+        mBelow = below;
+        mNeedsLayout = true;
+    }
     if (mNeedsLayout) {
         layout();
     }
@@ -266,7 +288,7 @@ void PopupMenu::showAtPoint(float pointX, float pointY, float boundsLeft, float 
     float x = pointX - halfWidth;
     float clampedX = std::min(std::max(x, boundsLeft), std::max(boundsLeft, boundsLeft + boundsWidth - mPopupWidth));
     mPopupX = clampedX;
-    mPopupY = pointY + scaled(POPUP_Y_OFFSET) - mPopupHeight;
+    mPopupY = below ? pointY - BELOW_Y_OFFSET * App::UI_DENSITY : pointY + scaled(POPUP_Y_OFFSET) - mPopupHeight;
 
     // The triangle stays under the point even after the popup has been pushed
     // back inside, which is what keeps it pointing at the button.
@@ -347,9 +369,10 @@ void PopupMenu::renderBlended(RenderView *view) {
     }
     float width = mPopupWidth * scale;
     float height = mPopupHeight * scale;
-    // Grows about the point it is anchored to, which is the bottom middle.
+    // Grows about the point it is anchored to: the bottom middle, or the top
+    // middle when it opens downward.
     float x = mPopupX + (mPopupWidth - width) * 0.5f;
-    float y = mPopupY + (mPopupHeight - height);
+    float y = mBelow ? mPopupY : mPopupY + (mPopupHeight - height);
 
     float previousAlpha = view->getAlpha();
     if (showRatio < 1.0f) {
@@ -365,8 +388,12 @@ void PopupMenu::renderBlended(RenderView *view) {
 void PopupMenu::PopupTexture::renderCanvas(Bitmap &canvas, int width, int height) {
     mOwner->ensureArt();
 
-    int bodyHeight = height - (int)scaled(POPUP_TRIANGLE_EXTRA_HEIGHT);
-    drawPanel(canvas, bodyHeight, mOwner->mTriangleX + scaled(TRIANGLE_WIDTH) * 0.5f);
+    const float unit = App::UI_DENSITY;
+    const float pointRoom = scaled(POPUP_TRIANGLE_EXTRA_HEIGHT);
+    const bool below = mOwner->mBelow;
+    const float boxTop = BOX_TOP * unit + (below ? pointRoom : 0.0f);
+    const float boxBottom = (float)height - BOX_BOTTOM * unit - (below ? 0.0f : pointRoom);
+    drawPanel(canvas, boxTop, boxBottom, mOwner->mTriangleX + scaled(TRIANGLE_WIDTH) * 0.5f, below);
 
     int left = (int)scaled(PADDING_LEFT);
     int contentRight = width - (int)scaled(PADDING_RIGHT);

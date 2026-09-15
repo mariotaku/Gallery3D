@@ -23,6 +23,12 @@ class PathBarLayer : public Layer {
     void pushLabel(const char *icon, const std::string &label, Action action = nullptr);
     void popLabel();
     void changeLabel(const std::string &label);
+    // Renames the crumb at index, such as the home crumb, which is not always
+    // the current one.
+    void changeLabelAt(size_t index, const std::string &label);
+    // The middle of the crumb at index, in window pixels, once the bar has
+    // been laid out. The bar's left edge before that.
+    float crumbCenterX(size_t index) const;
     std::string getCurrentLabel() const;
     int getNumLevels() const;
     void clear();

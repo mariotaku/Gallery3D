@@ -250,6 +250,42 @@ TEST(popup_menu_border_does_not_cross_the_opening_of_its_pointer) {
     CHECK_DETAIL(brightest < 100, "a grey of " + std::to_string(brightest) + " inside the pointer");
 }
 
+TEST(popup_menu_opening_downward_puts_its_pointer_on_top) {
+    ScopedDensity density(kFractionalDensity);
+    PopupMenu menu;
+    menu.setOptions({{"All photos", "icon_home_small", nullptr}});
+    menu.showBelowPoint(640.0f, 60.0f, 0.0f, 1280.0f);
+    Bitmap composed = menu.compose();
+    CHECK(composed.valid());
+    if (!composed.valid()) {
+        return;
+    }
+    const int middle = composed.width() / 2;
+    auto alpha = [&composed](int x, int y) {
+        return (int)composed.pixels()[((size_t)y * (size_t)composed.width() + (size_t)x) * 4 + 3];
+    };
+    // The tip is the first ink from the top, in the middle, well above where
+    // the panel's corners start.
+    int tipRow = -1;
+    for (int y = 0; y < composed.height() && tipRow < 0; ++y) {
+        if (alpha(middle, y) > 128) {
+            tipRow = y;
+        }
+    }
+    int cornerRow = -1;
+    const int nearLeft = (int)(20.0f * kFractionalDensity);
+    for (int y = 0; y < composed.height() && cornerRow < 0; ++y) {
+        if (alpha(nearLeft, y) > 128) {
+            cornerRow = y;
+        }
+    }
+    CHECK(tipRow >= 0 && cornerRow >= 0);
+    CHECK_DETAIL(tipRow + (int)(10.0f * kFractionalDensity) < cornerRow,
+                 "tip at row " + std::to_string(tipRow) + ", panel at row " + std::to_string(cornerRow));
+    // Nothing hangs below the panel.
+    CHECK(alpha(middle, composed.height() - 1) < 64);
+}
+
 TEST(popup_menu_widens_for_a_longer_option) {
     PopupMenu narrow;
     narrow.setOptions({{"Cut", "icon_delete", nullptr}});

@@ -1,6 +1,8 @@
 target_sources(gallery3d_core PRIVATE
     AndroidBridge.cpp
     AndroidBridge.h
+    AndroidDocumentTreeClient.cpp
+    AndroidDocumentTreeClient.h
     AndroidMediaStoreClient.cpp
     AndroidMediaStoreClient.h
     DrawableLoad.cpp

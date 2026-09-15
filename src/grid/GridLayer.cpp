@@ -191,6 +191,11 @@ GridLayer::GridLayer(int itemWidth, int itemHeight, LayoutInterface *layoutInter
     mHud.getTimeBar()->setListener(this);
     mHud.getPathBar()->pushLabel(Res::drawable::icon_home_small, Res::string::app_name, [this]() {
         if (mHud.getAlpha() == 1.0f) {
+            // Already home, the crumb offers the other places photos can come
+            // from, where there are any.
+            if (mState == STATE_MEDIA_SETS && mHud.showSourceMenu()) {
+                return;
+            }
             if (!mFeedAboutToChange) {
                 setState(STATE_MEDIA_SETS);
             }

@@ -76,6 +76,21 @@ void PathBarLayer::changeLabel(const std::string &label) {
     invalidate();
 }
 
+void PathBarLayer::changeLabelAt(size_t index, const std::string &label) {
+    if (label.empty() || index >= mComponents.size() || mComponents[index].label == label) {
+        return;
+    }
+    mComponents[index].label = label;
+    invalidate();
+}
+
+float PathBarLayer::crumbCenterX(size_t index) const {
+    if (index >= mComponents.size()) {
+        return mX;
+    }
+    return mX + mComponents[index].x + mComponents[index].width * 0.5f;
+}
+
 std::string PathBarLayer::getCurrentLabel() const {
     return mComponents.empty() ? std::string() : mComponents.back().label;
 }

@@ -54,4 +54,10 @@ build-ios/
 #   git clone --depth 1 --filter=blob:none --sparse --branch release-3.4.16 \
 #     https://github.com/libsdl-org/SDL reference/sdl
 #   git -C reference/sdl sparse-checkout set android-project/app/src/main/java/org/libsdl/app src/core/android
+#
+# Android's document picker, for where ACTION_OPEN_DOCUMENT_TREE opens and
+# which roots it lets a folder be chosen from:
+#   git clone --depth 1 --filter=blob:none --sparse --branch android14-release \
+#     https://android.googlesource.com/platform/packages/apps/DocumentsUI reference/documentsui
+#   git -C reference/documentsui sparse-checkout set src/com/android/documentsui
 reference/

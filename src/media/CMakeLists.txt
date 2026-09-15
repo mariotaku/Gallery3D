@@ -3,6 +3,9 @@
 target_sources(gallery3d_core PRIVATE
     ConcatenatedDataSource.cpp
     ConcatenatedDataSource.h
+    DocumentTreeClient.h
+    DocumentTreeDataSource.cpp
+    DocumentTreeDataSource.h
     FileOperations.cpp
     FileOperations.h
     LocalDataSource.cpp

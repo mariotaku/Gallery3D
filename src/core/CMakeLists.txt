@@ -19,4 +19,5 @@ target_sources(gallery3d_core PRIVATE
     Md5.cpp
     Md5.h
     Shared.h
+    StableId.h
     Vector3f.h)

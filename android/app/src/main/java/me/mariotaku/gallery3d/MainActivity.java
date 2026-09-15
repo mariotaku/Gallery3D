@@ -2,6 +2,7 @@ package me.mariotaku.gallery3d;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -52,6 +53,16 @@ public class MainActivity extends SDLActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         drawUnderSystemBars();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // The folder picker's answer. Anything else is SDL's own file dialog.
+        if (requestCode == StorageBridge.PICK_FOLDER_REQUEST) {
+            StorageBridge.onFolderPicked(this, resultCode == RESULT_OK && data != null ? data.getData() : null);
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override

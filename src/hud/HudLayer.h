@@ -113,6 +113,17 @@ class HudLayer : public Layer {
     // Reopens the popup over the same button of bar, holding what is known
     // about the selection. The rows carry no action; the last one closes it.
     void showDetails(const MenuBar &bar, size_t buttonIndex);
+
+    // The places photos can come from, asked for each time the home crumb
+    // opens them. Unset where there is only one.
+    using SourceMenu = std::function<std::vector<PopupMenu::Option>()>;
+    void setSourceMenu(SourceMenu menu) {
+        mSourceMenu = std::move(menu);
+    }
+    // Opens the source menu under the home crumb. False when there is none.
+    bool showSourceMenu();
+    // What the home crumb says: the app's name, or the chosen source's.
+    void setHomeLabel(const std::string &label);
     void updateNumItemsSelected(int count);
     // Fullscreen puts the photo's position in the path bar instead of the album
     // name, and a tap on it swaps to the caption.
@@ -144,6 +155,7 @@ class HudLayer : public Layer {
     MenuBar mSelectionMenuTop;
     // One popup, reused. Only ever one is open.
     PopupMenu mPopupMenu;
+    SourceMenu mSourceMenu;
 
   public:
     PopupMenu *getPopupMenu() {

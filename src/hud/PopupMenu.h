@@ -33,6 +33,9 @@ class PopupMenu : public Layer {
     // Opens at (pointX, pointY), constrained to the safe-area band
     // [boundsLeft, boundsLeft + boundsWidth].
     void showAtPoint(float pointX, float pointY, float boundsLeft, float boundsWidth);
+    // The same, opening downward from a point above it, such as a crumb in the
+    // top bar.
+    void showBelowPoint(float pointX, float pointY, float boundsLeft, float boundsWidth);
     void close(bool fadeOut);
 
     bool isShowing() const {
@@ -70,6 +73,7 @@ class PopupMenu : public Layer {
     };
 
     void ensureArt();
+    void show(float pointX, float pointY, float boundsLeft, float boundsWidth, bool below);
     void layout();
     int hitTestOptions(float x, float y) const;
     void setSelectedItem(int index);
@@ -86,6 +90,8 @@ class PopupMenu : public Layer {
     float mPopupWidth = 0.0f;
     float mPopupHeight = 0.0f;
     float mTriangleX = 0.0f;
+    // Whether it opens downward, with its point on top.
+    bool mBelow = false;
 
     bool mNeedsLayout = false;
     bool mShow = false;

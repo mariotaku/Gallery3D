@@ -356,6 +356,24 @@ void HudLayer::showFullscreenMore(size_t buttonIndex) {
     showPopupFor(mFullscreenMenu, buttonIndex, options);
 }
 
+bool HudLayer::showSourceMenu() {
+    if (!mSourceMenu) {
+        return false;
+    }
+    std::vector<PopupMenu::Option> options = mSourceMenu();
+    if (options.empty()) {
+        return false;
+    }
+    mPopupMenu.setOptions(options);
+    mPopupMenu.showBelowPoint(mPathBar.crumbCenterX(0), mPathBar.getY() + PathBarLayer::preferredHeight(),
+                              App::SAFE_AREA.left, mWidth - App::SAFE_AREA.left - App::SAFE_AREA.right);
+    return true;
+}
+
+void HudLayer::setHomeLabel(const std::string &label) {
+    mPathBar.changeLabelAt(0, label);
+}
+
 void HudLayer::showDetails(const MenuBar &bar, size_t buttonIndex) {
     std::vector<PopupMenu::Option> options;
     for (const std::string &line : MediaDetails::linesFor(mGridLayer->getSelectedBucketList())) {

@@ -34,8 +34,13 @@
 #include "media/LocalDataSource.h"
 #include "media/PhotoLibrary.h"
 #if defined(__ANDROID__)
+#include <nlohmann/json.hpp>
+
+#include "core/JsonValue.h"
+#include "media/DocumentTreeDataSource.h"
 #include "platform/android/AndroidBridge.h"
 #include "media/MediaStoreDataSource.h"
+#include "platform/android/AndroidDocumentTreeClient.h"
 #include "platform/android/AndroidMediaStoreClient.h"
 #include "graphics/RegionDecoder.h"
 #endif
@@ -774,6 +779,16 @@ int main(int argc, char **argv) {
     AndroidMediaStoreClient mediaStoreClient;
     MediaStoreDataSource mediaStoreSource(mediaStoreClient);
     feedSource = &mediaStoreSource;
+    // Or a folder tree the user granted, when they chose one last time. Its
+    // permission may be gone since, and then the wall is empty until they
+    // choose again.
+    AndroidDocumentTreeClient documentTreeClient;
+    std::unique_ptr<DocumentTreeDataSource> treeSource;
+    const std::string chosenSource = AndroidBridge::chosenSource();
+    if (chosenSource != "library") {
+        treeSource = std::make_unique<DocumentTreeDataSource>(documentTreeClient, chosenSource);
+        feedSource = treeSource.get();
+    }
 #endif
     if (!alsoDirectory.empty()) {
         alsoSource = std::make_unique<LocalDataSource>(std::vector<std::string>{alsoDirectory},
@@ -843,7 +858,71 @@ int main(int argc, char **argv) {
 
     gridLayer.setDataSource(feedSource);
 #if defined(__ANDROID__)
-    SDL_Log("Reading the photo library from the media store");
+    // Puts a source on the wall in place of the one there, labels the home
+    // crumb with it and remembers it for the next launch. The old tree source
+    // goes only after setDataSource has shut its feed down, since the feed
+    // holds a bare pointer to it.
+    auto showSource = [&](const std::string &id) {
+        std::unique_ptr<DocumentTreeDataSource> next;
+        DataSource *source = &mediaStoreSource;
+        std::string label = Res::string::app_name;
+        if (id != "library") {
+            next = std::make_unique<DocumentTreeDataSource>(documentTreeClient, id);
+            source = next.get();
+            const std::string name = AndroidBridge::treeName(id);
+            if (!name.empty()) {
+                label = name;
+            }
+        }
+        gridLayer.setDataSource(source);
+        treeSource = std::move(next);
+        gridLayer.getHud()->setHomeLabel(label);
+        AndroidBridge::setChosenSource(id);
+        SDL_Log("Showing photos from %s", id.c_str());
+    };
+    // A row of the source menu runs inside touch handling, where the feed must
+    // not be swapped, so it posts the choice for the event loop, as the folder
+    // picker does.
+    auto chooseSource = [](const std::string &id) {
+        SDL_Event chosen;
+        SDL_zero(chosen);
+        chosen.type = AndroidBridge::sourceChosenEvent();
+        chosen.user.data1 = new std::string(id);
+        if (chosen.type == 0 || !SDL_PushEvent(&chosen)) {
+            delete (std::string *)chosen.user.data1;
+        }
+    };
+    if (treeSource) {
+        const std::string name = AndroidBridge::treeName(chosenSource);
+        if (!name.empty()) {
+            gridLayer.getHud()->setHomeLabel(name);
+        }
+        SDL_Log("Reading photos from %s", chosenSource.c_str());
+    } else {
+        SDL_Log("Reading the photo library from the media store");
+    }
+    gridLayer.getHud()->setSourceMenu([chooseSource]() {
+        std::vector<PopupMenu::Option> options;
+        const nlohmann::json sources = nlohmann::json::parse(AndroidBridge::storageSources(), nullptr, false);
+        if (!sources.is_array()) {
+            return options;
+        }
+        for (const nlohmann::json &entry : sources) {
+            const std::string kind = stringOr(entry, "kind", "");
+            const std::string id = stringOr(entry, "id", "");
+            const std::string name = stringOr(entry, "name", "");
+            if (kind == "library" || kind == "tree") {
+                options.push_back({name, kind == "library" ? "icon_home_small" : "icon_folder_small",
+                                   [chooseSource, id]() { chooseSource(id); }});
+            } else if (kind == "volume") {
+                // A volume is not readable until the user grants a folder on it.
+                options.push_back({name, "icon_folder_small", [id]() { AndroidBridge::pickFolder(id); }});
+            } else if (kind == "picker") {
+                options.push_back({name, "icon_more", []() { AndroidBridge::pickFolder(std::string()); }});
+            }
+        }
+        return options;
+    });
 #else
     for (const std::string &root : PhotoLibrary::withoutNested(photoRoots)) {
         SDL_Log("Scanning %s", root.c_str());
@@ -904,6 +983,15 @@ int main(int argc, char **argv) {
     auto drawFrame = [&]() {
         SDL_Event sdlEvent;
         while (SDL_PollEvent(&sdlEvent)) {
+#if defined(__ANDROID__)
+            if (sdlEvent.type != 0 && sdlEvent.type == AndroidBridge::sourceChosenEvent()) {
+                std::unique_ptr<std::string> id((std::string *)sdlEvent.user.data1);
+                if (id && !id->empty()) {
+                    showSource(*id);
+                }
+                continue;
+            }
+#endif
             switch (sdlEvent.type) {
             case SDL_EVENT_QUIT:
                 running = false;

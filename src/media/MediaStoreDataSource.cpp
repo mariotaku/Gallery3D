@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include "core/JsonValue.h"
+#include "core/StableId.h"
 #include "media/MediaFeed.h"
 #include "media/MediaItem.h"
 #include "media/MediaSet.h"
@@ -17,18 +18,6 @@ namespace {
 // What MediaStore.Images.Media.EXTERNAL_CONTENT_URI spells out to. An item's
 // own uri is this plus its id.
 const char *const kImagesUri = "content://media/external/images/media/";
-
-// MediaStore's bucket id is a string. The wall keys its sets on a number, so
-// the string is folded into one and the pair is remembered to query with later.
-// Kept non-negative, as LocalDataSource keeps its path hashes.
-int64_t hashBucketId(const std::string &bucketId) {
-    uint64_t hash = 1469598103934665603ULL;
-    for (unsigned char character : bucketId) {
-        hash ^= character;
-        hash *= 1099511628211ULL;
-    }
-    return (int64_t)(hash & 0x7FFFFFFFFFFFFFFFULL);
-}
 
 // MediaStore reports orientation in degrees already, unlike EXIF's tag numbers.
 float rotationFor(int orientation) {
@@ -77,7 +66,9 @@ void MediaStoreDataSource::loadMediaSets(MediaFeed *feed) {
         if (bucketId.empty()) {
             continue;
         }
-        const int64_t setId = hashBucketId(bucketId);
+        // MediaStore's bucket id is text and a set id is a number, so the pair
+        // is remembered to query with later.
+        const int64_t setId = stableIdFor(bucketId);
         {
             std::lock_guard<std::mutex> lock(mBucketsMutex);
             mBuckets[setId] = bucketId;

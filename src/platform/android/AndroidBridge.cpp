@@ -12,6 +12,7 @@ namespace {
 
 const char *const kBridgeClass = "me/mariotaku/gallery3d/MediaStoreBridge";
 const char *const kActivityClass = "me/mariotaku/gallery3d/MainActivity";
+const char *const kStorageClass = "me/mariotaku/gallery3d/StorageBridge";
 
 // A global reference to the helper class, taken once on the thread that runs
 // main(). FindClass resolves against the class loader of the calling thread,
@@ -19,6 +20,8 @@ const char *const kActivityClass = "me/mariotaku/gallery3d/MainActivity";
 // nothing about the app's own classes.
 jclass gBridge = nullptr;
 jclass gActivity = nullptr;
+jclass gStorage = nullptr;
+Uint32 gFolderPickedEvent = 0;
 
 // Attaches the calling thread to the vm for as long as it is in scope. The
 // loader threads are made by SDL and are not attached, and detaching one that
@@ -135,6 +138,15 @@ void AndroidBridge::init() {
     }
     gActivity = (jclass)env->NewGlobalRef(activity);
     env->DeleteLocalRef(activity);
+
+    jclass storage = env->FindClass(kStorageClass);
+    if (storage == nullptr || failed(env.get(), "init")) {
+        SDL_Log("Could not find %s, so no other storage can be chosen", kStorageClass);
+        return;
+    }
+    gStorage = (jclass)env->NewGlobalRef(storage);
+    env->DeleteLocalRef(storage);
+    gFolderPickedEvent = SDL_RegisterEvents(1);
 }
 
 bool AndroidBridge::systemBarInsets(int *left, int *top, int *right, int *bottom) {
@@ -263,4 +275,142 @@ bool AndroidBridge::readImage(int64_t id, std::vector<uint8_t> *bytes) {
         bytes->clear();
     }
     return ok;
+}
+
+namespace {
+
+// Calls a static StorageBridge method that takes a String, or nothing when
+// argument is null, and returns a String.
+std::string callStorage(const char *name, const std::string *argument) {
+    ScopedEnv env;
+    if (!env || gStorage == nullptr) {
+        return std::string();
+    }
+    jmethodID method = env->GetStaticMethodID(gStorage, name,
+                                              argument != nullptr ? "(Ljava/lang/String;)Ljava/lang/String;"
+                                                                  : "()Ljava/lang/String;");
+    if (method == nullptr || failed(env.get(), name)) {
+        return std::string();
+    }
+    jstring text = argument != nullptr ? env->NewStringUTF(argument->c_str()) : nullptr;
+    jstring result = argument != nullptr ? (jstring)env->CallStaticObjectMethod(gStorage, method, text)
+                                         : (jstring)env->CallStaticObjectMethod(gStorage, method);
+    std::string answer;
+    if (!failed(env.get(), name)) {
+        answer = toString(env.get(), result);
+    }
+    if (result != nullptr) {
+        env->DeleteLocalRef(result);
+    }
+    if (text != nullptr) {
+        env->DeleteLocalRef(text);
+    }
+    return answer;
+}
+
+}  // namespace
+
+std::string AndroidBridge::storageSources() {
+    return callStorage("sources", nullptr);
+}
+
+bool AndroidBridge::pickFolder(const std::string &volume) {
+    ScopedEnv env;
+    if (!env || gStorage == nullptr) {
+        return false;
+    }
+    jmethodID method = env->GetStaticMethodID(gStorage, "pickFolder", "(Ljava/lang/String;)Z");
+    if (method == nullptr || failed(env.get(), "pickFolder")) {
+        return false;
+    }
+    jstring text = env->NewStringUTF(volume.c_str());
+    const jboolean opened = env->CallStaticBooleanMethod(gStorage, method, text);
+    env->DeleteLocalRef(text);
+    return !failed(env.get(), "pickFolder") && opened == JNI_TRUE;
+}
+
+Uint32 AndroidBridge::sourceChosenEvent() {
+    return gFolderPickedEvent;
+}
+
+std::string AndroidBridge::chosenSource() {
+    const std::string chosen = callStorage("chosenSource", nullptr);
+    return chosen.empty() ? "library" : chosen;
+}
+
+void AndroidBridge::setChosenSource(const std::string &id) {
+    ScopedEnv env;
+    if (!env || gStorage == nullptr) {
+        return;
+    }
+    jmethodID method = env->GetStaticMethodID(gStorage, "setChosenSource", "(Ljava/lang/String;)V");
+    if (method == nullptr || failed(env.get(), "setChosenSource")) {
+        return;
+    }
+    jstring text = env->NewStringUTF(id.c_str());
+    env->CallStaticVoidMethod(gStorage, method, text);
+    env->DeleteLocalRef(text);
+    failed(env.get(), "setChosenSource");
+}
+
+std::string AndroidBridge::treeName(const std::string &tree) {
+    return callStorage("treeName", &tree);
+}
+
+std::string AndroidBridge::listFolders(const std::string &tree) {
+    return callStorage("listFolders", &tree);
+}
+
+std::string AndroidBridge::listPhotos(const std::string &folder) {
+    return callStorage("listPhotos", &folder);
+}
+
+bool AndroidBridge::readDocument(const std::string &uri, std::vector<uint8_t> *bytes) {
+    if (bytes == nullptr) {
+        return false;
+    }
+    bytes->clear();
+    ScopedEnv env;
+    if (!env || gStorage == nullptr) {
+        return false;
+    }
+    jmethodID method = env->GetStaticMethodID(gStorage, "readDocument", "(Ljava/lang/String;)[B");
+    if (method == nullptr || failed(env.get(), "readDocument")) {
+        return false;
+    }
+    jstring text = env->NewStringUTF(uri.c_str());
+    jbyteArray array = (jbyteArray)env->CallStaticObjectMethod(gStorage, method, text);
+    env->DeleteLocalRef(text);
+    bool ok = false;
+    if (!failed(env.get(), "readDocument") && array != nullptr) {
+        const jsize length = env->GetArrayLength(array);
+        if (length > 0) {
+            bytes->resize((size_t)length);
+            env->GetByteArrayRegion(array, 0, length, (jbyte *)bytes->data());
+            ok = !failed(env.get(), "readDocument");
+        }
+    }
+    if (array != nullptr) {
+        env->DeleteLocalRef(array);
+    }
+    if (!ok) {
+        bytes->clear();
+    }
+    return ok;
+}
+
+// The folder picker's answer, on Android's main thread. The wall runs on SDL's,
+// so the uri travels there as an event.
+extern "C" JNIEXPORT void JNICALL Java_me_mariotaku_gallery3d_StorageBridge_nativeFolderPicked(JNIEnv *env, jclass,
+                                                                                               jstring tree) {
+    if (gFolderPickedEvent == 0) {
+        return;
+    }
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = gFolderPickedEvent;
+    event.user.data1 = tree != nullptr ? new std::string(toString(env, tree)) : nullptr;
+    if (!SDL_PushEvent(&event)) {
+        delete (std::string *)event.user.data1;
+    }
 }

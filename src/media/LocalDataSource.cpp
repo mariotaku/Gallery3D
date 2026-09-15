@@ -8,6 +8,7 @@
 #include <memory>
 #include <unordered_set>
 
+#include "core/StableId.h"
 #include "graphics/Bitmap.h"
 #include "graphics/SystemThumbnail.h"
 #include "media/FileOperations.h"
@@ -37,14 +38,8 @@ std::string extensionOf(const std::string &path) {
 }
 
 // A stable id per path, so a set keeps its identity across rescans.
-// FNV-1a in unsigned arithmetic, which wraps, where a signed overflow is undefined.
 int64_t hashPath(const std::string &path) {
-    uint64_t hash = 1469598103934665603ULL;
-    for (unsigned char c : path) {
-        hash ^= c;
-        hash *= 1099511628211ULL;
-    }
-    return (int64_t)(hash & 0x7FFFFFFFFFFFFFFFULL);
+    return stableIdFor(path);
 }
 
 }  // namespace

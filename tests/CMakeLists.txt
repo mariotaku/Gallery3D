@@ -3,6 +3,8 @@
 set(GALLERY3D_TEST_SOURCES
     decode_fixtures.cpp
     decode_fixtures.h
+    fake_document_tree.cpp
+    fake_document_tree.h
     fake_media_store.cpp
     fake_media_store.h
     freedesktop_cache.cpp
@@ -20,6 +22,7 @@ set(GALLERY3D_TEST_SOURCES
     test_decode_region.cpp
     test_density.cpp
     test_details.cpp
+    test_document_tree.cpp
     test_embeddedprofile.cpp
     test_fileoperations.cpp
     test_focusdecor.cpp
