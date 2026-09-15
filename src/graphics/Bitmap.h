@@ -149,6 +149,9 @@ class Bitmap {
         int pixelHeight = 0;
         // The EXIF orientation value, 1 to 8, mirrored ones included.
         int orientation = 1;
+        // The EXIF ColorSpace value: 1 for sRGB, 2 for Adobe RGB as some
+        // cameras write it, 0 when the tag is missing.
+        int colorSpace = 0;
         // Where the thumbnail a camera stores beside the photo sits in the
         // encoded bytes, and how long it is. Both stay at zero when there is
         // none.

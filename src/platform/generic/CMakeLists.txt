@@ -19,6 +19,13 @@ endif()
 target_sources(gallery3d_core PRIVATE
     ImageDecode.cpp)
 
+# No colour engine of its own. Windows converts inside WIC, and Linux and
+# macOS have LittleCMS.
+if(NOT GALLERY3D_DESKTOP OR WIN32)
+    target_sources(gallery3d_core PRIVATE
+        ColorProfile.cpp)
+endif()
+
 # No region decoder, where neither libjpeg, WIC nor a platform decoder is
 # linked.
 if(NOT GALLERY3D_DESKTOP AND NOT ANDROID)

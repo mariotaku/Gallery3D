@@ -10,15 +10,33 @@
 #include <utility>
 #include <vector>
 
+#include "graphics/ColorProfile.h"
+#include "graphics/EmbeddedProfile.h"
 #include "graphics/SubsampledDecode.h"
 
 namespace {
 
+// Converts a decoded picture's straight pixels to sRGB, from the profile its
+// file embeds, or from Adobe RGB when a JPEG says so through EXIF alone. WIC
+// does both on Windows.
+void convertToSrgb(const void *bytes, size_t size, Bitmap &bitmap) {
+    const size_t count = (size_t)bitmap.width() * (size_t)bitmap.height();
+    const std::vector<uint8_t> profile = EmbeddedProfile::of(bytes, size);
+    if (!profile.empty()) {
+        ColorProfile::iccToSrgb(profile, bitmap.pixels(), count);
+        return;
+    }
+    if (Bitmap::readExif(bytes, size).colorSpace == 2) {
+        ColorProfile::adobeRgbToSrgb(bitmap.pixels(), count);
+    }
+}
+
 // The surface's pixels as a premultiplied Bitmap, converted straight into the
-// bitmap in one pass. A picture without alpha is premultiplied as it is, so
-// only one with alpha takes a second pass, and the other is marked opaque.
-// Takes ownership of the surface.
-Bitmap fromSurface(SDL_Surface *surface) {
+// bitmap in one pass, and to sRGB from the file's colours while they are still
+// straight. A picture without alpha is premultiplied as it is, so only one with
+// alpha takes a second pass, and the other is marked opaque. Takes ownership of
+// the surface.
+Bitmap fromSurface(SDL_Surface *surface, const void *bytes, size_t size) {
     if (surface == nullptr) {
         return Bitmap();
     }
@@ -32,6 +50,7 @@ Bitmap fromSurface(SDL_Surface *surface) {
         Bitmap bitmap(source->w, source->h);
         if (bitmap.valid() && SDL_ConvertPixels(source->w, source->h, source->format, source->pixels, source->pitch,
                                                 SDL_PIXELFORMAT_RGBA32, bitmap.pixels(), source->w * 4)) {
+            convertToSrgb(bytes, size, bitmap);
             if (SDL_ISPIXELFORMAT_ALPHA(source->format)) {
                 bitmap.premultiply();
                 bitmap.markOpaqueUnlessTransparent();
@@ -105,7 +124,7 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
         return Bitmap();
     }
     // IMG_Load_IO closes the stream for us, including on failure.
-    return fitToMaxEdge(fromSurface(IMG_Load_IO(stream, true)), maxEdge);
+    return fitToMaxEdge(fromSurface(IMG_Load_IO(stream, true), bytes, size), maxEdge);
 }
 
 PixelOrder Bitmap::decodeOrder() {

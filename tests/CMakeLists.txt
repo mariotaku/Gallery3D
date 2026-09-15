@@ -12,6 +12,7 @@ add_executable(gallery3d_tests
     test_datasource.cpp
     test_density.cpp
     test_details.cpp
+    test_embeddedprofile.cpp
     test_focusdecor.cpp
     test_foldername.cpp
     test_json.cpp
@@ -39,7 +40,8 @@ add_executable(gallery3d_tests
 
 target_link_libraries(gallery3d_tests PRIVATE gallery3d_core)
 target_compile_definitions(gallery3d_tests PRIVATE
-    GALLERY3D_ASSET_ROOT="${CMAKE_SOURCE_DIR}/assets")
+    GALLERY3D_ASSET_ROOT="${CMAKE_SOURCE_DIR}/assets"
+    GALLERY3D_FIXTURE_ROOT="${CMAKE_SOURCE_DIR}/tests/fixtures")
 
 gallery3d_add_warnings(gallery3d_tests)
 gallery3d_add_symbols(gallery3d_tests)

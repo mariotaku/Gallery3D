@@ -4,6 +4,7 @@
 # thumbnail cache.
 if(NOT WIN32)
     target_sources(gallery3d_core PRIVATE
+        ColorProfile.cpp
         IccToSrgb.cpp
         IccToSrgb.h
         RegionDecoder.cpp

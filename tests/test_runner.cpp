@@ -26,6 +26,7 @@ std::vector<TestCase> &registry() {
 int sFailures = 0;
 bool sSkipped = false;
 std::function<void(const std::string &)> sPrint;
+std::string sFixtureRoot;
 
 void print(const std::string &line) {
     if (sPrint) {
@@ -57,8 +58,17 @@ void reportSkip(const std::string &reason) {
     print("    SKIP " + reason);
 }
 
+void reportNote(const std::string &text) {
+    print("    NOTE " + text);
+}
+
+const std::string &fixtureRoot() {
+    return sFixtureRoot;
+}
+
 int TestRunner::run(const Options &options) {
     sPrint = options.print;
+    sFixtureRoot = options.fixtureRoot;
     sFailures = 0;
 
     // Bitmap and Canvas read files and build surfaces through SDL, so it has to

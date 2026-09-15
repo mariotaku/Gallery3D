@@ -10,6 +10,7 @@
 // After jpeglib.h, which it depends on.
 #include <jerror.h>
 
+#include "graphics/ColorProfile.h"
 #include "platform/desktop/IccToSrgb.h"
 
 #if defined(_MSC_VER)
@@ -117,8 +118,12 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     if (!decoded.valid()) {
         return Bitmap();
     }
+    const size_t count = (size_t)decoded.width() * (size_t)decoded.height();
     if (toSrgb) {
-        toSrgb.convert(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
+        toSrgb.convert(decoded.pixels(), count);
+    } else if (Bitmap::readExif(bytes, size).colorSpace == 2) {
+        // No profile, but EXIF says Adobe RGB, which WIC honours as well.
+        ColorProfile::adobeRgbToSrgb(decoded.pixels(), count);
     }
     const Bitmap::Size fitted = Bitmap::fitWithin(originalWidth, originalHeight, maxEdge);
     return decoded.scaled(fitted.width, fitted.height);

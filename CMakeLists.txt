@@ -86,6 +86,9 @@ else()
     endif()
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
+# Inflates the colour profile a PNG embeds. The NDK and the iOS SDK carry it,
+# vcpkg builds it on Windows and the distros package it.
+find_package(ZLIB REQUIRED)
 
 # The same warning level on every compiler, so a warning that appears on one
 # platform is not a surprise on the next.
@@ -124,7 +127,8 @@ add_library(gallery3d_core OBJECT)
 target_include_directories(gallery3d_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(gallery3d_core PUBLIC
     SDL3::SDL3
-    nlohmann_json::nlohmann_json)
+    nlohmann_json::nlohmann_json
+    ZLIB::ZLIB)
 gallery3d_add_warnings(gallery3d_core)
 gallery3d_add_symbols(gallery3d_core)
 if(WIN32)

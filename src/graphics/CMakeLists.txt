@@ -7,9 +7,12 @@ target_sources(gallery3d_core PRIVATE
     Canvas.h
     CanvasTexture.cpp
     CanvasTexture.h
+    ColorProfile.h
     CrossFadingTexture.cpp
     CrossFadingTexture.h
     DrawableLoad.h
+    EmbeddedProfile.cpp
+    EmbeddedProfile.h
     ImageDecode.h
     Layer.h
     RegionDecoder.cpp

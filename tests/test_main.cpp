@@ -13,6 +13,7 @@ int main(int argc, char **argv) {
     TestRunner::Options options;
     options.filter = (argc > 1) ? argv[1] : "";
     options.assetRoot = GALLERY3D_ASSET_ROOT;
+    options.fixtureRoot = GALLERY3D_FIXTURE_ROOT;
     options.print = [](const std::string &line) {
         std::printf("%s\n", line.c_str());
         std::fflush(stdout);

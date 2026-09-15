@@ -15,6 +15,19 @@ struct TestCase {
 void registerTest(const char *name, void (*fn)());
 void reportFailure(const char *file, int line, const char *expression, const std::string &detail);
 void reportSkip(const std::string &reason);
+// A line in the report that is neither a failure nor a skip, such as a fixture
+// this platform has no decoder for.
+void reportNote(const std::string &text);
+
+// The folder tests/fixtures is at, wherever the host keeps it.
+const std::string &fixtureRoot();
+
+#define CHECK_DETAIL(expression, detail)                                                           \
+    do {                                                                                           \
+        if (!(expression)) {                                                                       \
+            reportFailure(__FILE__, __LINE__, #expression, (detail));                              \
+        }                                                                                          \
+    } while (false)
 
 // Ends the test and counts it as skipped, with the reason in the report. For a
 // test that cannot run on this platform or in this environment, so it shows up

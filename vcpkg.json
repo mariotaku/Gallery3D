@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "dependencies": [
     "sdl3",
-    "nlohmann-json"
+    "nlohmann-json",
+    "zlib"
   ]
 }

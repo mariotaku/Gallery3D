@@ -10,8 +10,10 @@ namespace TestRunner {
 struct Options {
     // Runs only the tests whose name contains this. Empty runs every test.
     std::string filter;
-    // The folder that holds the app's assets: fonts, drawables and fixtures.
+    // The folder that holds the app's assets: fonts and drawables.
     std::string assetRoot;
+    // The folder tests/fixtures is at.
+    std::string fixtureRoot;
     // Takes each line of the report, without its line break.
     std::function<void(const std::string &line)> print;
 };

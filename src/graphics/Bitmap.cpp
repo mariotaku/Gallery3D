@@ -427,12 +427,14 @@ Bitmap::ExifInfo Bitmap::readExif(const void *bytes, size_t size) {
                 if (entry + 12 > tiffLength) {
                     break;
                 }
-                if (read16(entry) == 0x9003) {
+                const unsigned tag = read16(entry);
+                if (tag == 0x9003) {
                     int64_t taken = readDate(entry);
                     if (taken != 0) {
                         info.dateTakenMs = taken;
                     }
-                    break;
+                } else if (tag == 0xA001) {
+                    info.colorSpace = (int)read16(entry + 8);
                 }
             }
 
