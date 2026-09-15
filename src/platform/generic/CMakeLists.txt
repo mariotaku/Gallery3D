@@ -15,6 +15,12 @@ if(NOT ANDROID)
         DrawableLoad.cpp)
 endif()
 
+# No trash and no opening a file by path on a phone.
+if(ANDROID OR IOS)
+    target_sources(gallery3d_core PRIVATE
+        FileOperations.cpp)
+endif()
+
 # Bitmap decoding on the calling thread, everywhere.
 target_sources(gallery3d_core PRIVATE
     ImageDecode.cpp)

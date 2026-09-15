@@ -44,6 +44,7 @@ add_executable(gallery3d_tests
     test_timebarpopup.cpp
     test_wheel.cpp
     test_widgets.cpp
+    test_windowframe.cpp
     test_zoompan.cpp
     tests.h)
 

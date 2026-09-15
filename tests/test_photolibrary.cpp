@@ -67,15 +67,28 @@ TEST(a_shared_prefix_is_not_a_parent) {
     CHECK(!PhotoLibrary::isWithin("/photos", ""));
 }
 
-#if defined(_WIN32)
 TEST(windows_paths_match_across_case_and_slashes) {
     // What the known folder hands back against what the walk produces.
+    const PhotoLibrary::PathStyle windows = PhotoLibrary::PathStyle::Windows;
     CHECK(PhotoLibrary::isWithin("C:\\Users\\someone\\Pictures\\Camera Roll\\2026",
-                                 "c:/users/someone/pictures/camera roll"));
-    CHECK(PhotoLibrary::isWithin("D:/Dropbox/Photos", "D:\\"));
-    CHECK(!PhotoLibrary::isWithin("D:\\Dropbox", "C:\\"));
+                                 "c:/users/someone/pictures/camera roll", windows));
+    CHECK(PhotoLibrary::isWithin("D:/Dropbox/Photos", "D:\\", windows));
+    CHECK(!PhotoLibrary::isWithin("D:\\Dropbox", "C:\\", windows));
+    CHECK(PhotoLibrary::comparable("C:\\Photos\\", windows) == "c:/photos");
+    // A drive's root keeps its separator.
+    CHECK(PhotoLibrary::comparable("C:\\", windows) == "c:/");
+    CHECK(PhotoLibrary::withoutNested({"C:\\Photos", "c:/photos", "C:/Photos/2026"}, windows).size() == 1);
 }
-#endif
+
+TEST(posix_paths_keep_case_and_backslashes) {
+    const PhotoLibrary::PathStyle posix = PhotoLibrary::PathStyle::Posix;
+    CHECK(!PhotoLibrary::isWithin("/Photos/2026", "/photos", posix));
+    // A backslash is part of a name here, not a separator.
+    CHECK(!PhotoLibrary::isWithin("/photos\\2026", "/photos", posix));
+    CHECK(PhotoLibrary::comparable("/photos/", posix) == "/photos");
+    CHECK(PhotoLibrary::comparable("/", posix) == "/");
+    CHECK(PhotoLibrary::withoutNested({"/Photos", "/photos"}, posix).size() == 2);
+}
 
 TEST(nested_and_repeated_library_folders_are_walked_once) {
     // The shape of a real Pictures library: a synced folder and some of its

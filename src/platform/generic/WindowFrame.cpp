@@ -14,8 +14,4 @@ float captionHeight() {
     return 0.0f;
 }
 
-float captionButtonsWidth() {
-    return 0.0f;
-}
-
 }  // namespace WindowFrame

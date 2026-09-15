@@ -212,12 +212,17 @@ NinePatchSource loadNinePatch(const std::string &name) {
     }
     // aapt strips the guide border when it compiles the file and keeps the
     // stretch region in a chunk, which BitmapFactory scales with the pixels.
-    if (readChunk(env, image, &source)) {
-        source.bitmap = copyPixels(env, image);
-        source.density = densityOf(env, image);
-        source.hasGuides = false;
-    } else {
+    source.bitmap = copyPixels(env, image);
+    source.density = densityOf(env, image);
+    source.hasGuides = false;
+    if (!readChunk(env, image, &source) && source.bitmap.valid()) {
+        // The middle pixel, as the desktop stretches art whose guide border
+        // has no marks.
         SDL_Log("Nine-patch %s has no stretch region", name.c_str());
+        source.stretchX0 = source.bitmap.width() / 2;
+        source.stretchX1 = source.stretchX0 + 1;
+        source.stretchY0 = source.bitmap.height() / 2;
+        source.stretchY1 = source.stretchY0 + 1;
     }
     release(env, image);
     return source;

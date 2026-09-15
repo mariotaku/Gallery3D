@@ -13,8 +13,9 @@ namespace {
 
 bool sExtended = false;
 
-// Match the Windows caption height.
-int sCaptionHeightPx = 32;
+// The caption's height in pixels once install has taken it into the window.
+// Nothing until then.
+int sCaptionHeightPx = 0;
 
 // Windows 11 names these; the SDK that built this may predate them, so they are
 // spelled out rather than relied on.
@@ -145,12 +146,7 @@ bool isExtended() {
 }
 
 float captionHeight() {
-    return (float)sCaptionHeightPx;
-}
-
-float captionButtonsWidth() {
-    // Reserve three system-width caption buttons.
-    return 3.0f * 46.0f * App::UI_DENSITY;
+    return sExtended ? (float)sCaptionHeightPx : 0.0f;
 }
 
 }  // namespace WindowFrame

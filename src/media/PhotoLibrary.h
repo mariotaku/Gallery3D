@@ -21,19 +21,32 @@ struct Locations {
 // walked too wherever it is. Elsewhere both lists are empty.
 Locations systemLocations();
 
+// How a platform spells paths. The functions below take one, defaulting to this
+// platform's, so every platform's rules are tested on every platform.
+enum class PathStyle {
+    // Case counts, and only "/" separates.
+    Posix,
+    // Case does not count for ASCII letters, "\" and "/" both separate, and a
+    // drive's root such as "c:/" is a folder in its own right.
+    Windows,
+};
+
+// The style of the platform this build runs on.
+PathStyle nativePathStyle();
+
 // Whether path is root or lies somewhere under it, compared a component at a
-// time so that "Photos 2" is not under "Photos". On Windows the comparison
-// ignores case, as its file systems do, and either slash separates.
-bool isWithin(const std::string &path, const std::string &root);
+// time so that "Photos 2" is not under "Photos".
+bool isWithin(const std::string &path, const std::string &root, PathStyle style = nativePathStyle());
 
 // The one spelling isWithin compares: forward slashes, no trailing separator,
-// and on Windows lower case. Two spellings of one file give the same string.
-std::string comparable(const std::string &path);
+// and for Windows lower case. Two spellings of one file give the same string.
+std::string comparable(const std::string &path, PathStyle style = nativePathStyle());
 
 // The folders without duplicates and without any that lies inside another,
 // in the order given. A library may name a folder and one of its subfolders
 // as well, and walking both would put every album under it on the wall twice.
-std::vector<std::string> withoutNested(const std::vector<std::string> &folders);
+std::vector<std::string> withoutNested(const std::vector<std::string> &folders,
+                                       PathStyle style = nativePathStyle());
 
 // Whether a file is a cloud placeholder whose contents are not on this disk,
 // such as a Dropbox or OneDrive file kept online only. Reading any of it, even

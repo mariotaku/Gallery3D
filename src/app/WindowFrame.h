@@ -15,12 +15,11 @@ bool install(SDL_Window *window);
 // window is its own to use.
 bool isExtended();
 
-// How tall the caption strip is, in window coordinates. Content may be drawn
-// under it, but anything meant to be clicked should stay clear of the buttons.
+// How tall the caption strip is, in the window's pixels, which is what the
+// layers lay out in. Content may be drawn under it, but anything meant to be
+// clicked should stay clear of the buttons. 0 until install has succeeded, and
+// on every platform without an extended frame. tests/test_windowframe.cpp
+// checks that much; what install does to a window is checked with screenshots.
 float captionHeight();
-
-// How much of the top right the window buttons take. Chrome laid out at the top
-// right has to start left of this.
-float captionButtonsWidth();
 
 }  // namespace WindowFrame

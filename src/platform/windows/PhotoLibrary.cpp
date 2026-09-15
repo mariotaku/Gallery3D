@@ -62,19 +62,8 @@ void appendLibraryFolders(REFKNOWNFOLDERID library, std::vector<std::string> &ou
 
 namespace PhotoLibrary {
 
-std::string comparable(const std::string &path) {
-    std::string spelled = path;
-    std::replace(spelled.begin(), spelled.end(), '\\', '/');
-    std::transform(spelled.begin(), spelled.end(), spelled.begin(), [](unsigned char c) {
-        // ASCII only. Folding the rest needs the locale, and a folder whose
-        // name differs only in the case of a non-ASCII letter is rare enough.
-        return (char)((c >= 'A' && c <= 'Z') ? (c - 'A' + 'a') : c);
-    });
-    // Keep a drive's root whole: "c:/" is a folder in its own right.
-    while (spelled.size() > 1 && spelled.back() == '/' && !(spelled.size() == 3 && spelled[1] == ':')) {
-        spelled.pop_back();
-    }
-    return spelled;
+PathStyle nativePathStyle() {
+    return PathStyle::Windows;
 }
 
 bool isOnlineOnly(const std::string &path) {

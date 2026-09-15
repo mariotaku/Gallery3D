@@ -23,8 +23,11 @@ bool moveToTrash(const std::string &path) {
     SHFILEOPSTRUCTW operation {};
     operation.wFunc = FO_DELETE;
     operation.pFrom = wide.data();
-    // ALLOWUNDO sends files to the recycle bin; NOERRORUI and SILENT suppress shell dialogs.
-    operation.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+    // ALLOWUNDO sends files to the recycle bin; NOERRORUI and SILENT suppress
+    // shell dialogs. A drive with no recycle bin, such as a network share,
+    // would delete the file for good without a word, so WANTNUKEWARNING asks
+    // first there, and a refusal leaves the file where it is.
+    operation.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_WANTNUKEWARNING | FOF_NOERRORUI | FOF_SILENT;
     int result = SHFileOperationW(&operation);
     if (result != 0 || operation.fAnyOperationsAborted) {
         SDL_Log("Could not recycle %s (code %d)", path.c_str(), result);

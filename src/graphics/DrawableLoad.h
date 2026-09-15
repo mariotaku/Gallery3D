@@ -16,8 +16,10 @@ void init();
 
 struct Result {
     Bitmap bitmap;
-    // The display density the pixels are drawn for. Scale by
-    // UI_DENSITY / density to reach the size the chrome draws at.
+    // The display density the pixels are drawn for, whichever bucket or
+    // scaling the platform chose: the pixels divided by it are the art's size
+    // at 1x on every platform. Scale by UI_DENSITY / density to reach the size
+    // the chrome draws at. tests/test_assets.cpp checks this.
     float density = 1.0f;
 };
 
@@ -33,6 +35,8 @@ struct NinePatchSource {
     // region already, and the bitmap is the art alone.
     bool hasGuides = true;
     // Half open, in the art's coordinates. Set only when hasGuides is false.
+    // Art with no stretch region stretches its middle pixel on every platform,
+    // as a guide border with no marks does.
     int stretchX0 = 0;
     int stretchX1 = 0;
     int stretchY0 = 0;

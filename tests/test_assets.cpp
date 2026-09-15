@@ -7,6 +7,7 @@
 #include "app/App.h"
 #include "graphics/Bitmap.h"
 #include "graphics/Canvas.h"
+#include "graphics/DrawableLoad.h"
 
 namespace {
 
@@ -190,4 +191,48 @@ TEST(a_nine_patch_scales_to_the_density) {
     CHECK(scaled.image.height() > baseline.image.height());
     // The guides move with the art, or the stretched middle lands elsewhere.
     CHECK(scaled.stretchX0 > baseline.stretchX0);
+}
+
+TEST(a_drawable_reports_the_density_its_pixels_are_drawn_for) {
+    // Whichever bucket, or scaling, a platform chooses, the pixels divided by
+    // the density they are drawn for are the art's size at 1x.
+    ScopedAssetRoot root;
+    DrawableLoad::Result baseline;
+    {
+        ScopedDensity density(1.0f);
+        baseline = DrawableLoad::load("icon_home_small");
+    }
+    CHECK(baseline.bitmap.valid());
+    for (float wanted : {1.5f, 2.0f, 3.0f, 4.0f}) {
+        ScopedDensity density(wanted);
+        const DrawableLoad::Result result = DrawableLoad::load("icon_home_small");
+        CHECK(result.bitmap.valid());
+        CHECK(result.density > 0.0f);
+        if (!result.bitmap.valid() || !baseline.bitmap.valid() || result.density <= 0.0f) {
+            continue;
+        }
+        CHECK_NEAR(result.bitmap.width() / result.density, baseline.bitmap.width() / baseline.density, 1.0);
+        CHECK_NEAR(result.bitmap.height() / result.density, baseline.bitmap.height() / baseline.density, 1.0);
+    }
+}
+
+TEST(a_nine_patch_source_is_the_art_at_its_density_with_a_stretch_region) {
+    ScopedAssetRoot root;
+    ScopedDensity density(2.0f);
+    const DrawableLoad::NinePatchSource source = DrawableLoad::loadNinePatch("popup.9");
+    CHECK(source.bitmap.valid());
+    CHECK(source.density > 0.0f);
+    if (!source.bitmap.valid() || source.density <= 0.0f) {
+        return;
+    }
+    // The content is 62 wide at 1x, whether the guide border is still on it
+    // or the platform took it off.
+    const int border = source.hasGuides ? 2 : 0;
+    CHECK_NEAR((source.bitmap.width() - border) / source.density, 62.0, 1.0);
+    if (!source.hasGuides) {
+        CHECK(source.stretchX1 > source.stretchX0);
+        CHECK(source.stretchY1 > source.stretchY0);
+        CHECK(source.stretchX1 <= source.bitmap.width());
+        CHECK(source.stretchY1 <= source.bitmap.height());
+    }
 }

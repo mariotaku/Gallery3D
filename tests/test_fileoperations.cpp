@@ -68,3 +68,7 @@ TEST(a_file_with_no_orientation_tag_is_left_alone) {
     }
     CHECK(!FileOperations::setExifOrientation((fs::temp_directory_path() / "gallery3d_missing.jpg").string(), 90.0f));
 }
+
+TEST(a_missing_file_cannot_be_trashed) {
+    CHECK(!FileOperations::moveToTrash((fs::temp_directory_path() / "gallery3d_missing_trash.jpg").string()));
+}
