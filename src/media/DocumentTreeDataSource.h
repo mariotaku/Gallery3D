@@ -7,7 +7,10 @@
 // DocumentTreeClient, the Java bridge on Android and a fake in the tests.
 #pragma once
 
+#include <cstdint>
+#include <mutex>
 #include <string>
+#include <unordered_set>
 
 #include "graphics/RegionDecoder.h"
 #include "media/DocumentTreeClient.h"
@@ -25,6 +28,11 @@ class DocumentTreeDataSource : public DataSource {
 
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
 
+    // Reads the photo's EXIF, once, and hands its rotation, date and size to
+    // the render thread as late details. The listing leaves it out, since
+    // opening every photo in a large tree before the wall shows takes seconds.
+    void prepareItem(MediaItem *item) override;
+
     // BitmapRegionDecoder reads the same document uri.
     bool supportsRegions(const MediaItem *item) const override;
     void requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
@@ -36,4 +44,8 @@ class DocumentTreeDataSource : public DataSource {
     DocumentTreeClient &mClient;
     const std::string mTreeUri;
     RegionDecoderCache mDecoders;
+    // Items whose EXIF has been asked for. The thumbnail and the screennail of
+    // one photo load on different threads.
+    std::unordered_set<int64_t> mPrepared;
+    std::mutex mPreparedMutex;
 };

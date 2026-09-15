@@ -22,9 +22,21 @@ float nextRandom() {
 }  // namespace
 
 DisplayItem::DisplayItem(MediaItem *item) : mItemRef(item) {
+    if (item != nullptr) {
+        item->takeLateDetails();
+    }
     mAnimatedImageTheta = item ? item->mRotation : 0.0f;
     mImageTheta = mAnimatedImageTheta;
     mCurrentSlotIndex = Shared::INVALID;
+}
+
+void DisplayItem::takeLateDetails() {
+    // Snapped, not animated: it is the rotation the photo always had, found
+    // out just before its thumbnail is drawn.
+    if (mItemRef != nullptr && mItemRef->takeLateDetails()) {
+        mImageTheta = mItemRef->mRotation;
+        mAnimatedImageTheta = mImageTheta;
+    }
 }
 
 void DisplayItem::rotateImageBy(float theta) {

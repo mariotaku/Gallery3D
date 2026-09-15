@@ -23,13 +23,9 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -53,13 +49,15 @@ public final class StorageBridge {
 
     private static final String EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents";
 
-    /** Reads photos' EXIF while a folder is listed. Daemon threads, so they never keep the app up. */
-    private static final ExecutorService EXIF_READERS = Executors.newFixedThreadPool(
-            Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors())), runnable -> {
-                Thread thread = new Thread(runnable, "ExifReader");
-                thread.setDaemon(true);
-                return thread;
-            });
+    private static final String[] PHOTO_COLUMNS = {
+        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+        DocumentsContract.Document.COLUMN_MIME_TYPE,
+        DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+    };
+
+    /** The photo rows listFolders found, by folder uri, until listPhotos takes them. */
+    private static final Map<String, JSONArray> WALKED_PHOTOS = new ConcurrentHashMap<>();
     private static final String PREFERENCES = "storage";
     private static final String CHOSEN_SOURCE = "source";
 
@@ -199,13 +197,9 @@ public final class StorageBridge {
             pending.add(new String[] {rootId, treeName(resolver, tree, rootId)});
             while (!pending.isEmpty()) {
                 String[] folder = pending.poll();
-                int photos = 0;
+                JSONArray photos = new JSONArray();
                 Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folder[0]);
-                try (Cursor cursor = resolver.query(children, new String[] {
-                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                        DocumentsContract.Document.COLUMN_MIME_TYPE,
-                }, null, null, null)) {
+                try (Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null)) {
                     if (cursor == null) {
                         continue;
                     }
@@ -219,15 +213,20 @@ public final class StorageBridge {
                         if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
                             pending.add(new String[] {id, name});
                         } else if (mime != null && mime.startsWith("image/")) {
-                            ++photos;
+                            photos.put(photoRow(DocumentsContract.buildDocumentUriUsingTree(tree, id), name, mime,
+                                    cursor.isNull(3) ? 0 : cursor.getLong(3)));
                         }
                     }
                 }
-                if (photos > 0) {
+                if (photos.length() > 0) {
+                    String folderUri = DocumentsContract.buildDocumentUriUsingTree(tree, folder[0]).toString();
+                    // Each child query is a round trip to the provider, so the
+                    // rows found here answer the listPhotos that follows.
+                    WALKED_PHOTOS.put(folderUri, photos);
                     JSONObject entry = new JSONObject();
-                    entry.put("id", DocumentsContract.buildDocumentUriUsingTree(tree, folder[0]).toString());
+                    entry.put("id", folderUri);
                     entry.put("name", folder[1]);
-                    entry.put("count", photos);
+                    entry.put("count", photos.length());
                     folders.put(entry);
                 }
             }
@@ -239,30 +238,25 @@ public final class StorageBridge {
     }
 
     /**
-     * The photos directly in one folder, with uri, name, mime, dateTaken and
-     * dateModified in milliseconds, orientation in degrees, width and height.
-     * The date taken, orientation and size come from the photo's EXIF where it
-     * has any.
+     * The photos directly in one folder, with uri, name, mime and dateModified
+     * in milliseconds. Nothing that needs a photo opened: readExif is asked for
+     * that one photo at a time.
      */
     public static String listPhotos(String folderText) {
         ContentResolver resolver = resolver();
         if (resolver == null || folderText == null) {
             return "[]";
         }
+        JSONArray walked = WALKED_PHOTOS.remove(folderText);
+        if (walked != null) {
+            return walked.toString();
+        }
         Uri folder = Uri.parse(folderText);
         JSONArray photos = new JSONArray();
-        List<JSONObject> rows = new ArrayList<>();
-        List<Uri> uris = new ArrayList<>();
-        List<String> mimes = new ArrayList<>();
         try {
             Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(folder,
                     DocumentsContract.getDocumentId(folder));
-            try (Cursor cursor = resolver.query(children, new String[] {
-                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                    DocumentsContract.Document.COLUMN_MIME_TYPE,
-                    DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-            }, null, null, null)) {
+            try (Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null)) {
                 if (cursor == null) {
                     return "[]";
                 }
@@ -274,20 +268,9 @@ public final class StorageBridge {
                             || !mime.startsWith("image/")) {
                         continue;
                     }
-                    Uri uri = DocumentsContract.buildDocumentUriUsingTree(folder, id);
-                    JSONObject photo = new JSONObject();
-                    photo.put("uri", uri.toString());
-                    photo.put("name", name);
-                    photo.put("mime", mime);
-                    photo.put("dateModified", cursor.isNull(3) ? 0 : cursor.getLong(3));
-                    rows.add(photo);
-                    uris.add(uri);
-                    mimes.add(mime);
+                    photos.put(photoRow(DocumentsContract.buildDocumentUriUsingTree(folder, id), name, mime,
+                            cursor.isNull(3) ? 0 : cursor.getLong(3)));
                 }
-            }
-            readExifAll(resolver, rows, uris, mimes);
-            for (JSONObject photo : rows) {
-                photos.put(photo);
             }
         } catch (JSONException | RuntimeException error) {
             Log.w(TAG, "Could not list the photos in " + folderText, error);
@@ -320,6 +303,15 @@ public final class StorageBridge {
     }
 
     private static native void nativeFolderPicked(String tree);
+
+    private static JSONObject photoRow(Uri uri, String name, String mime, long modified) throws JSONException {
+        JSONObject photo = new JSONObject();
+        photo.put("uri", uri.toString());
+        photo.put("name", name);
+        photo.put("mime", mime);
+        photo.put("dateModified", modified);
+        return photo;
+    }
 
     private static JSONObject source(String kind, String id, String name) throws JSONException {
         JSONObject source = new JSONObject();
@@ -372,37 +364,22 @@ public final class StorageBridge {
     }
 
     /**
-     * Fills each row's EXIF fields. Opening and reading every photo is most of
-     * the time a folder takes to list, and the reads do not depend on each
-     * other, so a few run at once.
+     * What one photo's EXIF says: orientation in degrees, dateTaken in
+     * milliseconds, width and height. Asked for when the photo is about to be
+     * shown rather than while its folder is listed, since it opens the photo.
      */
-    private static void readExifAll(ContentResolver resolver, List<JSONObject> rows, List<Uri> uris,
-            List<String> mimes) throws JSONException {
-        List<Future<?>> pending = new ArrayList<>(rows.size());
-        for (int i = 0; i < rows.size(); ++i) {
-            final int index = i;
-            pending.add(EXIF_READERS.submit(() -> {
-                readExif(resolver, uris.get(index), mimes.get(index), rows.get(index));
-                return null;
-            }));
+    public static String readExif(String uri, String mime) {
+        ContentResolver resolver = resolver();
+        if (resolver == null || uri == null || mime == null) {
+            return "";
         }
-        for (int i = 0; i < pending.size(); ++i) {
-            try {
-                pending.get(i).get();
-            } catch (InterruptedException error) {
-                Thread.currentThread().interrupt();
-                return;
-            } catch (ExecutionException error) {
-                Log.i(TAG, "No EXIF for " + uris.get(i) + ": " + error.getCause());
-                // The row still needs the fields the native side reads.
-                JSONObject row = rows.get(i);
-                if (!row.has("orientation")) {
-                    row.put("orientation", 0);
-                    row.put("dateTaken", 0);
-                    row.put("width", 0);
-                    row.put("height", 0);
-                }
-            }
+        try {
+            JSONObject exif = new JSONObject();
+            readExif(resolver, Uri.parse(uri), mime, exif);
+            return exif.toString();
+        } catch (JSONException | RuntimeException error) {
+            Log.i(TAG, "No EXIF for " + uri + ": " + error);
+            return "";
         }
     }
 

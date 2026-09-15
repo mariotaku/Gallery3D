@@ -187,6 +187,13 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
         view->finishLoad(self, Bitmap());
         return;
     }
+    // Before the pixels, so what the source finds out, such as the rotation,
+    // is on the item by the time they are drawn.
+    if (MediaSet *set = mItem->mParentMediaSet) {
+        if (set->mDataSource != nullptr) {
+            set->mDataSource->prepareItem(mItem);
+        }
+    }
     if (!mConfig) {
         // Size fullscreen screennails to the window.
         decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE,

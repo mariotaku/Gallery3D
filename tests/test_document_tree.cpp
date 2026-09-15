@@ -138,6 +138,15 @@ TEST(document_tree_items_carry_what_the_tree_says) {
         CHECK(photo->mScreennailUri == photo->mContentUri);
         CHECK(photo->mFilePath.empty());
         CHECK(photo->mMimeType == "image/jpeg");
+        // The listing opens no photo, so what only the EXIF knows waits.
+        CHECK_EQ(tree.exifReads.load(), 0);
+        CHECK_EQ(photo->mRotation, 0.0f);
+
+        source.prepareItem(photo);
+        source.prepareItem(photo);
+        CHECK_EQ(tree.exifReads.load(), 1);
+        CHECK(photo->takeLateDetails());
+        CHECK(!photo->takeLateDetails());
         CHECK_EQ(photo->mRotation, 90.0f);
         CHECK_EQ(photo->mFullWidth, 320);
         CHECK_EQ(photo->mDateTakenInMs, 1757937600000LL);

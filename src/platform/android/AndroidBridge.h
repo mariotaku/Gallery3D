@@ -66,6 +66,7 @@ std::string treeName(const std::string &tree);
 // AndroidDocumentTreeClient.
 std::string listFolders(const std::string &tree);
 std::string listPhotos(const std::string &folder);
+std::string readExif(const std::string &uri, const std::string &mime);
 bool readDocument(const std::string &uri, std::vector<uint8_t> *bytes);
 
 }  // namespace AndroidBridge

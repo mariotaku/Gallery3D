@@ -35,13 +35,24 @@ std::string FakeDocumentTree::listPhotos(const std::string &folderUri) {
         photos.push_back({{"uri", document.uri},
                           {"name", document.name},
                           {"mime", document.mime},
-                          {"dateTaken", document.dateTaken},
-                          {"dateModified", document.dateModified},
-                          {"orientation", document.orientation},
-                          {"width", document.width},
-                          {"height", document.height}});
+                          {"dateModified", document.dateModified}});
     }
     return photos.dump();
+}
+
+std::string FakeDocumentTree::readExif(const std::string &uri, const std::string &mime) {
+    (void)mime;
+    ++exifReads;
+    for (const FakeDocument &document : documents) {
+        if (document.uri == uri) {
+            return nlohmann::json({{"orientation", document.orientation},
+                                   {"dateTaken", document.dateTaken},
+                                   {"width", document.width},
+                                   {"height", document.height}})
+                .dump();
+        }
+    }
+    return std::string();
 }
 
 bool FakeDocumentTree::readDocument(const std::string &uri, std::vector<uint8_t> *bytes) {

@@ -66,6 +66,14 @@ class DataSource {
         return false;
     }
 
+    // Called on a texture loader thread before any of the item's pixels load.
+    // A source that lists items without what only the file knows, such as the
+    // EXIF orientation, reads it here and hands it over through the item's
+    // late details. Blocks.
+    virtual void prepareItem(MediaItem *item) {
+        (void)item;
+    }
+
     // A thumbnail the source already keeps for the item, scaled so its long
     // edge is maxEdge and in the orientation the item's pixels are stored in.
     // False when it has none, and the caller decodes the item's bytes instead.

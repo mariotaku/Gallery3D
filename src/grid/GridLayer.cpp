@@ -666,6 +666,7 @@ void GridLayer::computeVisibleItems() {
                 continue;
             }
             DisplayItem *displayItem = mDisplayList.get(item);
+            displayItem->takeLateDetails();
             if ((mState == STATE_FULL_SCREEN && i != mInputProcessor->getCurrentSelectedSlot()) ||
                 (mState == STATE_GRID_VIEW && j >= originallyFoundItems)) {
                 displayItem->set(position, j, false);

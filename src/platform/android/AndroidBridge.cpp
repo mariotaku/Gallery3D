@@ -365,6 +365,31 @@ std::string AndroidBridge::listPhotos(const std::string &folder) {
     return callStorage("listPhotos", &folder);
 }
 
+std::string AndroidBridge::readExif(const std::string &uri, const std::string &mime) {
+    ScopedEnv env;
+    if (!env || gStorage == nullptr) {
+        return std::string();
+    }
+    jmethodID method =
+        env->GetStaticMethodID(gStorage, "readExif", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    if (method == nullptr || failed(env.get(), "readExif")) {
+        return std::string();
+    }
+    jstring uriText = env->NewStringUTF(uri.c_str());
+    jstring mimeText = env->NewStringUTF(mime.c_str());
+    jstring result = (jstring)env->CallStaticObjectMethod(gStorage, method, uriText, mimeText);
+    std::string answer;
+    if (!failed(env.get(), "readExif")) {
+        answer = toString(env.get(), result);
+    }
+    if (result != nullptr) {
+        env->DeleteLocalRef(result);
+    }
+    env->DeleteLocalRef(mimeText);
+    env->DeleteLocalRef(uriText);
+    return answer;
+}
+
 bool AndroidBridge::readDocument(const std::string &uri, std::vector<uint8_t> *bytes) {
     if (bytes == nullptr) {
         return false;

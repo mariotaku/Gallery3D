@@ -15,6 +15,11 @@ class DisplayItem {
 
     explicit DisplayItem(MediaItem *item);
 
+    // Takes the item's late details, such as a rotation its source read only
+    // just before the thumbnail loaded. Called on the render thread each frame
+    // the item is laid out.
+    void takeLateDetails();
+
     void rotateImageBy(float theta);
     void set(const Vector3f &position, int stackIndex, bool performTransition);
 

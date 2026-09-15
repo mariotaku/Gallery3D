@@ -227,7 +227,10 @@ TEST(a_region_is_answered_once_even_when_it_cannot_be) {
     sizeless.mContentUri = "content://media/external/images/media/99";
     sizeless.mFilePath = (fs::temp_directory_path() / "gallery3d_missing_region.jpg").string();
     sizeless.mMimeType = "image/jpeg";
-    MediaItem missing = sizeless;
+    MediaItem missing;
+    missing.mContentUri = sizeless.mContentUri;
+    missing.mFilePath = sizeless.mFilePath;
+    missing.mMimeType = sizeless.mMimeType;
     missing.mFullWidth = 640;
     missing.mFullHeight = 480;
     for (DataSource *source : {(DataSource *)&media, (DataSource *)&local}) {

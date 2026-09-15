@@ -111,17 +111,13 @@ void DocumentTreeDataSource::loadFolderItems(MediaSet &set, const std::string &f
         item->mScreennailUri = uri;
         item->mMimeType = stringOr(photo, "mime", "image/jpeg");
         item->mCaption = name;
-        item->mRotation = rotationFor(intOr(photo, "orientation", 0));
-        item->mFullWidth = (int)intOr(photo, "width", 0);
-        item->mFullHeight = (int)intOr(photo, "height", 0);
         const int64_t modifiedMs = intOr(photo, "dateModified", 0);
         item->mDateModifiedInSec = modifiedMs / 1000;
         // A document has no added date. Its modified one is the nearest.
         item->mDateAddedInSec = item->mDateModifiedInSec;
-        item->mDateTakenInMs = intOr(photo, "dateTaken", 0);
-        if (item->mDateTakenInMs == 0) {
-            item->mDateTakenInMs = modifiedMs;
-        }
+        // Until prepareItem reads the photo's own date, and for the order of
+        // the album, which does not change once it is on the wall.
+        item->mDateTakenInMs = modifiedMs;
         set.addItem(std::move(item));
     }
 
@@ -135,6 +131,29 @@ bool DocumentTreeDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t>
         return false;
     }
     return mClient.readDocument(item->mContentUri, bytes);
+}
+
+void DocumentTreeDataSource::prepareItem(MediaItem *item) {
+    if (item == nullptr || item->mContentUri.empty()) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mPreparedMutex);
+        if (!mPrepared.insert(item->mId).second) {
+            return;
+        }
+    }
+    const std::string text = mClient.readExif(item->mContentUri, item->mMimeType);
+    const nlohmann::json exif = text.empty() ? nlohmann::json() : nlohmann::json::parse(text, nullptr, false);
+    if (!exif.is_object()) {
+        return;
+    }
+    MediaItem::LateDetails &details = item->mLateDetails;
+    details.rotation = rotationFor(intOr(exif, "orientation", 0));
+    details.dateTakenMs = intOr(exif, "dateTaken", 0);
+    details.width = (int)intOr(exif, "width", 0);
+    details.height = (int)intOr(exif, "height", 0);
+    item->mLateDetailsPending.store(true);
 }
 
 bool DocumentTreeDataSource::supportsRegions(const MediaItem *item) const {

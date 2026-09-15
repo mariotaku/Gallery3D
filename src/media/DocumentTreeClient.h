@@ -19,10 +19,15 @@ class DocumentTreeClient {
     virtual std::string listFolders(const std::string &treeUri) = 0;
 
     // JSON: one object per photo directly in the folder, with uri (the photo's
-    // document uri), name, mime, dateTaken and dateModified in milliseconds
-    // (dateTaken 0 when the photo has no date of its own), orientation in
-    // degrees, width and height.
+    // document uri), name, mime and dateModified in milliseconds. Nothing that
+    // needs the photo opened, which keeps a large tree quick to list.
     virtual std::string listPhotos(const std::string &folderUri) = 0;
+
+    // JSON: one object with what the photo's EXIF says: orientation in degrees,
+    // dateTaken in milliseconds (0 when it has none), width and height (0 when
+    // unknown). Empty when the photo cannot be read. Opens the photo, so it is
+    // asked for only when the photo is about to be shown.
+    virtual std::string readExif(const std::string &uri, const std::string &mime) = 0;
 
     // The encoded bytes of one document. False when it cannot be read.
     virtual bool readDocument(const std::string &uri, std::vector<uint8_t> *bytes) = 0;

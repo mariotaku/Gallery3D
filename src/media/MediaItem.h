@@ -1,6 +1,7 @@
 // Port of com.cooliris.media.MediaItem.
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 
@@ -54,6 +55,35 @@ class MediaItem {
     }
 
     MediaSet *mParentMediaSet = nullptr;
+
+    // What a source finds out only when the photo is about to be shown, such
+    // as a folder tree's EXIF. A loader thread fills mLateDetails once and then
+    // sets mLateDetailsPending. The render thread applies them with
+    // takeLateDetails.
+    struct LateDetails {
+        float rotation = 0.0f;
+        int64_t dateTakenMs = 0;
+        int width = 0;
+        int height = 0;
+    };
+    LateDetails mLateDetails;
+    std::atomic<bool> mLateDetailsPending{false};
+
+    // Applies late details, on the render thread. True when there were some.
+    bool takeLateDetails() {
+        if (!mLateDetailsPending.exchange(false)) {
+            return false;
+        }
+        mRotation = mLateDetails.rotation;
+        if (mLateDetails.dateTakenMs != 0) {
+            mDateTakenInMs = mLateDetails.dateTakenMs;
+        }
+        if (mLateDetails.width > 0 && mLateDetails.height > 0) {
+            mFullWidth = mLateDetails.width;
+            mFullHeight = mLateDetails.height;
+        }
+        return true;
+    }
 
     bool isDateTakenValid() const {
         return mDateTakenInMs != 0;
