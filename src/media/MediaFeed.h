@@ -114,7 +114,14 @@ class MediaFeed {
     void performOperation(int operation, std::vector<MediaBucket> *mediaBuckets, const void *data);
 
     // The source signals completion of the initial page, including asynchronous fetches.
+    // While a hold is open the call is ignored, so a source that runs other sources
+    // is the one that ends the load.
     void finishLoadingMediaSets();
+
+    // Opens and closes a hold on finishLoadingMediaSets. Closing the last hold
+    // finishes the load. Call both on the loader thread.
+    void holdFinishLoadingMediaSets();
+    void releaseFinishLoadingMediaSets();
 
     // Marks a set's page complete so another request can start.
     void finishLoadingItemsForSet(MediaSet *set);
@@ -189,6 +196,7 @@ class MediaFeed {
     std::mutex mDeletedMutex;
 
     std::atomic<bool> mLoading{false};
+    std::atomic<int> mFinishHolds{0};
     // Sets with a page in flight. The feed owns them, so pointers outlive requests.
     std::set<MediaSet *> mLoadsInFlight;
     std::mutex mInFlightMutex;

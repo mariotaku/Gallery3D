@@ -9,6 +9,7 @@
 #include "tests.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -277,6 +278,40 @@ TEST(a_set_no_source_owns_is_still_finished) {
     }
     feed.loadItemsForSet(set);
     CHECK(eventually([&feed, set]() { return !feed.isLoadingItemsForSet(set); }));
+}
+
+namespace {
+
+// Records whether the feed is still loading when its own enumeration starts.
+class LoadingWitness : public DataSource {
+  public:
+    // -1 before loadMediaSets runs, then 1 when the feed was loading, 0 when not.
+    std::atomic<int> sawLoading{-1};
+
+    void loadMediaSets(MediaFeed *feed) override {
+        sawLoading.store(feed->isLoading() ? 1 : 0);
+        feed->finishLoadingMediaSets();
+    }
+    void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) override {
+        feed->finishLoadingItemsForSet(parentSet);
+    }
+};
+
+}  // namespace
+
+TEST(a_concatenated_feed_loads_until_its_second_source_finishes) {
+    // The media store finishes its own part first. The feed must not report
+    // done while the second source still adds sets.
+    FakeMediaStore store;
+    fillLibrary(store);
+    MediaStoreDataSource media(store);
+    LoadingWitness second;
+    ConcatenatedDataSource both(&media, &second);
+    MediaFeed feed(&both, nullptr);
+    feed.start();
+    CHECK(eventually([&second]() { return second.sawLoading.load() != -1; }));
+    CHECK_EQ(second.sawLoading.load(), 1);
+    CHECK(eventually([&feed]() { return !feed.isLoading(); }));
 }
 
 TEST(the_local_and_media_store_sources_show_one_library_alike) {

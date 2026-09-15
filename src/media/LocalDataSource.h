@@ -23,7 +23,8 @@ class DataSource {
   public:
     virtual ~DataSource() = default;
     // Enumerates sets on a worker thread. Pass the owning source to addMediaSet
-    // so item loads and operations route back to it.
+    // so item loads and operations route back to it. Calls
+    // feed->finishLoadingMediaSets exactly once, before it returns.
     virtual void loadMediaSets(MediaFeed *feed) = 0;
     // Loads one set's items on a worker thread; may be empty if loadMediaSets filled them.
     virtual void loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) = 0;

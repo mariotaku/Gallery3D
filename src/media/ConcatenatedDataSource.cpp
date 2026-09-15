@@ -4,13 +4,20 @@
 #include "media/MediaSet.h"
 
 void ConcatenatedDataSource::loadMediaSets(MediaFeed *feed) {
-    // Enumerate sources in order; addMediaSet records each set's owner.
+    // Enumerate sources in order; addMediaSet records each set's owner. Each
+    // source finishes the load, so the hold keeps the feed loading until the
+    // second source is done too.
+    if (feed == nullptr) {
+        return;
+    }
+    feed->holdFinishLoadingMediaSets();
     if (mFirst != nullptr) {
         mFirst->loadMediaSets(feed);
     }
     if (mSecond != nullptr) {
         mSecond->loadMediaSets(feed);
     }
+    feed->releaseFinishLoadingMediaSets();
 }
 
 void ConcatenatedDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {

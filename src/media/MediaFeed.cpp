@@ -148,8 +148,20 @@ void MediaFeed::shutdown() {
 }
 
 void MediaFeed::finishLoadingMediaSets() {
+    if (mFinishHolds.load() > 0) {
+        return;
+    }
     mLoading.store(false);
     updateListener(true);
+}
+
+void MediaFeed::holdFinishLoadingMediaSets() {
+    mFinishHolds.fetch_add(1);
+}
+
+void MediaFeed::releaseFinishLoadingMediaSets() {
+    mFinishHolds.fetch_sub(1);
+    finishLoadingMediaSets();
 }
 
 void MediaFeed::loaderThread() {
