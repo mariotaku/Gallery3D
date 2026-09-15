@@ -6,6 +6,19 @@
         <activity
             android:name=".BlankActivity"
             android:exported="false" />
+
+        <!-- A large cloud drive for the folder tree walk tests. The app reads
+             its own provider, so it needs no grant. -->
+        <provider
+            android:name=".FakeCloudProvider"
+            android:authorities="me.mariotaku.gallery3d.conformance.fakecloud"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
     </application>
 
 </manifest>

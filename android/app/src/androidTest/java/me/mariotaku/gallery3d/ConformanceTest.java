@@ -36,8 +36,9 @@ import java.util.List;
  *
  *   ANDROID_SERIAL=emulator-5554 android/gradlew -p android connectedConformanceAndroidTest
  *
- * and add -Pandroid.testInstrumentationRunnerArguments.filter=decode to run the
- * tests whose name contains "decode".
+ * and add -Pandroid.testInstrumentationRunnerArguments.nativeFilter=decode to
+ * run the tests whose name contains "decode". Not "filter": AndroidJUnitRunner
+ * reads that one as the class name of a JUnit filter.
  */
 @RunWith(Parameterized.class)
 public class ConformanceTest {
@@ -62,7 +63,7 @@ public class ConformanceTest {
 
     @Parameterized.Parameters(name = "{0}")
     public static List<Object[]> tests() {
-        String filter = InstrumentationRegistry.getArguments().getString("filter", "");
+        String filter = InstrumentationRegistry.getArguments().getString("nativeFilter", "");
         List<Object[]> tests = new ArrayList<>();
         for (String name : nativeNames()) {
             if (name.contains(filter)) {

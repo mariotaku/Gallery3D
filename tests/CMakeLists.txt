@@ -60,6 +60,9 @@ if(ANDROID)
     # These two write their JPEGs with libjpeg or WIC, and Android links
     # neither. The fixture tests check the same decoders there.
     list(REMOVE_ITEM GALLERY3D_TEST_SOURCES test_colorprofile.cpp test_regiondecoder.cpp)
+    # The folder tree walk against FakeCloudProvider, which only the Android
+    # conformance build has.
+    list(APPEND GALLERY3D_TEST_SOURCES test_cloud_tree_android.cpp)
     target_sources(gallery3d PRIVATE ${GALLERY3D_TEST_SOURCES} android_host.cpp)
     # The apk's assets folder is the asset root, which SDL reads by relative
     # path. The fixture root is only known once the host has copied them out.

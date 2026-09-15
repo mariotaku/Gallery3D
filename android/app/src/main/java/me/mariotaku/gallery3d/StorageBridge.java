@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.content.UriPermission;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -18,6 +19,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
@@ -28,6 +30,8 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -51,6 +55,9 @@ public final class StorageBridge {
 
     private static final String EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents";
 
+    /** How long a folder that is still loading is waited for. */
+    private static final long LOADING_LIMIT_MS = 30000;
+
     private static final String[] PHOTO_COLUMNS = {
         DocumentsContract.Document.COLUMN_DOCUMENT_ID,
         DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -69,8 +76,7 @@ public final class StorageBridge {
      * storage volume, each folder granted before, and the picker for the rest,
      * which lists the cloud providers that share folders. One object each, with
      * kind (library, volume, tree or picker), id and name. A granted folder also
-     * has location, the volume or app it is in, and package, the app whose
-     * provider serves it.
+     * has package, the app whose provider serves it, for its icon.
      */
     public static String sources() {
         Context context = MainActivity.getContext();
@@ -102,10 +108,6 @@ public final class StorageBridge {
                     ProviderInfo provider = packages.resolveContentProvider(uri.getAuthority(), 0);
                     if (provider != null) {
                         tree.put("package", provider.packageName);
-                    }
-                    String location = treeLocation(context, packages, provider, uri);
-                    if (location != null) {
-                        tree.put("location", location);
                     }
                     sources.put(tree);
                 }
@@ -217,7 +219,7 @@ public final class StorageBridge {
                 answer.put("name", treeName(resolver, folder, documentId));
             }
             Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, documentId);
-            try (Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null)) {
+            try (Cursor cursor = queryChildren(resolver, children)) {
                 if (cursor == null) {
                     return "";
                 }
@@ -272,6 +274,44 @@ public final class StorageBridge {
     }
 
     private static native void nativeFolderPicked(String tree);
+
+    /**
+     * A folder's children, once the provider has all of them. A cloud provider
+     * answers with what it has cached, marked EXTRA_LOADING, and notifies the
+     * cursor when it has fetched the rest. The query is asked again after each
+     * notification, or after a second when none comes, until the list is whole
+     * or LOADING_LIMIT_MS have passed.
+     */
+    private static Cursor queryChildren(ContentResolver resolver, Uri children) {
+        Cursor cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null);
+        final long deadline = SystemClock.uptimeMillis() + LOADING_LIMIT_MS;
+        while (cursor != null && cursor.getExtras().getBoolean(DocumentsContract.EXTRA_LOADING, false)) {
+            final long left = deadline - SystemClock.uptimeMillis();
+            if (left <= 0) {
+                Log.w(TAG, "Gave up waiting for " + children + " to finish loading");
+                break;
+            }
+            final CountDownLatch changed = new CountDownLatch(1);
+            ContentObserver observer = new ContentObserver(null) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    changed.countDown();
+                }
+            };
+            cursor.registerContentObserver(observer);
+            try {
+                changed.await(Math.min(left, 1000), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                cursor.unregisterContentObserver(observer);
+                break;
+            }
+            cursor.unregisterContentObserver(observer);
+            cursor.close();
+            cursor = resolver.query(children, PHOTO_COLUMNS, null, null, null);
+        }
+        return cursor;
+    }
 
     private static JSONObject photoRow(Uri uri, String name, String mime, long modified) throws JSONException {
         JSONObject photo = new JSONObject();
@@ -351,25 +391,6 @@ public final class StorageBridge {
             Log.i(TAG, "No icon for " + packageName + ": " + error);
             return null;
         }
-    }
-
-    /**
-     * Where a granted folder is: the storage volume for a folder on the device,
-     * such as "Internal shared storage" or an SD card's name, and otherwise the
-     * name of the app whose provider serves it. Null when neither is known.
-     */
-    private static String treeLocation(Context context, PackageManager packages, ProviderInfo provider, Uri tree) {
-        if (EXTERNAL_STORAGE_AUTHORITY.equals(tree.getAuthority())) {
-            // ExternalStorageProvider's document ids start with the volume's
-            // root id: "primary:Pictures" or "1234-5678:DCIM".
-            String documentId = DocumentsContract.getTreeDocumentId(tree);
-            int colon = documentId.indexOf(':');
-            StorageVolume volume = colon > 0 ? findVolume(context, documentId.substring(0, colon)) : null;
-            if (volume != null) {
-                return volume.getDescription(context);
-            }
-        }
-        return provider != null ? String.valueOf(provider.applicationInfo.loadLabel(packages)) : null;
     }
 
     /**
