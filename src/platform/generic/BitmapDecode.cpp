@@ -89,7 +89,8 @@ Bitmap Bitmap::load(const std::string &path, int maxEdge) {
 }
 
 Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
-    if (bytes == nullptr || size == 0) {
+    // libjpeg pads a JPEG that ends early with grey and only warns.
+    if (bytes == nullptr || size == 0 || endsEarly(bytes, size)) {
         return Bitmap();
     }
     // The thumbnail a camera stores beside the photo, when a reduced decode

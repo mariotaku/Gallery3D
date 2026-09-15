@@ -183,6 +183,16 @@ def quartered(width, height, patches=PATCHES, alphas=None):
     return image
 
 
+def ramps(width, height):
+    """Red rising and falling across the picture and green down it, eight
+    levels a pixel, so a region taken one pixel off is further from its
+    golden than a decoder's rounding."""
+    image = Image.new("RGB", (width, height))
+    image.putdata([(abs((x * 8) % 510 - 255), abs((y * 8) % 510 - 255), 100)
+                   for y in range(height) for x in range(width)])
+    return image
+
+
 def probe_points(width, height):
     return [(width // 4, height // 4), (3 * width // 4, height // 4),
             (width // 4, 3 * height // 4), (3 * width // 4, 3 * height // 4)]
@@ -231,13 +241,17 @@ def write(name, data):
         handle.write(data)
 
 
-def fixture(name, data, expected, *, alpha, lossless, tolerance, scaled=(), golden=None, notes=""):
+def fixture(name, data, expected, *, alpha, lossless, tolerance, scaled=(), golden=None, notes="",
+            pattern="quarters"):
+    """pattern is "quarters" for four flat patches, whose middles any scaler
+    agrees on, or "ramps" for a picture that changes every pixel."""
     write(name, data)
     image = rgba(expected)
     entry = {
         "file": name,
         "width": image.width,
         "height": image.height,
+        "pattern": pattern,
         "alpha": alpha,
         "lossless": lossless,
         "tolerance": tolerance,
@@ -246,8 +260,10 @@ def fixture(name, data, expected, *, alpha, lossless, tolerance, scaled=(), gold
     }
     for max_edge in scaled:
         width, height = fit_within(image.width, image.height, max_edge)
+        # A point of a reduced ramp depends on the scaler, so ramps are checked
+        # against their golden averaged instead.
         entry["scaled"].append({"maxEdge": max_edge, "width": width, "height": height,
-                                "probes": probes(image, width, height)})
+                                "probes": probes(image, width, height) if pattern == "quarters" else []})
     if golden is None:
         golden = lossless and image.width * image.height <= 96 * 64
     if golden:
@@ -287,11 +303,25 @@ def main():
     fixture("cmyk.jpg", cmyk, decoded(cmyk).convert("RGB"), alpha=False, lossless=False, tolerance=COLOUR,
             notes="Four channel JPEG with no profile, converted without colour management.")
 
+    # Region decoders crop at whole pixels. The size is off the 8x8 block grid
+    # on both edges, so the last row and column of blocks are partial.
+    gradient = encode(ramps(203, 157), "JPEG", quality=95, subsampling=0)
+    fixture("gradient.jpg", gradient, decoded(gradient), alpha=False, lossless=False, tolerance=LOSSY,
+            scaled=(101, 50, 25), golden=True, pattern="ramps",
+            notes="Red and green ramps of eight levels a pixel. The golden is Pillow's decode.")
+
     # Orientation is a tag, not the pixels: every decoder hands out the pixels
     # as stored.
     oriented = after_soi(baseline, exif_segment(orientation=6))
     fixture("orientation6.jpg", oriented, decoded(baseline), alpha=False, lossless=False, tolerance=LOSSY,
             notes="EXIF orientation 6. Decoded pixels stay as stored.")
+    # One file for each EXIF orientation, big enough for a platform thumbnail.
+    # Four different patches tell all eight apart.
+    stored = encode(quartered(320, 240), "JPEG", quality=95, subsampling=0)
+    for orientation in range(1, 9):
+        fixture("orientation_%d.jpg" % orientation, after_soi(stored, exif_segment(orientation=orientation)),
+                decoded(stored), alpha=False, lossless=False, tolerance=LOSSY, scaled=(160,),
+                notes="EXIF orientation %d over the same stored pixels." % orientation)
 
     # A camera's embedded thumbnail, in the photo's shape. A decode reduced to
     # no more than the thumbnail's long edge may answer from it, and every
@@ -308,6 +338,7 @@ def main():
         "file": "thumbnail.jpg",
         "width": 1600,
         "height": 1200,
+        "pattern": "quarters",
         "alpha": False,
         "lossless": False,
         "tolerance": LOSSY,
@@ -383,7 +414,9 @@ def main():
                 alpha=False, lossless=format != "JPEG", tolerance=LOSSY, scaled=max_edges, golden=False)
 
     # What must not decode.
-    invalid("truncated.jpg", baseline[:len(baseline) * 6 // 10], "Cut inside the scan.")
+    invalid("truncated.jpg", baseline[:len(baseline) * 6 // 10], "Cut before the scan.")
+    invalid("truncated_scan.jpg", gradient[:len(gradient) * 6 // 10],
+            "gradient.jpg cut inside the scan, so its header is whole.")
     opaque_png = encode(picture, "PNG")
     invalid("truncated.png", opaque_png[:len(opaque_png) * 6 // 10], "Cut inside IDAT.")
     invalid("rubbish.jpg", bytes((index * 37) % 256 for index in range(512)), "Not an image.")

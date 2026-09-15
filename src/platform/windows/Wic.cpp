@@ -4,6 +4,8 @@
 #include <cmath>
 #include <vector>
 
+#include "graphics/Cmyk.h"
+
 namespace Wic {
 
 namespace {
@@ -91,6 +93,85 @@ Bitmap copy(IWICBitmapSource *source, const WICRect *rect) {
         return Bitmap();
     }
     return bitmap;
+}
+
+bool isCmyk(IWICBitmapSource *source) {
+    WICPixelFormatGUID format;
+    return source != nullptr && SUCCEEDED(source->GetPixelFormat(&format)) && format == GUID_WICPixelFormat32bppCMYK;
+}
+
+Bitmap copyInks(IWICBitmapSource *source, const WICRect *rect) {
+    UINT width = 0;
+    UINT height = 0;
+    if (!isCmyk(source) || FAILED(source->GetSize(&width, &height))) {
+        return Bitmap();
+    }
+    if (rect != nullptr) {
+        width = (UINT)rect->Width;
+        height = (UINT)rect->Height;
+    }
+    if ((unsigned long long)width * height * 4 > UINT_MAX) {
+        return Bitmap();
+    }
+    // The inks are read into the bitmap's own four bytes a pixel and converted
+    // in place.
+    Bitmap bitmap((int)width, (int)height, PixelOrder::BGRA);
+    if (!bitmap.valid() || FAILED(source->CopyPixels(rect, width * 4, width * height * 4, bitmap.pixels()))) {
+        return Bitmap();
+    }
+    Cmyk::toPixels(bitmap.pixels(), bitmap.pixels(), (size_t)width * height, PixelOrder::BGRA, false);
+    bitmap.markOpaque();
+    return bitmap;
+}
+
+Ptr<IWICBitmap> reducedByCodec(IWICBitmapFrameDecode *frame, UINT sample, const WICRect *rect) {
+    Ptr<IWICBitmap> result;
+    IWICImagingFactory *imaging = factory();
+    Ptr<IWICBitmapSourceTransform> transform;
+    UINT frameWidth = 0;
+    UINT frameHeight = 0;
+    WICPixelFormatGUID format;
+    if (imaging == nullptr || frame == nullptr || sample == 0 ||
+        FAILED(frame->QueryInterface(IID_PPV_ARGS(transform.put()))) ||
+        FAILED(frame->GetSize(&frameWidth, &frameHeight)) || FAILED(frame->GetPixelFormat(&format))) {
+        return result;
+    }
+    const UINT width = (frameWidth + sample - 1) / sample;
+    const UINT height = (frameHeight + sample - 1) / sample;
+    UINT closestWidth = width;
+    UINT closestHeight = height;
+    WICPixelFormatGUID closestFormat = format;
+    Ptr<IWICComponentInfo> info;
+    Ptr<IWICPixelFormatInfo> pixelInfo;
+    UINT bits = 0;
+    if (FAILED(transform->GetClosestSize(&closestWidth, &closestHeight)) || closestWidth != width ||
+        closestHeight != height || FAILED(transform->GetClosestPixelFormat(&closestFormat)) ||
+        closestFormat != format || FAILED(imaging->CreateComponentInfo(format, info.put())) ||
+        FAILED(info->QueryInterface(IID_PPV_ARGS(pixelInfo.put()))) || FAILED(pixelInfo->GetBitsPerPixel(&bits)) ||
+        bits == 0 || bits % 8 != 0) {
+        return result;
+    }
+    WICRect area = {0, 0, (INT)width, (INT)height};
+    if (rect != nullptr) {
+        area = *rect;
+    }
+    if (area.X < 0 || area.Y < 0 || area.Width <= 0 || area.Height <= 0 || area.X + area.Width > (INT)width ||
+        area.Y + area.Height > (INT)height) {
+        return result;
+    }
+    const UINT stride = (UINT)area.Width * (bits / 8);
+    if ((unsigned long long)stride * (UINT)area.Height > UINT_MAX) {
+        return result;
+    }
+    std::vector<BYTE> pixels((size_t)stride * (size_t)area.Height);
+    // CreateBitmapFromMemory copies the pixels, so the buffer can go.
+    if (FAILED(transform->CopyPixels(&area, width, height, &format, WICBitmapTransformRotate0, stride,
+                                     (UINT)pixels.size(), pixels.data())) ||
+        FAILED(imaging->CreateBitmapFromMemory((UINT)area.Width, (UINT)area.Height, format, stride,
+                                               (UINT)pixels.size(), pixels.data(), result.put()))) {
+        result.reset();
+    }
+    return result;
 }
 
 bool hasAlpha(IWICBitmapSource *source) {

@@ -42,12 +42,25 @@ class RegionDecoder {
     }
 
     // Decodes the rectangle given in the original's pixels and returns it at
-    // outWidth by outHeight. Returns an invalid Bitmap if it cannot.
+    // outWidth by outHeight. The contract, on every platform:
+    // - The rectangle lies inside the image and every size is above zero.
+    //   Anything else gives an invalid Bitmap; nothing is clipped.
+    // - Pixels are what Bitmap::load gives for the same rectangle: premultiplied
+    //   in Bitmap::decodeOrder(), in stored orientation, converted to sRGB.
+    // - A reduced tile, width / outWidth to one, lands on its rectangle when x
+    //   and y are multiples of that reduction, as the tile grid's are. Other
+    //   origins may start the tile up to one reduced pixel early.
+    // - A format with no alpha channel is marked opaque.
+    // - A rectangle the file ends before gives an invalid Bitmap.
+    // tests/test_decode_region.cpp checks it against the decode fixtures.
     // Several decode threads share one decoder, so this must stay callable
     // from all of them at once.
-    virtual Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) = 0;
+    Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight);
 
   protected:
+    // decodeRegion for a rectangle already known to lie inside the image.
+    virtual Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) = 0;
+
     int mWidth = 0;
     int mHeight = 0;
 };

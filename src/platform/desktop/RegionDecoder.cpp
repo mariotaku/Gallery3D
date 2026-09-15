@@ -9,7 +9,11 @@
 #include <vector>
 
 #include <jpeglib.h>
+// After jpeglib.h, which it depends on.
+#include <jerror.h>
 
+#include "graphics/Cmyk.h"
+#include "graphics/ColorProfile.h"
 #include "platform/desktop/IccToSrgb.h"
 
 #if defined(_MSC_VER)
@@ -36,6 +40,9 @@ namespace {
 struct JumpOnError {
     jpeg_error_mgr base;
     std::jmp_buf escape;
+    // Whether libjpeg ran out of data and padded the scan, which it only warns
+    // about.
+    bool endedEarly;
 };
 
 void jumpOnFatalError(j_common_ptr info) {
@@ -43,6 +50,17 @@ void jumpOnFatalError(j_common_ptr info) {
     info->err->format_message(info, message);
     SDL_Log("Region decode failed: %s", message);
     std::longjmp(((JumpOnError *)info->err)->escape, 1);
+}
+
+// Takes libjpeg's warnings and traces instead of printing them, and notes the
+// one that says the file ended early.
+void noteMessage(j_common_ptr info, int level) {
+    if (level < 0) {
+        ++info->err->num_warnings;
+        if (info->err->msg_code == JWRN_JPEG_EOF) {
+            ((JumpOnError *)info->err)->endedEarly = true;
+        }
+    }
 }
 
 // libjpeg scales by an eighth, so it covers sample sizes up to 8. Anything
@@ -64,7 +82,8 @@ class JpegRegionDecoder : public RegionDecoder {
   public:
     bool read(const std::string &path);
 
-    Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) override;
+  protected:
+    Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) override;
 
   private:
     bool readSize();
@@ -73,6 +92,8 @@ class JpegRegionDecoder : public RegionDecoder {
     // From the photo's embedded colour profile to sRGB, read once and shared
     // by every tile, so the tiles match the screennail under them.
     IccToSrgb mToSrgb;
+    // No profile, but EXIF ColorSpace says Adobe RGB, as a whole decode honours.
+    bool mAdobeRgb = false;
 };
 
 bool JpegRegionDecoder::read(const std::string &path) {
@@ -94,10 +115,18 @@ bool JpegRegionDecoder::read(const std::string &path) {
 }
 
 bool JpegRegionDecoder::readSize() {
+    // Only a JPEG goes to libjpeg, which would otherwise log an error for a
+    // file that was never its to read. One cut short opens nothing, as it
+    // decodes nothing.
+    if (mBytes.size() < 3 || mBytes[0] != 0xFF || mBytes[1] != 0xD8 || mBytes[2] != 0xFF ||
+        Bitmap::endsEarly(mBytes.data(), mBytes.size())) {
+        return false;
+    }
     jpeg_decompress_struct cinfo {};
     JumpOnError error {};
     cinfo.err = jpeg_std_error(&error.base);
     error.base.error_exit = jumpOnFatalError;
+    error.base.emit_message = noteMessage;
 
     bool ok = false;
     if (setjmp(error.escape) == 0) {
@@ -117,18 +146,16 @@ bool JpegRegionDecoder::readSize() {
         }
     }
     jpeg_destroy_decompress(&cinfo);
+    mAdobeRgb = ok && !mToSrgb && Bitmap::readExif(mBytes.data(), mBytes.size()).colorSpace == 2;
     return ok;
 }
 
-Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) {
-    if (width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
-        return Bitmap();
-    }
-
+Bitmap JpegRegionDecoder::decode(int x, int y, int width, int height, int outWidth, int outHeight) {
     jpeg_decompress_struct cinfo {};
     JumpOnError error {};
     cinfo.err = jpeg_std_error(&error.base);
     error.base.error_exit = jumpOnFatalError;
+    error.base.emit_message = noteMessage;
 
     // Everything holding memory is declared here, before the jump target.
     // longjmp skips the destructors of anything built after it, so nothing
@@ -137,6 +164,10 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
     int decodedLeft = 0;
     int decodedWidth = 0;
     int decodedHeight = 0;
+    // A four channel JPEG, and whether an Adobe marker says its values are
+    // stored inverted, as Photoshop writes them.
+    bool cmyk = false;
+    bool inverted = false;
 
     // Anything libjpeg rejects lands back here with the structures still live,
     // so the cleanup below is the single exit path.
@@ -154,8 +185,11 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
         cinfo.scale_denom = (unsigned)denominator;
         // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
         // straight into the bitmap. JPEG carries no alpha, so opaque pixels are
-        // already premultiplied.
-        cinfo.out_color_space = JCS_EXT_RGBA;
+        // already premultiplied. A four channel JPEG comes out as CMYK in the
+        // same four bytes, and is converted below.
+        cmyk = cinfo.jpeg_color_space == JCS_CMYK || cinfo.jpeg_color_space == JCS_YCCK;
+        inverted = cmyk && cinfo.saw_Adobe_marker;
+        cinfo.out_color_space = cmyk ? JCS_CMYK : JCS_EXT_RGBA;
         jpeg_start_decompress(&cinfo);
 
         // The region arrives in the original's pixels; libjpeg works in the
@@ -182,15 +216,18 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
             decoded = Bitmap((int)croppedWidth, scaledHeight);
             if (decoded.valid()) {
                 decoded.markOpaque();
-                for (int line = 0; line < scaledHeight; ++line) {
+                bool complete = true;
+                for (int line = 0; line < scaledHeight && complete; ++line) {
                     JSAMPROW rows[1] = {decoded.pixels() + (size_t)line * (size_t)croppedWidth * 4};
-                    if (jpeg_read_scanlines(&cinfo, rows, 1) != 1) {
-                        break;
-                    }
+                    complete = jpeg_read_scanlines(&cinfo, rows, 1) == 1;
                 }
-                decodedLeft = insetX;
-                decodedWidth = scaledRight - scaledLeft;
-                decodedHeight = scaledHeight;
+                // libjpeg pads a file that ends early with grey rows and only
+                // warns. Such a tile is not the photo, so it does not decode.
+                if (complete && !error.endedEarly) {
+                    decodedLeft = insetX;
+                    decodedWidth = scaledRight - scaledLeft;
+                    decodedHeight = scaledHeight;
+                }
             }
         }
         jpeg_abort_decompress(&cinfo);
@@ -206,16 +243,23 @@ Bitmap JpegRegionDecoder::decodeRegion(int x, int y, int width, int height, int 
     if (decodedLeft != 0 || decoded.width() != decodedWidth) {
         decoded = decoded.cropped(decodedLeft, 0, decodedWidth, decodedHeight);
     }
+    const size_t count = (size_t)decoded.width() * (size_t)decoded.height();
+    if (cmyk) {
+        Cmyk::toPixels(decoded.pixels(), decoded.pixels(), count, PixelOrder::RGBA, inverted);
+    }
     if (mToSrgb) {
-        mToSrgb.convert(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
+        mToSrgb.convert(decoded.pixels(), count);
+    } else if (mAdobeRgb) {
+        ColorProfile::adobeRgbToSrgb(decoded.pixels(), count);
     }
     // Scaling happens past the jump target, where allocating is safe again. A
     // sample size above eight, or an edge tile libjpeg rounded up, still needs
     // this last step to the requested size.
-    if (decodedWidth == outWidth && decodedHeight == outHeight) {
-        return decoded;
-    }
-    return decoded.scaled(outWidth, outHeight);
+    // How much of the decoded window is picture, in libjpeg's reduced pixels.
+    // Worked out again here rather than kept from before the jump, where
+    // longjmp could leave it clobbered.
+    const int reduction = scaleDenominatorFor(width / outWidth);
+    return decoded.scaledCovering(outWidth, outHeight, (double)width / reduction, (double)height / reduction);
 }
 
 }  // namespace

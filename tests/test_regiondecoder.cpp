@@ -450,11 +450,11 @@ TEST(a_local_tile_comes_back_through_the_data_source) {
     CHECK(tile.valid());
     CHECK_EQ(tile.width(), 512);
 
-    // A rectangle running off the right edge is trimmed, not refused.
+    // A rectangle running off the right edge is refused, not trimmed.
     Bitmap edge;
     source.requestRegion(&photo, 1900, 1400, 512, 512, 100, 100,
                          [&edge](Bitmap bitmap) { edge = std::move(bitmap); });
-    CHECK(edge.valid());
+    CHECK(!edge.valid());
 
     // The source holds the decoder open, so the tiles after the first one do
     // not go back to the disk.

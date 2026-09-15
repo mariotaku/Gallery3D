@@ -45,12 +45,21 @@ class WicRegionDecoder : public RegionDecoder {
 
     bool open(const std::string &path);
 
-    Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) override;
+  protected:
+    Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) override;
 
   private:
     // The whole picture at no less than 1/sample of its size, decoding it if
     // what is held is too small. Invalid if it cannot be decoded.
     const Bitmap &levelFor(int sample);
+
+    // A rectangle of source, or all of it when rect is null, in sRGB and
+    // marked opaque the way the frame's format says.
+    Bitmap copyOf(IWICBitmapSource *source, const WICRect *rect) const;
+
+    // The rectangle of the frame reduced to 1/sample by Wic::reducedByCodec.
+    // Invalid when the codec has no such size, and the caller scales instead.
+    Bitmap reducedByCodec(int left, int top, int right, int bottom, int sample) const;
 
     // The encoded file, which the decoder reads in place, so it is declared
     // first to be destroyed last.
@@ -62,6 +71,8 @@ class WicRegionDecoder : public RegionDecoder {
     Wic::Ptr<IWICColorContext> mProfile;
     // The frame, or for RAW its preview.
     Wic::Ptr<IWICBitmapSource> mSource;
+    // Whether mSource is a JPEG frame, whose codec reduces a tile itself.
+    bool mCodecReduces = false;
     UINT mSourceWidth = 0;
     UINT mSourceHeight = 0;
     // Whether mSource reduces while it decodes, which JPEG does.
@@ -69,6 +80,9 @@ class WicRegionDecoder : public RegionDecoder {
     // Whether mSource's format has no alpha, so every level and tile is marked
     // opaque.
     bool mOpaque = false;
+    // Whether mSource holds CMYK with no profile to convert it through, so its
+    // pixels are converted by Cmyk::toPixels as a whole decode's are.
+    bool mCmyk = false;
     // The frame's embedded thumbnail in the frame's shape, if it has one. A
     // HEIF photo's is about a quarter of its width.
     Wic::Ptr<IWICBitmapSource> mThumbnail;
@@ -83,7 +97,8 @@ class WicRegionDecoder : public RegionDecoder {
 
 bool WicRegionDecoder::open(const std::string &path) {
     // Read whole, so the photo's file is not held open while it is zoomed.
-    if (!Bitmap::readFile(path, &mBytes)) {
+    // WIC would hand out grey for what a file cut short is missing.
+    if (!Bitmap::readFile(path, &mBytes) || Bitmap::endsEarly(mBytes.data(), mBytes.size())) {
         return false;
     }
     mDecoder = Wic::decoderFor(mBytes.data(), mBytes.size());
@@ -127,9 +142,11 @@ bool WicRegionDecoder::open(const std::string &path) {
         mSourceWidth = width;
         mSourceHeight = height;
         mReducesWhileDecoding = container == GUID_ContainerFormatJpeg;
+        mCodecReduces = mReducesWhileDecoding && transform;
     }
 
     mOpaque = !Wic::hasAlpha(mSource.get());
+    mCmyk = !mProfile && Wic::isCmyk(mSource.get());
 
     if (!mReducesWhileDecoding) {
         Wic::Ptr<IWICBitmapSource> thumbnail;
@@ -145,6 +162,34 @@ bool WicRegionDecoder::open(const std::string &path) {
     return true;
 }
 
+Bitmap WicRegionDecoder::copyOf(IWICBitmapSource *source, const WICRect *rect) const {
+    Bitmap bitmap = mCmyk ? Wic::copyInks(source, rect) : Wic::copy(Wic::inSrgb(source, mProfile.get()).get(), rect);
+    if (!bitmap.valid()) {
+        return Bitmap();
+    }
+    if (mOpaque) {
+        bitmap.markOpaque();
+    } else {
+        // WIC hands some formats out with alpha whether or not the file uses
+        // it, WebP among them.
+        bitmap.markOpaqueUnlessTransparent();
+    }
+    return bitmap;
+}
+
+Bitmap WicRegionDecoder::reducedByCodec(int left, int top, int right, int bottom, int sample) const {
+    // In the reduced pixels, whose size is rounded up.
+    const INT width = (mWidth + sample - 1) / sample;
+    const INT height = (mHeight + sample - 1) / sample;
+    WICRect rect;
+    rect.X = left / sample;
+    rect.Y = top / sample;
+    rect.Width = std::min(width, (right + sample - 1) / sample) - rect.X;
+    rect.Height = std::min(height, (bottom + sample - 1) / sample) - rect.Y;
+    const Wic::Ptr<IWICBitmap> reduced = Wic::reducedByCodec(mFrame.get(), (UINT)sample, &rect);
+    return reduced ? copyOf(reduced.get(), nullptr) : Bitmap();
+}
+
 const Bitmap &WicRegionDecoder::levelFor(int sample) {
     const UINT wantedWidth = std::max(1u, (UINT)mWidth / (UINT)sample);
     const UINT wantedHeight = std::max(1u, (UINT)mHeight / (UINT)sample);
@@ -154,12 +199,9 @@ const Bitmap &WicRegionDecoder::levelFor(int sample) {
     // The thumbnail is already decoded and a fraction of the cost, when it is
     // big enough for the level.
     if (mThumbnail && nearlyCovers(mThumbnailWidth, wantedWidth)) {
-        Bitmap thumbnail = Wic::copy(Wic::inSrgb(mThumbnail.get(), mProfile.get()).get(), nullptr);
+        Bitmap thumbnail = copyOf(mThumbnail.get(), nullptr);
         if (thumbnail.valid()) {
             mLevel = std::move(thumbnail);
-            if (mOpaque) {
-                mLevel.markOpaque();
-            }
             return mLevel;
         }
     }
@@ -169,24 +211,15 @@ const Bitmap &WicRegionDecoder::levelFor(int sample) {
         mLevel = Bitmap();
         return mLevel;
     }
-    mLevel = Wic::copy(Wic::inSrgb(scaler.get(), mProfile.get()).get(), nullptr);
-    if (mOpaque) {
-        mLevel.markOpaque();
-    }
+    mLevel = copyOf(scaler.get(), nullptr);
     return mLevel;
 }
 
-Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) {
-    if (width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
-        return Bitmap();
-    }
-    const int left = std::max(0, x);
-    const int top = std::max(0, y);
-    const int right = std::min(mWidth, x + width);
-    const int bottom = std::min(mHeight, y + height);
-    if (right <= left || bottom <= top) {
-        return Bitmap();
-    }
+Bitmap WicRegionDecoder::decode(int x, int y, int width, int height, int outWidth, int outHeight) {
+    const int left = x;
+    const int top = y;
+    const int right = x + width;
+    const int bottom = y + height;
     IWICImagingFactory *imaging = Wic::factory();
     if (imaging == nullptr) {
         return Bitmap();
@@ -215,9 +248,25 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
         return Wic::scaled(part, outWidth, outHeight);
     }
 
+    if (mCodecReduces && sample > 1) {
+        // The codec reduces by up to eight, and the rest is scaled here.
+        const int codecSample = std::min(sample, 8);
+        Bitmap tile = reducedByCodec(left, top, right, bottom, codecSample);
+        if (tile.valid()) {
+            return tile.scaledCovering(outWidth, outHeight, (double)width / codecSample,
+                                       (double)height / codecSample);
+        }
+    }
+
     // On top of however much smaller than the frame the source already is.
-    const UINT scaledWidth = std::max(1u, mSourceWidth / (UINT)sample);
-    const UINT scaledHeight = std::max(1u, mSourceHeight / (UINT)sample);
+    // The JPEG codec reduces by up to eight on its own. Past that WIC's scaler
+    // hands CMYK out as another format, so a CMYK tile stops at an eighth and
+    // is scaled the rest of the way below.
+    const int codecSample = mCmyk ? std::min(sample, 8) : sample;
+    // Rounded up, as libjpeg sizes a reduced scan, so a pixel of the reduced
+    // source starts at a multiple of the reduction.
+    const UINT scaledWidth = (mSourceWidth + (UINT)codecSample - 1) / (UINT)codecSample;
+    const UINT scaledHeight = (mSourceHeight + (UINT)codecSample - 1) / (UINT)codecSample;
     const double toScaledX = (double)scaledWidth / (double)mWidth;
     const double toScaledY = (double)scaledHeight / (double)mHeight;
     WICRect rect;
@@ -231,7 +280,7 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
 
     Bitmap tile;
     if (scaledWidth == (UINT)mWidth && scaledHeight == (UINT)mHeight) {
-        tile = Wic::copy(Wic::inSrgb(mSource.get(), mProfile.get()).get(), &rect);
+        tile = copyOf(mSource.get(), &rect);
     } else {
         // Scaling the whole source and copying the rectangle out of it is what
         // lets WIC pass both the reduction and the crop to the codec.
@@ -240,13 +289,10 @@ Bitmap WicRegionDecoder::decodeRegion(int x, int y, int width, int height, int o
             FAILED(scaler->Initialize(mSource.get(), scaledWidth, scaledHeight, WICBitmapInterpolationModeFant))) {
             return Bitmap();
         }
-        tile = Wic::copy(Wic::inSrgb(scaler.get(), mProfile.get()).get(), &rect);
+        tile = copyOf(scaler.get(), &rect);
     }
     if (!tile.valid()) {
         return Bitmap();
-    }
-    if (mOpaque) {
-        tile.markOpaque();
     }
     if (tile.width() == outWidth && tile.height() == outHeight) {
         return tile;

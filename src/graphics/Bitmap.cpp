@@ -62,20 +62,6 @@ void premultiplyPixels(uint8_t *pixels, size_t count) {
     }
 }
 
-// SDL's name for a bitmap's byte order, so a surface over its pixels is read
-// in place rather than converted.
-SDL_PixelFormat surfaceFormatFor(PixelOrder order) {
-    return (order == PixelOrder::RGBA) ? SDL_PIXELFORMAT_RGBA32 : SDL_PIXELFORMAT_BGRA32;
-}
-
-SDL_Surface *toSurface(const Bitmap &bitmap) {
-    if (!bitmap.valid()) {
-        return nullptr;
-    }
-    return SDL_CreateSurfaceFrom(bitmap.width(), bitmap.height(), surfaceFormatFor(bitmap.order()),
-                                 (void *)bitmap.pixels(), bitmap.width() * 4);
-}
-
 }  // namespace
 
 void Bitmap::reorder(PixelOrder order) {
@@ -124,32 +110,129 @@ void Bitmap::premultiply() {
     premultiplyPixels(mPixels.data(), (size_t)mWidth * (size_t)mHeight);
 }
 
+namespace {
+
+// The source pixels each output pixel takes along one axis, with weights in
+// 1/16384ths that add up to one. Taps for output pixel i are
+// indices[starts[i]] to indices[starts[i + 1] - 1].
+struct Taps {
+    std::vector<int> starts;
+    std::vector<int> indices;
+    std::vector<uint32_t> weights;
+};
+
+constexpr uint32_t kWeightOne = 1u << 14;
+
+// extent is how much of the axis the from pixels hold, in pixels: from itself,
+// or less when the last pixel holds only part of one.
+Taps tapsFor(int from, int to, double extent) {
+    Taps taps;
+    taps.starts.reserve((size_t)to + 1);
+    const double scale = std::min((double)from, std::max(extent, 1e-6)) / (double)to;
+    for (int i = 0; i < to; ++i) {
+        taps.starts.push_back((int)taps.indices.size());
+        const size_t first = taps.weights.size();
+        if (scale >= 1.0) {
+            // Shrinking: the average of the span the output pixel covers,
+            // with the pixels at its ends weighted by how much of them it
+            // covers.
+            const double left = i * scale;
+            const double right = (i + 1) * scale;
+            for (int x = (int)left; x < from && x < right; ++x) {
+                const double covered = std::min(right, x + 1.0) - std::max(left, (double)x);
+                if (covered > 0.0) {
+                    taps.indices.push_back(x);
+                    taps.weights.push_back((uint32_t)std::lround(covered / scale * kWeightOne));
+                }
+            }
+        } else {
+            // Enlarging: between the two nearest pixel centres, so the picture
+            // does not shift by half a pixel.
+            const double centre = std::max(0.0, (i + 0.5) * scale - 0.5);
+            const int x = std::min((int)centre, from - 1);
+            const double fraction = (x + 1 < from) ? centre - x : 0.0;
+            taps.indices.push_back(x);
+            taps.weights.push_back((uint32_t)std::lround((1.0 - fraction) * kWeightOne));
+            if (fraction > 0.0) {
+                taps.indices.push_back(x + 1);
+                taps.weights.push_back((uint32_t)std::lround(fraction * kWeightOne));
+            }
+        }
+        // Rounding can leave the weights a little off one, which would darken
+        // or brighten a flat colour. The heaviest tap takes the difference.
+        uint32_t sum = 0;
+        size_t heaviest = first;
+        for (size_t t = first; t < taps.weights.size(); ++t) {
+            sum += taps.weights[t];
+            if (taps.weights[t] > taps.weights[heaviest]) {
+                heaviest = t;
+            }
+        }
+        taps.weights[heaviest] += kWeightOne - sum;
+    }
+    taps.starts.push_back((int)taps.indices.size());
+    return taps;
+}
+
+}  // namespace
+
 Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
+    return scaledCovering(newWidth, newHeight, (double)mWidth, (double)mHeight);
+}
+
+Bitmap Bitmap::scaledCovering(int newWidth, int newHeight, double coveredWidth, double coveredHeight) const {
     if (!valid() || newWidth <= 0 || newHeight <= 0) {
         return Bitmap();
     }
-    if (newWidth == mWidth && newHeight == mHeight) {
+    if (newWidth == mWidth && newHeight == mHeight && coveredWidth >= mWidth && coveredHeight >= mHeight) {
         return *this;
     }
-    SDL_Surface *src = toSurface(*this);
-    if (!src) {
-        return Bitmap();
-    }
-    SDL_Surface *dst = SDL_CreateSurface(newWidth, newHeight, surfaceFormatFor(mOrder));
-    Bitmap result;
-    if (dst) {
-        SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
-        SDL_BlitSurfaceScaled(src, nullptr, dst, nullptr, SDL_SCALEMODE_LINEAR);
-        result = Bitmap(newWidth, newHeight, mOrder);
-        result.mOpaque = mOpaque;
-        const uint8_t *pixels = (const uint8_t *)dst->pixels;
-        for (int y = 0; y < newHeight; ++y) {
-            std::memcpy(result.pixels() + (size_t)y * (size_t)newWidth * 4,
-                        pixels + (size_t)y * (size_t)dst->pitch, (size_t)newWidth * 4);
+    const Taps across = tapsFor(mWidth, newWidth, coveredWidth);
+    const Taps down = tapsFor(mHeight, newHeight, coveredHeight);
+
+    // Down first, whole rows at a time, which reads memory in order and lets
+    // the compiler vectorize the sums. Then across the fewer rows left. The
+    // weights add up to one, so no sum passes 255 and nothing is clamped.
+    // Premultiplied pixels average without a transparent pixel lending its
+    // colour.
+    const size_t sourceStride = (size_t)mWidth * 4;
+    std::vector<uint8_t> rows(sourceStride * (size_t)newHeight);
+    std::vector<uint32_t> sums(sourceStride);
+    for (int y = 0; y < newHeight; ++y) {
+        std::fill(sums.begin(), sums.end(), kWeightOne / 2);
+        for (int t = down.starts[(size_t)y]; t < down.starts[(size_t)y + 1]; ++t) {
+            const uint8_t *row = mPixels.data() + (size_t)down.indices[(size_t)t] * sourceStride;
+            const uint32_t weight = down.weights[(size_t)t];
+            uint32_t *sum = sums.data();
+            for (size_t i = 0; i < sourceStride; ++i) {
+                sum[i] += row[i] * weight;
+            }
         }
-        SDL_DestroySurface(dst);
+        uint8_t *target = rows.data() + (size_t)y * sourceStride;
+        for (size_t i = 0; i < sourceStride; ++i) {
+            target[i] = (uint8_t)(sums[i] >> 14);
+        }
     }
-    SDL_DestroySurface(src);
+
+    Bitmap result(newWidth, newHeight, mOrder);
+    result.mOpaque = mOpaque;
+    for (int y = 0; y < newHeight; ++y) {
+        const uint8_t *source = rows.data() + (size_t)y * sourceStride;
+        uint8_t *target = result.pixels() + (size_t)y * (size_t)newWidth * 4;
+        for (int x = 0; x < newWidth; ++x) {
+            uint32_t sum[4] = {kWeightOne / 2, kWeightOne / 2, kWeightOne / 2, kWeightOne / 2};
+            for (int t = across.starts[(size_t)x]; t < across.starts[(size_t)x + 1]; ++t) {
+                const uint8_t *pixel = source + (size_t)across.indices[(size_t)t] * 4;
+                const uint32_t weight = across.weights[(size_t)t];
+                for (int channel = 0; channel < 4; ++channel) {
+                    sum[channel] += pixel[channel] * weight;
+                }
+            }
+            for (int channel = 0; channel < 4; ++channel) {
+                target[x * 4 + channel] = (uint8_t)(sum[channel] >> 14);
+            }
+        }
+    }
     return result;
 }
 
@@ -261,6 +344,53 @@ float Bitmap::degreesForOrientation(unsigned orientation) {
     default:
         return 0.0f;
     }
+}
+
+bool Bitmap::endsEarly(const void *bytes, size_t size) {
+    const unsigned char *data = (const unsigned char *)bytes;
+    if (data == nullptr) {
+        return false;
+    }
+    static const unsigned char kPngSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+    if (size >= 8 && std::memcmp(data, kPngSignature, 8) == 0) {
+        const size_t tail = std::min<size_t>(size, 64);
+        static const char kEnd[4] = {'I', 'E', 'N', 'D'};
+        return std::search(data + size - tail, data + size, kEnd, kEnd + 4) == data + size;
+    }
+    if (size < 4 || data[0] != 0xFF || data[1] != 0xD8) {
+        return false;
+    }
+    // Past the segments before the first scan, which can hold an EXIF
+    // thumbnail with an end marker of its own.
+    size_t at = 2;
+    for (;;) {
+        while (at < size && data[at] == 0xFF) {
+            ++at;
+        }
+        if (at >= size) {
+            return true;
+        }
+        const unsigned char marker = data[at++];
+        if (marker == 0xDA) {
+            break;
+        }
+        if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+            continue;
+        }
+        if (at + 2 > size) {
+            return true;
+        }
+        at += ((size_t)data[at] << 8) | data[at + 1];
+    }
+    // Entropy-coded data never holds 0xFF 0xD9, so the first one found from
+    // the end is the image's own. Most files end with it, so the search is
+    // short unless the file is cut.
+    for (size_t end = size - 1; end > at; --end) {
+        if (data[end] == 0xD9 && data[end - 1] == 0xFF) {
+            return false;
+        }
+    }
+    return true;
 }
 
 Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {

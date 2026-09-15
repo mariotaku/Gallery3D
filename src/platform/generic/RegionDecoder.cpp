@@ -1,9 +1,9 @@
 #include "graphics/RegionDecoder.h"
 
 bool RegionDecoder::looksSupported(const std::string &mimeType) {
-    // The desktop's answer. open() is what refuses here, and a photo it refuses
-    // stays on one downscaled decode.
-    return mimeType == "image/jpeg";
+    // open() refuses everything, so nothing is offered.
+    (void)mimeType;
+    return false;
 }
 
 void RegionDecoder::initAndroid() {

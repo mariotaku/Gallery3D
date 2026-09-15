@@ -77,6 +77,22 @@ Ptr<IWICBitmapDecoder> decoderFor(const void *bytes, size_t size);
 // BGRA Bitmap. Invalid when WIC cannot convert them.
 Bitmap copy(IWICBitmapSource *source, const WICRect *rect);
 
+// Whether the source's pixels are 32bppCMYK.
+bool isCmyk(IWICBitmapSource *source);
+
+// A CMYK source's pixels, or a rectangle of them, converted without colour
+// management by Cmyk::toPixels as an opaque BGRA Bitmap. Invalid when the source
+// is not CMYK.
+Bitmap copyInks(IWICBitmapSource *source, const WICRect *rect);
+
+// A frame, or a rectangle of it, reduced to 1/sample inside its codec, in the
+// frame's own pixel format. JPEG's codec averages the pixels it drops, as
+// libjpeg does on the other platforms, where WIC's scaler samples them half a
+// reduced pixel off. The reduced size is the frame's divided by sample and
+// rounded up, as libjpeg sizes it, and rect is in reduced pixels. Null when the
+// codec has no such size.
+Ptr<IWICBitmap> reducedByCodec(IWICBitmapFrameDecode *frame, UINT sample, const WICRect *rect);
+
 // Whether the source's pixel format carries alpha.
 bool hasAlpha(IWICBitmapSource *source);
 

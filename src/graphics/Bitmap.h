@@ -86,6 +86,12 @@ class Bitmap {
     // Decodes encoded bytes without an intermediate file.
     static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge);
 
+    // Whether encoded bytes are a PNG or a JPEG that is cut short: a PNG with
+    // no IEND chunk near its end, or a JPEG with no end-of-image marker after
+    // its first scan. Some decoders hand out what they could read of such a
+    // file, so every decoder checks this first. Other formats answer false.
+    static bool endsEarly(const void *bytes, size_t size);
+
     // Whether this build decodes files with the extension, given with its dot
     // and in any case. On Windows that is whatever codecs are installed.
     static bool decodesExtension(const std::string &extension);
@@ -100,8 +106,17 @@ class Bitmap {
     // Reads encoded bytes without decoding.
     static bool readFile(const std::string &path, std::vector<uint8_t> *bytes);
 
-    // Scales into a new bitmap. Uses SDL's linear scaler.
+    // Scales into a new bitmap, the same on every platform. Shrinking averages
+    // the pixels each new pixel covers. Enlarging interpolates between the two
+    // nearest pixel centres.
     Bitmap scaled(int newWidth, int newHeight) const;
+
+    // The same for a bitmap a codec reduced from a picture whose size is not a
+    // multiple of the reduction. Its last column and row hold only part of a
+    // reduced pixel, and coveredWidth and coveredHeight say how much of the
+    // bitmap is picture: a 203 pixel edge reduced by 4 is 51 pixels covering
+    // 50.75.
+    Bitmap scaledCovering(int newWidth, int newHeight, double coveredWidth, double coveredHeight) const;
 
     // Copies into a larger transparent bitmap. clampEdges repeats boundary pixels
     // for mipmapping to prevent transparent padding bleeding in; avoid it for (1, 1) extents.

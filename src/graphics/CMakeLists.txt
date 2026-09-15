@@ -7,6 +7,7 @@ target_sources(gallery3d_core PRIVATE
     Canvas.h
     CanvasTexture.cpp
     CanvasTexture.h
+    Cmyk.h
     ColorProfile.h
     CrossFadingTexture.cpp
     CrossFadingTexture.h

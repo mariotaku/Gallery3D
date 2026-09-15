@@ -79,7 +79,8 @@ class AndroidRegionDecoder : public RegionDecoder {
         return !threw(env, "size") && mWidth > 0 && mHeight > 0;
     }
 
-    Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) override;
+  protected:
+    Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) override;
 
   private:
     jobject mDecoder = nullptr;
@@ -89,10 +90,7 @@ class AndroidRegionDecoder : public RegionDecoder {
     std::mutex mMutex;
 };
 
-Bitmap AndroidRegionDecoder::decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) {
-    if (width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
-        return Bitmap();
-    }
+Bitmap AndroidRegionDecoder::decode(int x, int y, int width, int height, int outWidth, int outHeight) {
     JNIEnv *env = jni();
     if (env == nullptr || mDecoder == nullptr) {
         return Bitmap();

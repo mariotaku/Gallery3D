@@ -9,8 +9,11 @@ add_executable(gallery3d_tests
     test_bytecache.cpp
     test_caption.cpp
     test_colorprofile.cpp
+    decode_fixtures.cpp
+    decode_fixtures.h
     test_datasource.cpp
     test_decode.cpp
+    test_decode_region.cpp
     test_density.cpp
     test_details.cpp
     test_embeddedprofile.cpp

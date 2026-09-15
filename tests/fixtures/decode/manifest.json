@@ -6,6 +6,7 @@
    "file": "baseline.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -128,6 +129,7 @@
    "file": "subsampled.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -211,6 +213,7 @@
    "file": "progressive.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -294,6 +297,7 @@
    "file": "gray.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -377,6 +381,7 @@
    "file": "cmyk.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 8,
@@ -418,9 +423,75 @@
    "notes": "Four channel JPEG with no profile, converted without colour management."
   },
   {
+   "file": "gradient.jpg",
+   "width": 203,
+   "height": 157,
+   "pattern": "ramps",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     50,
+     39,
+     147,
+     56,
+     99,
+     255
+    ],
+    [
+     152,
+     39,
+     59,
+     56,
+     99,
+     255
+    ],
+    [
+     50,
+     117,
+     145,
+     171,
+     100,
+     255
+    ],
+    [
+     152,
+     117,
+     59,
+     171,
+     99,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 101,
+     "width": 101,
+     "height": 78,
+     "probes": []
+    },
+    {
+     "maxEdge": 50,
+     "width": 50,
+     "height": 39,
+     "probes": []
+    },
+    {
+     "maxEdge": 25,
+     "width": 25,
+     "height": 19,
+     "probes": []
+    }
+   ],
+   "golden": "gradient.rgba",
+   "notes": "Red and green ramps of eight levels a pixel. The golden is Pillow's decode."
+  },
+  {
    "file": "orientation6.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -462,9 +533,690 @@
    "notes": "EXIF orientation 6. Decoded pixels stay as stored."
   },
   {
+   "file": "orientation_1.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 1 over the same stored pixels."
+  },
+  {
+   "file": "orientation_2.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 2 over the same stored pixels."
+  },
+  {
+   "file": "orientation_3.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 3 over the same stored pixels."
+  },
+  {
+   "file": "orientation_4.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 4 over the same stored pixels."
+  },
+  {
+   "file": "orientation_5.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 5 over the same stored pixels."
+  },
+  {
+   "file": "orientation_6.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 6 over the same stored pixels."
+  },
+  {
+   "file": "orientation_7.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 7 over the same stored pixels."
+  },
+  {
+   "file": "orientation_8.jpg",
+   "width": 320,
+   "height": 240,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": false,
+   "tolerance": 6,
+   "probes": [
+    [
+     80,
+     60,
+     201,
+     60,
+     50,
+     255
+    ],
+    [
+     240,
+     60,
+     60,
+     180,
+     80,
+     255
+    ],
+    [
+     80,
+     180,
+     50,
+     80,
+     200,
+     255
+    ],
+    [
+     240,
+     180,
+     220,
+     199,
+     71,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 160,
+     "width": 160,
+     "height": 120,
+     "probes": [
+      [
+       40,
+       30,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       120,
+       30,
+       60,
+       180,
+       80,
+       255
+      ],
+      [
+       40,
+       90,
+       50,
+       80,
+       200,
+       255
+      ],
+      [
+       120,
+       90,
+       220,
+       199,
+       71,
+       255
+      ]
+     ]
+    }
+   ],
+   "notes": "EXIF orientation 8 over the same stored pixels."
+  },
+  {
    "file": "thumbnail.jpg",
    "width": 1600,
    "height": 1200,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -670,6 +1422,7 @@
    "file": "opaque.png",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 1,
@@ -754,6 +1507,7 @@
    "file": "translucent.png",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": true,
    "lossless": true,
    "tolerance": 1,
@@ -799,6 +1553,7 @@
    "file": "palette.png",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 1,
@@ -843,6 +1598,7 @@
    "file": "gray_alpha.png",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": true,
    "lossless": true,
    "tolerance": 1,
@@ -887,6 +1643,7 @@
    "file": "opaque.bmp",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 1,
@@ -931,6 +1688,7 @@
    "file": "lossless.webp",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 1,
@@ -975,6 +1733,7 @@
    "file": "opaque.tif",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 1,
@@ -1019,6 +1778,7 @@
    "file": "icc.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 8,
@@ -1102,6 +1862,7 @@
    "file": "icc.png",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 8,
@@ -1186,6 +1947,7 @@
    "file": "icc.webp",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 8,
@@ -1230,6 +1992,7 @@
    "file": "icc.tif",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 8,
@@ -1274,6 +2037,7 @@
    "file": "icc_translucent.png",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": true,
    "lossless": true,
    "tolerance": 8,
@@ -1319,6 +2083,7 @@
    "file": "adobe_exif.jpg",
    "width": 96,
    "height": 64,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 8,
@@ -1363,6 +2128,7 @@
    "file": "size_282x100.png",
    "width": 282,
    "height": 100,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 6,
@@ -1446,6 +2212,7 @@
    "file": "size_1000x333.jpg",
    "width": 1000,
    "height": 333,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -1529,6 +2296,7 @@
    "file": "size_2048x1536.png",
    "width": 2048,
    "height": 1536,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 6,
@@ -1612,6 +2380,7 @@
    "file": "size_300x200.jpg",
    "width": 300,
    "height": 200,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": false,
    "tolerance": 6,
@@ -1773,6 +2542,7 @@
    "file": "size_1000x1.png",
    "width": 1000,
    "height": 1,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 6,
@@ -1856,6 +2626,7 @@
    "file": "size_1x1000.png",
    "width": 1,
    "height": 1000,
+   "pattern": "quarters",
    "alpha": false,
    "lossless": true,
    "tolerance": 6,
@@ -1938,7 +2709,12 @@
   {
    "file": "truncated.jpg",
    "invalid": true,
-   "notes": "Cut inside the scan."
+   "notes": "Cut before the scan."
+  },
+  {
+   "file": "truncated_scan.jpg",
+   "invalid": true,
+   "notes": "gradient.jpg cut inside the scan, so its header is whole."
   },
   {
    "file": "truncated.png",

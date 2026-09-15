@@ -1,6 +1,7 @@
 // Bitmap arithmetic: padding, cropping, and the EXIF reader.
 #include "tests.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -194,6 +195,36 @@ TEST(a_bitmap_known_opaque_stays_known_through_resizing_and_cropping) {
     const Bitmap padded = photo.paddedTo(16, 16);
     CHECK(!padded.knownOpaque());
     CHECK(padded.hasTransparency());
+}
+
+TEST(shrinking_averages_what_each_new_pixel_covers) {
+    // A row of four halves to the mean of each pair.
+    Bitmap row(4, 1);
+    const uint8_t values[4] = {0, 100, 200, 255};
+    for (int x = 0; x < 4; ++x) {
+        std::fill(row.pixels() + x * 4, row.pixels() + x * 4 + 4, values[x]);
+    }
+    const Bitmap halved = row.scaled(2, 1);
+    CHECK_EQ((int)pixelAt(halved, 0, 0)[0], 50);
+    CHECK_EQ((int)pixelAt(halved, 1, 0)[0], 228);
+
+    // Three to two: each new pixel covers one and a half, so the middle one
+    // is shared by both at a third of their weight.
+    Bitmap three(3, 1);
+    const uint8_t thirds[3] = {0, 90, 180};
+    for (int x = 0; x < 3; ++x) {
+        std::fill(three.pixels() + x * 4, three.pixels() + x * 4 + 4, thirds[x]);
+    }
+    const Bitmap two = three.scaled(2, 1);
+    CHECK_EQ((int)pixelAt(two, 0, 0)[0], 30);
+    CHECK_EQ((int)pixelAt(two, 1, 0)[0], 150);
+
+    // A flat colour stays exactly that colour at any reduction.
+    const Bitmap flat = solid(997, 13, 201, 60, 50, 255).scaled(101, 5);
+    for (int x = 0; x < 101; ++x) {
+        CHECK_EQ((int)pixelAt(flat, x, 2)[0], 201);
+        CHECK_EQ((int)pixelAt(flat, x, 2)[1], 60);
+    }
 }
 
 TEST(next_power_of_two_is_what_the_padding_relies_on) {

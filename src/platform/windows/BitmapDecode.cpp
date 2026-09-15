@@ -33,32 +33,9 @@ Wic::Ptr<IWICBitmapSource> embeddedCovering(HRESULT fetched, Wic::Ptr<IWICBitmap
 // A four channel picture with no CMYK profile, converted without colour
 // management, the way every platform here converts one. WIC would otherwise run
 // it through a system CMYK profile, and the colours would depend on Windows.
-Bitmap fromCmyk(IWICBitmapSource *source, UINT width, UINT height, UINT targetWidth, UINT targetHeight) {
-    if ((unsigned long long)width * height * 4 > UINT_MAX) {
-        return Bitmap();
-    }
-    std::vector<BYTE> inks((size_t)width * height * 4);
-    const WICRect all = {0, 0, (INT)width, (INT)height};
-    if (FAILED(source->CopyPixels(&all, width * 4, (UINT)inks.size(), inks.data()))) {
-        return Bitmap();
-    }
-    Bitmap bitmap((int)width, (int)height, PixelOrder::BGRA);
-    if (!bitmap.valid()) {
-        return Bitmap();
-    }
-    for (size_t i = 0; i < (size_t)width * height; ++i) {
-        const unsigned c = inks[i * 4];
-        const unsigned m = inks[i * 4 + 1];
-        const unsigned y = inks[i * 4 + 2];
-        const unsigned k = inks[i * 4 + 3];
-        uint8_t *pixel = bitmap.pixels() + i * 4;
-        pixel[2] = (uint8_t)(((255u - c) * (255u - k) + 127u) / 255u);
-        pixel[1] = (uint8_t)(((255u - m) * (255u - k) + 127u) / 255u);
-        pixel[0] = (uint8_t)(((255u - y) * (255u - k) + 127u) / 255u);
-        pixel[3] = 255;
-    }
-    bitmap.markOpaque();
-    return bitmap.scaled((int)targetWidth, (int)targetHeight);
+Bitmap fromCmyk(IWICBitmapSource *source, UINT targetWidth, UINT targetHeight) {
+    const Bitmap bitmap = Wic::copyInks(source, nullptr);
+    return bitmap.valid() ? bitmap.scaled((int)targetWidth, (int)targetHeight) : Bitmap();
 }
 
 Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
@@ -102,20 +79,46 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
             source = embeddedCovering(fetched, std::move(preview), wanted, width, height);
         }
     }
-    if (!source && FAILED(frame->QueryInterface(IID_PPV_ARGS(source.put())))) {
-        return Bitmap();
+    bool fromFrame = false;
+    if (!source) {
+        if (FAILED(frame->QueryInterface(IID_PPV_ARGS(source.put())))) {
+            return Bitmap();
+        }
+        fromFrame = true;
     }
 
     UINT sourceWidth = 0;
     UINT sourceHeight = 0;
     source->GetSize(&sourceWidth, &sourceHeight);
-    WICPixelFormatGUID sourceFormat = {};
-    if (!profile && SUCCEEDED(source->GetPixelFormat(&sourceFormat)) && sourceFormat == GUID_WICPixelFormat32bppCMYK) {
-        return fromCmyk(source.get(), sourceWidth, sourceHeight, targetWidth, targetHeight);
-    }
     // A format with no alpha channel decodes fully opaque, which saves the
     // upload a pass over the pixels to find that out.
     const bool alpha = Wic::hasAlpha(source.get());
+    // A JPEG frame reduces inside its codec by a half, a quarter or an eighth,
+    // the smallest that still covers the size asked for, and is scaled the rest
+    // of the way here, as libjpeg's decode is on the other platforms.
+    if (reducing && fromFrame && !alpha) {
+        for (UINT sample = 8; sample >= 2; sample /= 2) {
+            if (longEdge((width + sample - 1) / sample, (height + sample - 1) / sample) < wanted) {
+                continue;
+            }
+            const Wic::Ptr<IWICBitmap> reduced = Wic::reducedByCodec(frame.get(), sample, nullptr);
+            if (!reduced) {
+                continue;
+            }
+            Bitmap bitmap = (!profile && Wic::isCmyk(reduced.get()))
+                                ? Wic::copyInks(reduced.get(), nullptr)
+                                : Wic::copy(Wic::inSrgb(reduced.get(), profile.get()).get(), nullptr);
+            if (!bitmap.valid()) {
+                break;
+            }
+            bitmap.markOpaque();
+            return bitmap.scaledCovering((int)targetWidth, (int)targetHeight, (double)width / sample,
+                                         (double)height / sample);
+        }
+    }
+    if (!profile && Wic::isCmyk(source.get())) {
+        return fromCmyk(source.get(), targetWidth, targetHeight);
+    }
     if (sourceWidth == targetWidth && sourceHeight == targetHeight) {
         Bitmap bitmap = Wic::copy(Wic::inSrgb(source.get(), profile.get()).get(), nullptr);
         if (!alpha) {
@@ -209,18 +212,10 @@ Bitmap Bitmap::load(const std::string &path, int maxEdge) {
 }
 
 Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
-    // WIC hands out what it could read of a PNG that ends early, with the rest
-    // left empty. libpng on the other platforms refuses such a file, and so
-    // does this: a PNG without its IEND chunk does not decode.
-    static const unsigned char kPngSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
-    const unsigned char *data = (const unsigned char *)bytes;
-    if (bytes != nullptr && size >= 8 && std::memcmp(data, kPngSignature, 8) == 0) {
-        const size_t tail = std::min<size_t>(size, 64);
-        const unsigned char *end = data + size;
-        static const char kEnd[4] = {'I', 'E', 'N', 'D'};
-        if (std::search(end - tail, end, kEnd, kEnd + 4) == end) {
-            return Bitmap();
-        }
+    // WIC hands out what it could read of a PNG or JPEG that ends early, with
+    // the rest left empty or grey.
+    if (endsEarly(bytes, size)) {
+        return Bitmap();
     }
     Wic::Ptr<IWICBitmapDecoder> decoder = Wic::decoderFor(bytes, size);
     return decoder ? decode(decoder.get(), maxEdge) : Bitmap();

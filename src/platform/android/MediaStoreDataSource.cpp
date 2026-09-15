@@ -187,15 +187,7 @@ void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int widt
         done(Bitmap());
         return;
     }
-    // Clamp to the image. The caller sizes the output for the trimmed region.
-    x = std::max(0, x);
-    y = std::max(0, y);
-    width = std::min(width, item->mFullWidth - x);
-    height = std::min(height, item->mFullHeight - y);
-    if (width <= 0 || height <= 0) {
-        done(Bitmap());
-        return;
-    }
+    // A rectangle outside the image is the decoder's to refuse.
     RegionDecoderPtr decoder = mDecoders.get(item->mContentUri);
     if (!decoder) {
         done(Bitmap());

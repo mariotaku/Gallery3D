@@ -10,6 +10,7 @@
 // After jpeglib.h, which it depends on.
 #include <jerror.h>
 
+#include "graphics/Cmyk.h"
 #include "graphics/ColorProfile.h"
 #include "platform/desktop/IccToSrgb.h"
 
@@ -58,6 +59,10 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     IccToSrgb toSrgb;
     int originalWidth = 0;
     int originalHeight = 0;
+    // How much of the reduced scan is picture, which falls short of its
+    // rounded-up size when the original is not a multiple of eight.
+    double coveredWidth = 0.0;
+    double coveredHeight = 0.0;
     // A four channel JPEG, and whether an Adobe marker says its values are
     // stored inverted, as Photoshop writes them.
     bool cmyk = false;
@@ -90,6 +95,8 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             }
             cinfo.scale_num = numerator;
             cinfo.scale_denom = 8;
+            coveredWidth = originalWidth * numerator / 8.0;
+            coveredHeight = originalHeight * numerator / 8.0;
             // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
             // straight into the bitmap. JPEG carries no alpha, so opaque
             // pixels are already premultiplied. A four channel JPEG comes out
@@ -125,24 +132,10 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     if (!decoded.valid()) {
         return Bitmap();
     }
-    if (cmyk) {
-        // Without colour management, the way every platform here converts a
-        // four channel JPEG that embeds no CMYK profile.
-        uint8_t *pixel = decoded.pixels();
-        const uint8_t *end = pixel + (size_t)decoded.width() * (size_t)decoded.height() * 4;
-        for (; pixel < end; pixel += 4) {
-            // How much of each ink there is, from 0 to 255.
-            const unsigned c = adobeInverted ? 255u - pixel[0] : pixel[0];
-            const unsigned m = adobeInverted ? 255u - pixel[1] : pixel[1];
-            const unsigned y = adobeInverted ? 255u - pixel[2] : pixel[2];
-            const unsigned k = adobeInverted ? 255u - pixel[3] : pixel[3];
-            pixel[0] = (uint8_t)(((255u - c) * (255u - k) + 127u) / 255u);
-            pixel[1] = (uint8_t)(((255u - m) * (255u - k) + 127u) / 255u);
-            pixel[2] = (uint8_t)(((255u - y) * (255u - k) + 127u) / 255u);
-            pixel[3] = 255;
-        }
-    }
     const size_t count = (size_t)decoded.width() * (size_t)decoded.height();
+    if (cmyk) {
+        Cmyk::toPixels(decoded.pixels(), decoded.pixels(), count, PixelOrder::RGBA, adobeInverted);
+    }
     if (toSrgb) {
         toSrgb.convert(decoded.pixels(), count);
     } else if (Bitmap::readExif(bytes, size).colorSpace == 2) {
@@ -150,5 +143,5 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
         ColorProfile::adobeRgbToSrgb(decoded.pixels(), count);
     }
     const Bitmap::Size fitted = Bitmap::fitWithin(originalWidth, originalHeight, maxEdge);
-    return decoded.scaled(fitted.width, fitted.height);
+    return decoded.scaledCovering(fitted.width, fitted.height, coveredWidth, coveredHeight);
 }
