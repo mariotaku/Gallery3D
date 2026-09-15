@@ -19,6 +19,8 @@ target_sources(gallery3d_core PRIVATE
     SubsampledDecode.h
     SystemThumbnail.h
     TextBackend.h
+    ThumbnailCache.cpp
+    ThumbnailCache.h
     Texture.cpp
     Texture.h
     TiledImage.cpp

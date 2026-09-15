@@ -109,8 +109,8 @@ TEST(a_missing_file_has_no_system_thumbnail) {
 
 #else
 
-TEST(no_system_thumbnail_off_windows) {
-    CHECK(!SystemThumbnail::load("photo.jpg", 256).valid());
+TEST(a_missing_file_has_no_system_thumbnail) {
+    CHECK(!SystemThumbnail::load("/nowhere/gallery3d_thumbnail_missing.jpg", 256).valid());
 }
 
 #endif

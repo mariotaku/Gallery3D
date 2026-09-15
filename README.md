@@ -88,8 +88,9 @@ A photo is decoded straight to the size it is wanted at, rather than being built
 at full size and scaled after. WIC does that on Windows, libjpeg-turbo on the
 other desktops and BitmapFactory on Android. On Windows a thumbnail stored in
 the file stands in when it is big enough, and a RAW photo decodes from the
-camera's embedded preview. Formats with no reducing decoder behind them take
-the whole-image path.
+camera's embedded preview. On Linux the wall takes the thumbnail a file manager
+already left in the freedesktop.org thumbnail cache, when one is big enough.
+Formats with no reducing decoder behind them take the whole-image path.
 
 Zoomed images load only the tiles on screen. A photo is cropped by WIC on
 Windows, by libjpeg-turbo on the other

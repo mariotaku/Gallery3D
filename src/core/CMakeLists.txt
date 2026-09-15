@@ -16,5 +16,7 @@ target_sources(gallery3d_core PRIVATE
     LocalTime.h
     MatrixStack.cpp
     MatrixStack.h
+    Md5.cpp
+    Md5.h
     Shared.h
     Vector3f.h)

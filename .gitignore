@@ -31,3 +31,12 @@ reference/
 # The iOS cross toolchain's source, for its documentation and SDK layout:
 #   git clone --depth 1 --branch 1.19.2 https://github.com/xtool-org/xtool reference-xtool
 reference-xtool/
+
+# GLib, for the escaping g_filename_to_uri applies, which the freedesktop
+# thumbnail cache hashes:
+#   git clone --depth 1 https://gitlab.gnome.org/GNOME/glib.git reference-glib
+reference-glib/
+
+# The freedesktop specifications, for the thumbnail cache's layout:
+#   git clone --depth 1 https://gitlab.freedesktop.org/xdg/xdg-specs.git reference-xdg-specs
+reference-xdg-specs/
