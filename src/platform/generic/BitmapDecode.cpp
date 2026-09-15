@@ -144,6 +144,11 @@ bool Bitmap::decodesExtension(const std::string &extension) {
 #endif
 }
 
+bool Bitmap::decodesLosslessWebp() {
+    // libwebp, through SDL_image or BitmapFactory, reads both kinds.
+    return true;
+}
+
 bool Bitmap::savePng(const std::string &path) const {
     if (!valid()) {
         return false;

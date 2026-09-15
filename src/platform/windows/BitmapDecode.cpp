@@ -204,6 +204,16 @@ bool Bitmap::decodesExtension(const std::string &extension) {
     return extensions.count(lower) != 0;
 }
 
+bool Bitmap::decodesLosslessWebp() {
+    // A 1x1 red lossless WebP. The codec is asked once, the same as the
+    // extension list.
+    static const uint8_t kLossless[] = {0x52, 0x49, 0x46, 0x46, 0x1C, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+                                        0x56, 0x50, 0x38, 0x4C, 0x0F, 0x00, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x00,
+                                        0x00, 0x07, 0x10, 0xFD, 0x8F, 0xFE, 0x07, 0x22, 0xA2, 0xFF, 0x01, 0x00};
+    static const bool reads = loadFromMemory(kLossless, sizeof(kLossless), 0).valid();
+    return reads;
+}
+
 bool Bitmap::savePng(const std::string &path) const {
     IWICImagingFactory *imaging = Wic::factory();
     if (imaging == nullptr || !valid()) {

@@ -31,14 +31,19 @@ namespace {
 
 // Whether this platform decodes the fixture's format at all. A format it has
 // no decoder for is noted rather than failed; which formats every platform must
-// decode is checked on its own.
+// decode is checked on its own. Lossless WebP is noted the same way where the
+// WebP codec reads lossy files only.
 bool decodable(const nlohmann::json &fixture) {
     const std::string file = fixture["file"];
-    if (Bitmap::decodesExtension(extensionOf(file))) {
-        return true;
+    if (!Bitmap::decodesExtension(extensionOf(file))) {
+        reportNote(file + ": no decoder for " + extensionOf(file) + " here");
+        return false;
     }
-    reportNote(file + ": no decoder for " + extensionOf(file) + " here");
-    return false;
+    if (extensionOf(file) == ".webp" && fixture.value("lossless", false) && !Bitmap::decodesLosslessWebp()) {
+        reportNote(file + ": the WebP codec here reads no lossless WebP");
+        return false;
+    }
+    return true;
 }
 
 // What every decode of the fixture has to be, whatever its size.

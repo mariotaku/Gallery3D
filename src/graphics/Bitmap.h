@@ -110,6 +110,11 @@ class Bitmap {
     // and in any case. On Windows that is whatever codecs are installed.
     static bool decodesExtension(const std::string &extension);
 
+    // Whether a WebP decode also reads lossless (VP8L) files. True wherever
+    // WebP decodes at all, except on Windows with an older WebP codec, such
+    // as Windows Server 2022's, which reads lossy files only.
+    static bool decodesLosslessWebp();
+
     // Writes the bitmap as a PNG, with its alpha made straight again.
     bool savePng(const std::string &path) const;
 
