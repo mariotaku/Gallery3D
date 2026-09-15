@@ -105,7 +105,7 @@ class GridDrawManager {
     bool mCurrentFocusIsPressed = false;
     // The slot under a mouse that is only passing over, or -1.
     int mHoverSlot = -1;
-    TexturePtr mNoItemsTexture;
+    std::shared_ptr<StringTexture> mNoItemsTexture;
     int mCurrentScaleSlot = -1;
     float mSpreadValue = 0.0f;
     ScaleGestureDetector *mScaleGestureDetector = nullptr;

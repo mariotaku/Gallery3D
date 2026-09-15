@@ -256,7 +256,8 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
 // StringTexture
 
 
-StringTexture::StringTexture(std::string text, const Config &config) : mText(std::move(text)), mConfig(config) {
+StringTexture::StringTexture(std::string text, const Config &config)
+    : mText(std::move(text)), mConfig(config), mBoxWidth(config.width), mBoxHeight(config.height) {
     mWidth = config.width;
     mHeight = config.height;
 }
@@ -288,8 +289,8 @@ Bitmap StringTexture::load(RenderView *view) {
     // Everything below works in device pixels: the logical box scaled by the
     // supersample factor.
     const int scale = std::max(1, mConfig.superSample);
-    const int boundsWidth = mWidth * scale;
-    const int boundsHeight = mHeight * scale;
+    const int boundsWidth = mBoxWidth * scale;
+    const int boundsHeight = mBoxHeight * scale;
 
     std::string text = mText;
     float fontSize = mConfig.fontSize * (float)scale;

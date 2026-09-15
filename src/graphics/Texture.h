@@ -278,6 +278,13 @@ class StringTexture : public Texture {
 
     float computeTextWidth() const;
 
+    // The box the text is laid out in, before supersampling. The next load
+    // uses it. mWidth and mHeight are what was last uploaded, which is the box
+    // times superSample, so a reload cannot start from them.
+    void setBoxWidth(int width) {
+        mBoxWidth = width;
+    }
+
     Bitmap load(RenderView *view) override;
 
     static int computeTextWidthForConfig(const std::string &text, const Config &config);
@@ -285,4 +292,6 @@ class StringTexture : public Texture {
   private:
     std::string mText;
     Config mConfig;
+    int mBoxWidth;
+    int mBoxHeight;
 };

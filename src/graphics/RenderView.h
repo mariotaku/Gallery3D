@@ -247,6 +247,9 @@ class RenderView {
     // Every uploaded texture, weakly held so this list never keeps one alive.
     std::vector<std::weak_ptr<Texture>> mLiveTextures;
     size_t mTextureBytes = 0;
+    size_t mLastReportedTextureBytes = 0;
+    uint64_t mLastTextureReportMs = 0;
+    int mUploadsSinceReport = 0;
     uint64_t mFrameCounter = 0;
     // 1 means the extension is missing, and then no mip chains are built.
     float mMaxAnisotropy = 1.0f;

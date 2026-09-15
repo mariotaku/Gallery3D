@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <typeinfo>
 #include <vector>
 
 #include "app/App.h"
@@ -657,6 +658,13 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         return;
     }
 
+    // A texture asked to redraw while its last load was still out comes back
+    // twice. The first upload's name would otherwise be lost with its memory.
+    const bool tracked = texture->mId != 0;
+    if (tracked) {
+        glDeleteTextures(1, &texture->mId);
+        texture->mId = 0;
+    }
     GLuint textureId = 0;
     glGenTextures(1, &textureId);
     glBindTexture(GL_TEXTURE_2D, textureId);
@@ -705,7 +713,8 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         if (error == GL_OUT_OF_MEMORY) {
             handleLowMemory();
         }
-        SDL_Log("Texture creation failed, glError 0x%04x", error);
+        SDL_Log("Texture creation failed, glError 0x%04x, %dx%d in %dx%d, %zu MB of textures", error, width, height,
+                paddedWidth, paddedHeight, mTextureBytes / (1024u * 1024u));
         glDeleteTextures(1, &textureId);
         texture->mId = 0;
         texture->mState = Texture::STATE_UNLOADED;
@@ -721,7 +730,10 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
         }
         texture->mLastUsedMs = SDL_GetTicks();
         mTextureBytes += texture->mBytes;
-        mLiveTextures.push_back(texture);
+        ++mUploadsSinceReport;
+        if (!tracked) {
+            mLiveTextures.push_back(texture);
+        }
         requestRender();
     }
 }
@@ -765,6 +777,7 @@ void RenderView::enforceTextureBudget() {
     std::vector<TexturePtr> alive;
     alive.reserve(mLiveTextures.size());
     size_t total = 0;
+    const Texture *largest = nullptr;
     for (size_t i = 0; i < mLiveTextures.size();) {
         TexturePtr texture = mLiveTextures[i].lock();
         if (!texture || texture->mId == 0 || texture->mState != Texture::STATE_LOADED) {
@@ -773,13 +786,35 @@ void RenderView::enforceTextureBudget() {
             continue;
         }
         total += texture->mBytes;
+        if (largest == nullptr || texture->mBytes > largest->mBytes) {
+            largest = texture.get();
+        }
         alive.push_back(std::move(texture));
         ++i;
     }
     mTextureBytes = total;
+
+    // What the budget sees, once a second at most and only when it has moved,
+    // to hold against what the driver reports.
+    const size_t kReportStepBytes = 32u * 1024u * 1024u;
+    const size_t moved = total > mLastReportedTextureBytes ? total - mLastReportedTextureBytes
+                                                           : mLastReportedTextureBytes - total;
+    if (moved >= kReportStepBytes && nowMs >= mLastTextureReportMs + 1000) {
+        SDL_Log("Textures: %zu live, %zu MB, %d uploads since the last report, the largest %dx%d (%s)", alive.size(),
+                total / (1024u * 1024u), mUploadsSinceReport, largest ? largest->mWidth : 0,
+                largest ? largest->mHeight : 0, largest ? typeid(*largest).name() : "none");
+        mLastReportedTextureBytes = total;
+        mLastTextureReportMs = nowMs;
+        mUploadsSinceReport = 0;
+    }
     if (total <= kBudgetBytes) {
         return;
     }
+    // Far past the budget, a texture not drawn for a quarter of a second goes
+    // too. The labels and thumbnails of every stack in reach are all recent,
+    // and on a dense screen they alone ran to gigabytes.
+    const uint64_t kFarOverKeepMs = 250;
+    const uint64_t keepMs = total > kBudgetBytes * 2 ? kFarOverKeepMs : kKeepMs;
 
     // Oldest first, and stop once there is comfortable headroom so this does
     // not run again on the very next frame.
@@ -791,7 +826,7 @@ void RenderView::enforceTextureBudget() {
         if (mTextureBytes <= targetBytes) {
             break;
         }
-        if (texture->mLastUsedMs + kKeepMs > nowMs) {
+        if (texture->mLastUsedMs + keepMs > nowMs) {
             // Everything from here on is hotter still.
             break;
         }

@@ -839,7 +839,7 @@ void GridDrawManager::drawBlendedComponents(RenderView *view, float alpha, int s
             int wWidth = view->getWidth();
             int wHeight = view->getHeight();
             // Size this to be 40 pixels narrower than the window.
-            mNoItemsTexture->mWidth = wWidth - 40;
+            mNoItemsTexture->setBoxWidth(wWidth - 40);
             view->loadTexture(mNoItemsTexture);
             float x = std::floor((float)(wWidth / 2) - (float)mNoItemsTexture->getWidth() / 2.0f);
             float y = std::floor((float)(wHeight / 2) - (float)mNoItemsTexture->getHeight() / 2.0f);

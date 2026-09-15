@@ -1,7 +1,7 @@
 // TextBackend, through Canvas, on every platform: sizes that agree with the
 // pixels, glyphs in straight white, and the answers for nothing to draw. The
 // fonts differ between platforms, so no width or height is compared across
-// them.
+// them. A string texture keeps its box however many times it reloads.
 #include "tests.h"
 
 #include <atomic>
@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "graphics/Canvas.h"
+#include "graphics/Texture.h"
 
 TEST(a_rendered_string_is_the_size_it_measures) {
     for (bool bold : {false, true}) {
@@ -108,6 +109,31 @@ TEST(fitting_a_string_never_cuts_a_character_in_half) {
         }
     }
     CHECK_EQ(Canvas::lengthToFit(text, 20.0f, false, full), text.size());
+}
+
+TEST(a_supersampled_string_texture_reloads_at_the_same_size) {
+    StringTexture::Config config;
+    config.fontSize = 20.0f;
+    config.width = 256;
+    config.height = 64;
+    config.sizeMode = StringTexture::Config::SIZE_EXACT;
+    config.superSample = 2;
+    StringTexture texture("Gallery 3D", config);
+    // RenderView sets a texture's size from the bitmap it uploads, and an
+    // evicted texture keeps that size for the meshes, so each reload after the
+    // first finds the supersampled size there.
+    for (int load = 0; load < 3; ++load) {
+        const Bitmap bitmap = texture.load(nullptr);
+        CHECK(bitmap.valid());
+        if (!bitmap.valid()) {
+            return;
+        }
+        CHECK_DETAIL(bitmap.width() == 512 && bitmap.height() == 128,
+                     "load " + std::to_string(load) + " drew " + std::to_string(bitmap.width()) + "x" +
+                         std::to_string(bitmap.height()));
+        texture.mWidth = bitmap.width();
+        texture.mHeight = bitmap.height();
+    }
 }
 
 TEST(text_draws_from_eight_threads_at_once) {
