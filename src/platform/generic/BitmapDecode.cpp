@@ -73,6 +73,24 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     if (bytes == nullptr || size == 0) {
         return Bitmap();
     }
+    // The thumbnail a camera stores beside the photo, when a reduced decode
+    // asks for no more than it holds and it has the photo's shape. WIC answers
+    // from it the same way on Windows.
+    if (maxEdge > 0) {
+        const ExifInfo exif = readExif(bytes, size);
+        if (exif.thumbnailLength > 0 && exif.pixelWidth > 0 && exif.pixelHeight > 0) {
+            const Size target = fitWithin(exif.pixelWidth, exif.pixelHeight, maxEdge);
+            if (target.width < exif.pixelWidth || target.height < exif.pixelHeight) {
+                Bitmap thumbnail =
+                    loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, 0);
+                if (thumbnail.valid() &&
+                    std::max(thumbnail.width(), thumbnail.height()) >= std::max(target.width, target.height) &&
+                    sameShape(thumbnail.width(), thumbnail.height(), exif.pixelWidth, exif.pixelHeight)) {
+                    return thumbnail.scaled(target.width, target.height);
+                }
+            }
+        }
+    }
     // The platform's own decoder first, where it has one. It reduces inside the
     // codec where that is close to free, rather than building the full size
     // image only to throw most of it away, and on the desktop it converts a

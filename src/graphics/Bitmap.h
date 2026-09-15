@@ -147,11 +147,24 @@ class Bitmap {
         // not fit the first pass.
         int pixelWidth = 0;
         int pixelHeight = 0;
+        // The EXIF orientation value, 1 to 8, mirrored ones included.
+        int orientation = 1;
+        // Where the thumbnail a camera stores beside the photo sits in the
+        // encoded bytes, and how long it is. Both stay at zero when there is
+        // none.
+        size_t thumbnailOffset = 0;
+        size_t thumbnailLength = 0;
     };
 
     // Reads the orientation, capture date, position and pixel size of a JPEG in
     // one pass over its header.
     static ExifInfo readExif(const std::string &path);
+    static ExifInfo readExif(const void *bytes, size_t size);
+
+    // Whether a picture has the shape of another, to within 2% of the other's
+    // aspect ratio. A thumbnail stored beside a photo in its shape passes; one
+    // cropped to a square does not.
+    static bool sameShape(int width, int height, int otherWidth, int otherHeight);
 
     // The EXIF orientation value as a clockwise turn. Only the three plain
     // rotations; mirrored ones and anything unknown count as upright.

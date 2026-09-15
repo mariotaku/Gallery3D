@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -263,17 +264,34 @@ float Bitmap::degreesForOrientation(unsigned orientation) {
 }
 
 Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
-    // Read JPEG APP1 orientation (IFD0 0x0112), date (Exif IFD via 0x8769, tag 0x9003),
-    // and GPS (IFD via 0x8825). Bounds-check all reads; malformed data keeps defaults.
-    ExifInfo info;
     std::FILE *file = std::fopen(path.c_str(), "rb");
     if (!file) {
-        return info;
+        return ExifInfo();
     }
+    // An APP1 segment is at most 64KB, and the markers before it are short.
     std::vector<uint8_t> header(65536);
-    size_t read = std::fread(header.data(), 1, header.size(), file);
+    const size_t read = std::fread(header.data(), 1, header.size(), file);
     std::fclose(file);
-    if (read < 12 || header[0] != 0xFF || header[1] != 0xD8) {
+    return readExif(header.data(), read);
+}
+
+bool Bitmap::sameShape(int width, int height, int otherWidth, int otherHeight) {
+    if (width <= 0 || height <= 0 || otherWidth <= 0 || otherHeight <= 0) {
+        return false;
+    }
+    const double shape = (double)width / (double)height;
+    const double otherShape = (double)otherWidth / (double)otherHeight;
+    return std::fabs(shape - otherShape) <= 0.02 * otherShape;
+}
+
+Bitmap::ExifInfo Bitmap::readExif(const void *bytes, size_t size) {
+    // Read JPEG APP1 orientation (IFD0 0x0112), date (Exif IFD via 0x8769, tag 0x9003),
+    // GPS (IFD via 0x8825) and the IFD1 thumbnail (0x0201, 0x0202). Bounds-check
+    // all reads; malformed data keeps defaults.
+    ExifInfo info;
+    const uint8_t *header = (const uint8_t *)bytes;
+    const size_t read = size;
+    if (bytes == nullptr || read < 12 || header[0] != 0xFF || header[1] != 0xD8) {
         return info;
     }
 
@@ -367,6 +385,7 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                 }
                 unsigned tag = read16(entry);
                 if (tag == 0x0112) {
+                    info.orientation = (int)read16(entry + 8);
                     info.rotationDegrees = degreesForOrientation(read16(entry + 8));
                 } else if (tag == 0x0132) {
                     // DateTime is when the file was last written, so it is only
@@ -377,6 +396,29 @@ Bitmap::ExifInfo Bitmap::readExif(const std::string &path) {
                 } else if (tag == 0x8825) {
                     gpsIfdOffset = read32(entry + 8);
                 }
+            }
+
+            // IFD1 follows IFD0's entries and holds the thumbnail a camera
+            // stores beside the photo: a JPEG at an offset from the TIFF header.
+            const unsigned ifd1Offset = read32((size_t)ifdOffset + 2 + (size_t)entryCount * 12);
+            const unsigned ifd1Count = ifd1Offset ? read16(ifd1Offset) : 0;
+            unsigned thumbnailAt = 0;
+            unsigned thumbnailSize = 0;
+            for (unsigned i = 0; i < ifd1Count; ++i) {
+                size_t entry = (size_t)ifd1Offset + 2 + (size_t)i * 12;
+                if (entry + 12 > tiffLength) {
+                    break;
+                }
+                const unsigned tag = read16(entry);
+                if (tag == 0x0201) {
+                    thumbnailAt = read32(entry + 8);
+                } else if (tag == 0x0202) {
+                    thumbnailSize = read32(entry + 8);
+                }
+            }
+            if (thumbnailSize > 0 && thumbnailAt <= tiffLength && thumbnailSize <= tiffLength - thumbnailAt) {
+                info.thumbnailOffset = (pos + 10) + thumbnailAt;
+                info.thumbnailLength = thumbnailSize;
             }
 
             entryCount = exifIfdOffset ? read16(exifIfdOffset) : 0;
