@@ -103,10 +103,14 @@ void BackgroundLayer::renderBlended(RenderView *view) {
     int leftEdge = anchorEdge - backgroundSpacing;
 
     // Right to left, because each tile fades out on its right edge and so has
-    // to be drawn over the one it overlaps.
+    // to be drawn over the one it overlaps. Dithered: the backdrop is a small,
+    // smooth texture stretched to the screen's height, whose 8-bit steps would
+    // otherwise show as wide bands.
+    view->setDither(true);
     view->draw2D((float)rightEdge, 0.0f, Z_FAR_PLANE, (float)mBackgroundBlitWidth, mHeight);
     view->draw2D((float)anchorEdge, 0.0f, Z_FAR_PLANE, (float)mBackgroundBlitWidth, mHeight);
     view->draw2D((float)leftEdge, 0.0f, Z_FAR_PLANE, (float)mBackgroundBlitWidth, mHeight);
+    view->setDither(false);
 
     if (bind) {
         mBackground->unbind(view);

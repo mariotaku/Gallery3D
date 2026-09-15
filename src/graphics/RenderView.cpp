@@ -64,12 +64,26 @@ void main() {
 }
 )";
 
+// Shared by both fragment shaders. Interleaved gradient noise: a fixed pattern
+// over the screen whose values spread evenly, so a colour between two 8-bit
+// steps comes out as a fine mix of both instead of a band. uDither is 1 for a
+// backdrop stretched far past its texels, and 0 for everything else.
+const char *const kFragmentDither = R"(
+uniform float uDither;
+vec3 dither(vec3 color) {
+    HIGHP vec2 pixel = gl_FragCoord.xy;
+    HIGHP float noise = fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
+    return color + (noise - 0.5) * (uDither / 255.0);
+}
+)";
+
 const char *const kFragmentSingle = R"(
 uniform sampler2D uTex0;
 uniform vec4 uColor;
 varying vec2 vTexCoord0;
 void main() {
-    gl_FragColor = texture2D(uTex0, vTexCoord0) * uColor;
+    vec4 color = texture2D(uTex0, vTexCoord0) * uColor;
+    gl_FragColor = vec4(dither(color.rgb), color.a);
 }
 )";
 
@@ -100,15 +114,21 @@ varying vec2 vTexCoord1;
 void main() {
     vec4 previous = texture2D(uTex0, vTexCoord0) * uColor;
     vec4 current = texture2D(uTex1, vTexCoord1);
-    gl_FragColor = mix(previous, current, uRatio);
+    vec4 color = mix(previous, current, uRatio);
+    gl_FragColor = vec4(dither(color.rgb), color.a);
 }
 )";
 
 std::string shaderPrelude(bool fragment) {
     if (GLES2_IsRealES()) {
-        return fragment ? "#version 100\nprecision mediump float;\n" : "#version 100\n";
+        // HIGHP for the dither's screen coordinates, which lose their fraction
+        // at mediump on a tall screen. Not every ES fragment shader has it.
+        return fragment ? "#version 100\nprecision mediump float;\n"
+                          "#ifdef GL_FRAGMENT_PRECISION_HIGH\n#define HIGHP highp\n#else\n#define HIGHP mediump\n#endif\n"
+                        : "#version 100\n";
     }
-    return "#version 120\n";
+    // GLSL 1.20 has no precision qualifiers, and its floats are full width.
+    return fragment ? "#version 120\n#define HIGHP\n" : "#version 120\n";
 }
 
 }  // namespace
@@ -147,7 +167,7 @@ RenderView::Program RenderView::buildProgram(const char *vertexSource, const cha
     };
 
     GLuint vertex = compile(GL_VERTEX_SHADER, shaderPrelude(false) + vertexSource);
-    GLuint fragment = compile(GL_FRAGMENT_SHADER, shaderPrelude(true) + fragmentSource);
+    GLuint fragment = compile(GL_FRAGMENT_SHADER, shaderPrelude(true) + kFragmentDither + fragmentSource);
     if (vertex == 0 || fragment == 0) {
         return program;
     }
@@ -175,6 +195,7 @@ RenderView::Program RenderView::buildProgram(const char *vertexSource, const cha
         program.uTex0 = glGetUniformLocation(program.id, "uTex0");
         program.uTex1 = glGetUniformLocation(program.id, "uTex1");
         program.uRatio = glGetUniformLocation(program.id, "uRatio");
+        program.uDither = glGetUniformLocation(program.id, "uDither");
     }
     glDeleteShader(vertex);
     glDeleteShader(fragment);
@@ -211,6 +232,7 @@ void RenderView::applyUniforms() {
     mvp.multiply(mModelView.top());
     glUniformMatrix4fv(program.uMVP, 1, GL_FALSE, mvp.m);
     glUniform4f(program.uColor, mColor[0], mColor[1], mColor[2], mColor[3]);
+    glUniform1f(program.uDither, mDither ? 1.0f : 0.0f);
     if (mMixing) {
         glUniform1f(program.uRatio, mMixRatio);
     }

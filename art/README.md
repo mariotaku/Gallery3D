@@ -1,8 +1,10 @@
 # Art
 
 Every PNG under `assets/drawable`, `assets/drawable-mdpi` and
-`assets/drawable-hdpi` is rendered from an SVG here. Edit the SVG, never the
-PNG, then render:
+`assets/drawable-hdpi` is rendered from an SVG here, apart from
+`drawable/default_background.png`. That one is the original Gallery3D's
+pixels: the wall stretches it to the screen's height, and its SVG rendering
+showed contour bands there. Edit the SVG, never the PNG, then render:
 
 ```sh
 pip install resvg_py pillow

@@ -121,6 +121,12 @@ class RenderView {
     }
     void setColor(float red, float green, float blue, float alpha);
     void resetColor();
+    // Adds a per-pixel dither to what is drawn until it is turned off. For a
+    // smooth gradient stretched far past its texels, where 8-bit steps would
+    // show as bands.
+    void setDither(bool dither) {
+        mDither = dither;
+    }
 
     // ---- matrix stack, standing in for the fixed function one ------------
     void glLoadIdentity();
@@ -158,6 +164,7 @@ class RenderView {
         GLint uTex0 = -1;
         GLint uTex1 = -1;
         GLint uRatio = -1;
+        GLint uDither = -1;
     };
 
     bool buildPrograms();
@@ -210,6 +217,7 @@ class RenderView {
 
     float mColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     float mAlpha = 1.0f;
+    bool mDither = false;
 
     GLuint mVertexVBO = 0;
     GLuint mTexCoordVBO[2] = {0, 0};
