@@ -153,6 +153,10 @@ jobs:
             "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
       - name: Fetch SDL archives
         run: sh android/fetch-deps.sh
+      - name: Free disk space for the emulator
+        # The runner starts with about 7 GB free, and the emulator refuses to
+        # create its data partition in less than that. None of these are used.
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/share/boost
       - name: Let the emulator use KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -168,6 +172,8 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          cores: 4
+          disk-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           working-directory: android
