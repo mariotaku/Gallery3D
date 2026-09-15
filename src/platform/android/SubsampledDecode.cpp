@@ -59,6 +59,7 @@ void SubsampledDecode::init() {
     }
     if (threw(env, "init") || gDecode == nullptr || gRecycle == nullptr || gHasAlpha == nullptr) {
         SDL_Log("%s is not the shape expected", kBridgeClass);
+        env->DeleteGlobalRef(gBridge);
         gBridge = nullptr;
     }
 }

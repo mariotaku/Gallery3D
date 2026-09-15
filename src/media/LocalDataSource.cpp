@@ -37,13 +37,14 @@ std::string extensionOf(const std::string &path) {
 }
 
 // A stable id per path, so a set keeps its identity across rescans.
+// FNV-1a in unsigned arithmetic, which wraps, where a signed overflow is undefined.
 int64_t hashPath(const std::string &path) {
-    int64_t hash = 1469598103934665603LL;
+    uint64_t hash = 1469598103934665603ULL;
     for (unsigned char c : path) {
-        hash ^= (int64_t)c;
-        hash *= 1099511628211LL;
+        hash ^= c;
+        hash *= 1099511628211ULL;
     }
-    return hash & 0x7FFFFFFFFFFFFFFFLL;
+    return (int64_t)(hash & 0x7FFFFFFFFFFFFFFFULL);
 }
 
 }  // namespace

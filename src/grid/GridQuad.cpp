@@ -10,7 +10,7 @@ static const float kPi = 3.14159265358979323846f;
 
 GridQuad::GridQuad(bool generateOrientedQuads) : mOrientedQuad(generateOrientedQuads) {
     if (mOrientedQuad) {
-        mMatrix = new MatrixStack();
+        mMatrix = std::make_unique<MatrixStack>();
         mMatrix->glLoadIdentity();
     }
     int vertsAcross = 2;
@@ -170,7 +170,7 @@ void GridQuad::set(int i, int j, float x, float y, float z, float u, float v, bo
     mVertexBuffer[(size_t)posIndex + 2] = z;
 
     int baseTexIndex = index * 2;
-    MatrixStack *matrix = mMatrix;
+    MatrixStack *matrix = mMatrix.get();
     if (matrix != nullptr) {
         // Rotates the texture coordinates about the quad centre and shrinks
         // them just enough that a rotated thumbnail still fills the frame.

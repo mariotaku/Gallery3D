@@ -248,7 +248,11 @@ bool RenderView::init(SDL_Window *window) {
 
     mLoadThreadsRunning.store(true);
     for (int i = 0; i < NUM_TEXTURE_LOAD_THREADS; ++i) {
-        mLoadThreads.emplace_back([this, i]() { textureLoadThread(i); });
+        mLoadThreads.emplace_back([this, i]() {
+            textureLoadThread(i);
+            // SDL frees its per-thread state only for threads it started itself.
+            SDL_CleanupTLS();
+        });
     }
     return true;
 }

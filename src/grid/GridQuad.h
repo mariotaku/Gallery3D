@@ -2,6 +2,7 @@
 // Oriented quads precompute texture coordinates for 360 whole-degree rotations.
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "core/MatrixStack.h"
@@ -92,7 +93,7 @@ class GridQuad {
     bool mQuadChanged = false;
     float mDefaultAspectRatio = 1.0f;
     const bool mOrientedQuad;
-    MatrixStack *mMatrix = nullptr;
+    std::unique_ptr<MatrixStack> mMatrix;
     float mCoordsIn[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     float mCoordsOut[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 };

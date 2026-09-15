@@ -124,7 +124,11 @@ void MediaFeed::start() {
     if (mLoaderThread.joinable()) {
         return;
     }
-    mLoaderThread = std::thread([this]() { loaderThread(); });
+    mLoaderThread = std::thread([this]() {
+        loaderThread();
+        // SDL frees its per-thread state only for threads it started itself.
+        SDL_CleanupTLS();
+    });
 }
 
 void MediaFeed::shutdown() {

@@ -227,6 +227,7 @@ void RegionDecoder::initAndroid() {
     if (threw(env, "initAndroid") || gOpen == nullptr || gMimeType == nullptr || gReadBytes == nullptr ||
         gDecodeRegion == nullptr || gHasAlpha == nullptr) {
         SDL_Log("The region decoder bridge is not the shape expected");
+        env->DeleteGlobalRef(gBridge);
         gBridge = nullptr;
     }
 }
