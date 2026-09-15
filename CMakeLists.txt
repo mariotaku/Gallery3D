@@ -139,6 +139,10 @@ if(WIN32)
     target_compile_definitions(gallery3d_core PUBLIC _WIN32_WINNT=0x0601 WINVER=0x0601)
 endif()
 
+# On Android, builds the app's main library from the tests instead of the app.
+# The Gradle conformance build type turns it on.
+option(GALLERY3D_TESTS "Build the Android app's main library from the tests" OFF)
+
 if(ANDROID)
     # Android has no process to start. SDLActivity loads this and calls the
     # main() inside it, and it looks for the library by the name below.
@@ -174,9 +178,12 @@ else()
             "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:gallery3d>/assets")
 endif()
 
-# Desktop only. The tests are a console binary that runs to completion, which
-# is not a phone's shape.
-if(NOT ANDROID AND NOT IOS)
+# On the desktop the tests are a console binary that runs to completion. On
+# Android the conformance build type puts them in the app's main library instead, and
+# scripts/android-tests.sh runs them on a device.
+if(ANDROID AND GALLERY3D_TESTS)
+    add_subdirectory(tests)
+elseif(NOT ANDROID AND NOT IOS)
     enable_testing()
     add_subdirectory(tests)
 endif()

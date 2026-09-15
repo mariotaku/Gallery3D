@@ -1,0 +1,165 @@
+// The Android host for the tests: the app's main library in the conformance
+// build type. SDLActivity calls main() here instead of the wall's.
+//
+// It copies the fixtures out of the apk into internal storage, because several
+// tests open fixtures by path, runs the tests named by the intent's "filter"
+// extra, and writes every line of the report to logcat and to
+// files/test-results.txt. files/test-done, holding the number of failed checks,
+// tells scripts/android-tests.sh the run is over.
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+
+#include <android/log.h>
+#include <jni.h>
+
+#include <cstdio>
+#include <string>
+
+#include "core/Backtrace.h"
+#include "graphics/DrawableLoad.h"
+#include "graphics/RegionDecoder.h"
+#include "graphics/SubsampledDecode.h"
+#include "platform/android/AndroidBridge.h"
+#include "test_runner.h"
+
+namespace {
+
+const char *const kLogTag = "Gallery3DTests";
+
+// The folders a path's file sits in, made where they are missing.
+void makeParents(const std::string &path) {
+    const size_t slash = path.find_last_of('/');
+    if (slash != std::string::npos) {
+        SDL_CreateDirectory(path.substr(0, slash).c_str());
+    }
+}
+
+// Copies every file fixtures/index.txt names out of the apk's assets into
+// folder. False when the index cannot be read or a file cannot be written.
+bool copyFixtures(const std::string &folder) {
+    size_t size = 0;
+    char *index = (char *)SDL_LoadFile("fixtures/index.txt", &size);
+    if (index == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, kLogTag, "No fixtures/index.txt in the apk");
+        return false;
+    }
+    const std::string names(index, size);
+    SDL_free(index);
+
+    bool copied = true;
+    size_t start = 0;
+    while (start < names.size()) {
+        size_t end = names.find('\n', start);
+        if (end == std::string::npos) {
+            end = names.size();
+        }
+        const std::string name = names.substr(start, end - start);
+        start = end + 1;
+        if (name.empty()) {
+            continue;
+        }
+        size_t length = 0;
+        void *bytes = SDL_LoadFile(("fixtures/" + name).c_str(), &length);
+        const std::string target = folder + "/" + name;
+        makeParents(target);
+        if (bytes == nullptr || !SDL_SaveFile(target.c_str(), bytes, length)) {
+            __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Could not copy fixture %s", name.c_str());
+            copied = false;
+        }
+        SDL_free(bytes);
+    }
+    return copied;
+}
+
+// The launch intent's "filter" extra, or empty.
+std::string filterExtra() {
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    jobject activity = (jobject)SDL_GetAndroidActivity();
+    std::string filter;
+    if (env == nullptr || activity == nullptr) {
+        return filter;
+    }
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getIntent = env->GetMethodID(activityClass, "getIntent", "()Landroid/content/Intent;");
+    jobject intent = getIntent != nullptr ? env->CallObjectMethod(activity, getIntent) : nullptr;
+    if (intent != nullptr) {
+        jclass intentClass = env->GetObjectClass(intent);
+        jmethodID getStringExtra =
+            env->GetMethodID(intentClass, "getStringExtra", "(Ljava/lang/String;)Ljava/lang/String;");
+        jstring key = env->NewStringUTF("filter");
+        jstring value = getStringExtra != nullptr ? (jstring)env->CallObjectMethod(intent, getStringExtra, key) : nullptr;
+        if (value != nullptr) {
+            const char *chars = env->GetStringUTFChars(value, nullptr);
+            if (chars != nullptr) {
+                filter = chars;
+                env->ReleaseStringUTFChars(value, chars);
+            }
+            env->DeleteLocalRef(value);
+        }
+        env->DeleteLocalRef(key);
+        env->DeleteLocalRef(intentClass);
+        env->DeleteLocalRef(intent);
+    }
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+    }
+    env->DeleteLocalRef(activityClass);
+    env->DeleteLocalRef(activity);
+    // am start passes the quotes the shell kept around an empty filter.
+    if (filter == "''") {
+        filter.clear();
+    }
+    return filter;
+}
+
+}  // namespace
+
+int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+    Backtrace::install();
+
+    // As the wall does, on the one thread that can look an app class up by
+    // name. The tests reach the platform through these.
+    AndroidBridge::init();
+    RegionDecoder::initAndroid();
+    SubsampledDecode::init();
+    DrawableLoad::init();
+
+    const char *internal = SDL_GetAndroidInternalStoragePath();
+    const std::string files = internal != nullptr ? internal : ".";
+    const std::string resultsPath = files + "/test-results.txt";
+    const std::string donePath = files + "/test-done";
+    std::remove(resultsPath.c_str());
+    std::remove(donePath.c_str());
+    std::FILE *results = std::fopen(resultsPath.c_str(), "w");
+
+    const std::string fixtures = files + "/fixtures";
+    const bool copied = copyFixtures(fixtures);
+
+    TestRunner::Options options;
+    options.filter = filterExtra();
+    // The apk's assets folder, which App::assetPath joins names onto.
+    options.assetRoot = "";
+    options.fixtureRoot = files;
+    options.print = [results](const std::string &line) {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag, "%s", line.c_str());
+        if (results != nullptr) {
+            std::fprintf(results, "%s\n", line.c_str());
+            std::fflush(results);
+        }
+    };
+    if (!copied) {
+        options.print("Some fixtures could not be copied out of the apk");
+    }
+    const int failures = TestRunner::run(options);
+
+    if (results != nullptr) {
+        std::fclose(results);
+    }
+    if (std::FILE *done = std::fopen(donePath.c_str(), "w")) {
+        std::fprintf(done, "%d\n", failures);
+        std::fclose(done);
+    }
+    return failures == 0 ? 0 : 1;
+}

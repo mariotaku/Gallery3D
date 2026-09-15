@@ -1,6 +1,12 @@
 # Only the parts that hold still: decoding, geometry and layout arithmetic.
 # Anything needing a GL context stays with the screenshot checks instead.
-add_executable(gallery3d_tests
+set(GALLERY3D_TEST_SOURCES
+    decode_fixtures.cpp
+    decode_fixtures.h
+    fake_media_store.cpp
+    fake_media_store.h
+    freedesktop_cache.cpp
+    freedesktop_cache.h
     test_albumtitle.cpp
     test_assets.cpp
     test_backdrop.cpp
@@ -9,12 +15,6 @@ add_executable(gallery3d_tests
     test_bytecache.cpp
     test_caption.cpp
     test_colorprofile.cpp
-    decode_fixtures.cpp
-    decode_fixtures.h
-    fake_media_store.cpp
-    fake_media_store.h
-    freedesktop_cache.cpp
-    freedesktop_cache.h
     test_datasource.cpp
     test_decode.cpp
     test_decode_region.cpp
@@ -27,7 +27,6 @@ add_executable(gallery3d_tests
     test_json.cpp
     test_label.cpp
     test_longpress.cpp
-    test_main.cpp
     test_media_store.cpp
     test_ordering.cpp
     test_overscroll.cpp
@@ -50,6 +49,24 @@ add_executable(gallery3d_tests
     test_windowframe.cpp
     test_zoompan.cpp
     tests.h)
+
+if(ANDROID)
+    # The Android app's conformance build type. Its main library is the runner and an
+    # Android host in place of the app's main.cpp, and the fixtures ride in the
+    # apk's assets. scripts/android-tests.sh runs it.
+    # These two write their JPEGs with libjpeg or WIC, and Android links
+    # neither. The fixture tests check the same decoders there.
+    list(REMOVE_ITEM GALLERY3D_TEST_SOURCES test_colorprofile.cpp test_regiondecoder.cpp)
+    target_sources(gallery3d PRIVATE ${GALLERY3D_TEST_SOURCES} android_host.cpp)
+    # The apk's assets folder is the asset root, which SDL reads by relative
+    # path. The fixture root is only known once the host has copied them out.
+    target_compile_definitions(gallery3d PRIVATE
+        GALLERY3D_ASSET_ROOT="."
+        GALLERY3D_FIXTURE_ROOT="fixtures")
+    return()
+endif()
+
+add_executable(gallery3d_tests ${GALLERY3D_TEST_SOURCES} test_main.cpp)
 
 target_link_libraries(gallery3d_tests PRIVATE gallery3d_core)
 target_compile_definitions(gallery3d_tests PRIVATE

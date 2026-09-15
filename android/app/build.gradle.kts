@@ -57,6 +57,40 @@ abstract class PlainAssets : DefaultTask() {
     }
 }
 
+// The test fixtures for the conformance build type, under fixtures/ in the apk's
+// assets, with fixtures/index.txt naming every file. The test host copies them
+// to internal storage, because several tests open fixtures by path.
+abstract class TestFixtures : DefaultTask() {
+    @get:InputDirectory
+    abstract val fixtures: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val files: FileSystemOperations
+
+    @TaskAction
+    fun copy() {
+        val target = outputDir.get().dir("fixtures").asFile
+        files.sync {
+            into(target)
+            from(fixtures)
+        }
+        val names = target.walkTopDown()
+            .filter { it.isFile }
+            .map { it.relativeTo(target).invariantSeparatorsPath }
+            .sorted()
+            .toList()
+        target.resolve("index.txt").writeText(names.joinToString("\n", postfix = "\n"))
+    }
+}
+
+val testFixtures = tasks.register<TestFixtures>("testFixtures") {
+    fixtures.set(rootProject.file("../tests/fixtures"))
+    outputDir.set(layout.buildDirectory.dir("generated/fixtures/assets"))
+}
+
 val drawableResources = tasks.register<DrawableResources>("drawableResources") {
     art.set(rootProject.file("../assets"))
     outputDir.set(layout.buildDirectory.dir("generated/drawables/res"))
@@ -83,7 +117,10 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments += listOf("-DANDROID_STL=c++_shared")
+                // GALLERY3D_TESTS off unless the conformance build type turns
+                // it on, so a CMake cache left by that build cannot carry it
+                // into the app's.
+                arguments += listOf("-DANDROID_STL=c++_shared", "-DGALLERY3D_TESTS=OFF")
             }
         }
         ndk {
@@ -118,6 +155,23 @@ android {
             // Replace this before the apk goes anywhere.
             signingConfig = signingConfigs.getByName("debug")
         }
+        // The test runner in place of the wall, for scripts/android-tests.sh.
+        // It installs beside the app under its own id, and is debuggable so
+        // the script can read its report through run-as. The Android Gradle
+        // plugin refuses a build type whose name starts with "test". Not
+        // initWith(debug): that shares debug's CMake argument list, and the
+        // argument below would turn the tests on in the app too.
+        create("conformance") {
+            isDebuggable = true
+            isJniDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".conformance"
+            externalNativeBuild {
+                cmake {
+                    arguments += listOf("-DGALLERY3D_TESTS=ON")
+                }
+            }
+        }
     }
 
     compileOptions {
@@ -137,6 +191,9 @@ androidComponents {
         // the asset manager reads from, which is where App::ASSET_ROOT points
         // on Android.
         variant.sources.assets?.addGeneratedSourceDirectory(plainAssets, PlainAssets::outputDir)
+        if (variant.buildType == "conformance") {
+            variant.sources.assets?.addGeneratedSourceDirectory(testFixtures, TestFixtures::outputDir)
+        }
     }
 }
 
