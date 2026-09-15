@@ -919,13 +919,8 @@ int main(int argc, char **argv) {
             if (kind == "library") {
                 options.push_back({name, "icon_home_small", [chooseSource, id]() { chooseSource(id); }});
             } else if (kind == "tree") {
-                // The folder, where it is, and the icon of the app that keeps it.
-                const std::string location = stringOr(entry, "location", "");
-                std::string title = name;
-                if (!location.empty()) {
-                    title = name.empty() ? location : name + " \xC2\xB7 " + location;
-                }
-                PopupMenu::Option option{title, "icon_folder_small", [chooseSource, id]() { chooseSource(id); }};
+                // The folder, with the icon of the app that keeps it.
+                PopupMenu::Option option{name, "icon_folder_small", [chooseSource, id]() { chooseSource(id); }};
                 const std::string packageName = stringOr(entry, "package", "");
                 if (!packageName.empty()) {
                     const int size = PopupMenu::iconPixels();

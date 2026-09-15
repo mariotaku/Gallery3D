@@ -20,6 +20,11 @@ class PopupMenu : public Layer {
     using Action = std::function<void()>;
 
     struct Option {
+        Option() = default;
+        Option(std::string title, std::string icon, Action action, Bitmap iconBitmap = Bitmap())
+            : title(std::move(title)), icon(std::move(icon)), action(std::move(action)),
+              iconBitmap(std::move(iconBitmap)) {}
+
         std::string title;
         std::string icon;
         Action action;
