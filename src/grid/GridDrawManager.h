@@ -65,7 +65,8 @@ class GridDrawManager {
     // The item's grid thumbnail, or the broken picture once that thumbnail
     // has failed to decode. The broken picture is loaded with the frames, so
     // an item that failed is drawn and framed like any other.
-    TexturePtr thumbnailOf(DisplayItem *displayItem) const;
+    // halfSize is for a card behind the top of its stack.
+    TexturePtr thumbnailOf(DisplayItem *displayItem, bool halfSize = false) const;
 
     void drawDisplayItem(RenderView *view, DisplayItem *displayItem, const TexturePtr &texture, int pass,
                          const TexturePtr &previousTexture, float mixRatio);

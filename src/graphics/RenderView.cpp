@@ -630,7 +630,8 @@ void RenderView::applyBitmap(const TexturePtr &texture, Bitmap bitmap) {
         // The texture is a power of two, so the normalized extents the meshes
         // use stay meaningful and wrap modes behave everywhere. uploadTexture
         // puts the bitmap in its corner and fills the rest.
-        if (!sUnpaddedTextures && (!Shared::isPowerOf2(width) || !Shared::isPowerOf2(height))) {
+        const bool unpadded = sUnpaddedTextures && texture->allowsUnpadded();
+        if (!unpadded && (!Shared::isPowerOf2(width) || !Shared::isPowerOf2(height))) {
             int paddedWidth = Shared::nextPowerOf2(width);
             int paddedHeight = Shared::nextPowerOf2(height);
             texture->mNormalizedWidth = (float)width / (float)paddedWidth;
@@ -682,8 +683,9 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     // Every texture is a power of two, which is also the only size ES 2.0
     // builds a mip chain for.
-    const int paddedWidth = sUnpaddedTextures ? width : Shared::nextPowerOf2(width);
-    const int paddedHeight = sUnpaddedTextures ? height : Shared::nextPowerOf2(height);
+    const bool unpadded = sUnpaddedTextures && texture->allowsUnpadded();
+    const int paddedWidth = unpadded ? width : Shared::nextPowerOf2(width);
+    const int paddedHeight = unpadded ? height : Shared::nextPowerOf2(height);
     const bool clampEdges = texture->wantsMipmaps();
     const bool mipmapped = clampEdges && mMaxAnisotropy > 1.0f;
     const GLint minFilter = mipmapped ? GL_LINEAR_MIPMAP_LINEAR : (repeat ? GL_NEAREST : GL_LINEAR);

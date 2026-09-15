@@ -27,7 +27,12 @@ class DisplayItem {
         return mStackId;
     }
 
-    TexturePtr getThumbnailImage(const MediaItemTexture::Config *config);
+    // The grid thumbnail, made on first use. halfSize asks for the one a card
+    // behind the top of a stack takes, and a full one already made serves it
+    // as well. Without a config, whichever has been made, full first.
+    TexturePtr getThumbnailImage(const MediaItemTexture::Config *config, bool halfSize = false);
+    // The small thumbnail, while it is loaded and the full one is not yet.
+    TexturePtr getStandInThumbnail() const;
     TexturePtr getScreennailImage();
     TexturePtr getHiResImage();
     // Tiles for fullscreen zoom, or null when TiledImage::canTile is false.
@@ -85,6 +90,7 @@ class DisplayItem {
     float mImageTheta = 0.0f;
     int mStackId = 0;
     std::shared_ptr<MediaItemTexture> mThumbnailImage;
+    std::shared_ptr<MediaItemTexture> mSmallThumbnailImage;
     TexturePtr mScreennailImage;
     TexturePtr mHiResImage;
     std::unique_ptr<TiledImage> mTiledImage;

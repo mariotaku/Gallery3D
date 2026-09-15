@@ -214,10 +214,10 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
         return;
     }
 
-    // Grid extents are (1.0, oneByAspect): centre-crop to that ratio with a
-    // power-of-two width so the quad does not sample texture padding.
-    //
-    const int side = thumbnailTextureEdge(mConfig->thumbnailWidth, App::PIXEL_DENSITY, App::THUMBNAIL_MAX_EDGE);
+    // Centre-cropped to the cell's shape at a power-of-two width, which puts
+    // the picture on the quad's extents whether or not textures are padded.
+    const int fullSide = thumbnailTextureEdge(mConfig->thumbnailWidth, App::PIXEL_DENSITY, App::THUMBNAIL_MAX_EDGE);
+    const int side = mSmall ? std::max(fullSide / 2, 1) : fullSide;
     const int height = side * mConfig->thumbnailHeight / mConfig->thumbnailWidth;
 
     // Cache cropped thumbnails by modification time and density-dependent crop size.
@@ -254,8 +254,8 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
             return;
         }
 
-        // Do not enlarge beyond source resolution. Smaller power-of-two textures
-        // preserve the quad's (1.0, oneByAspect) extents.
+        // Do not enlarge beyond source resolution. A smaller power of two keeps
+        // the cell's shape.
         int fittedSide = side;
         int fittedHeight = height;
         while (fittedSide > thumbnailWidth &&

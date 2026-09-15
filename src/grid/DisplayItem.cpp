@@ -88,13 +88,33 @@ void DisplayItem::set(const Vector3f &position, int stackIndex, bool performTran
     mStartOffset = 0.0f;
 }
 
-TexturePtr DisplayItem::getThumbnailImage(const MediaItemTexture::Config *config) {
-    if (!mThumbnailImage && config != nullptr) {
-        if (mItemRef && mItemRef->mId != Shared::INVALID) {
-            mThumbnailImage = std::make_shared<MediaItemTexture>(config, mItemRef);
+TexturePtr DisplayItem::getThumbnailImage(const MediaItemTexture::Config *config, bool halfSize) {
+    if (config == nullptr || !mItemRef || mItemRef->mId == Shared::INVALID) {
+        if (mThumbnailImage) {
+            return mThumbnailImage;
         }
+        return mSmallThumbnailImage;
+    }
+    if (halfSize && !mThumbnailImage) {
+        if (!mSmallThumbnailImage) {
+            mSmallThumbnailImage = std::make_shared<MediaItemTexture>(config, mItemRef, true);
+        }
+        return mSmallThumbnailImage;
+    }
+    if (!mThumbnailImage) {
+        mThumbnailImage = std::make_shared<MediaItemTexture>(config, mItemRef);
+    }
+    if (mSmallThumbnailImage && mThumbnailImage->isLoaded()) {
+        mSmallThumbnailImage.reset();
     }
     return mThumbnailImage;
+}
+
+TexturePtr DisplayItem::getStandInThumbnail() const {
+    if (mSmallThumbnailImage && mSmallThumbnailImage->isLoaded() && mThumbnailImage && !mThumbnailImage->isLoaded()) {
+        return mSmallThumbnailImage;
+    }
+    return nullptr;
 }
 
 TexturePtr DisplayItem::getScreennailImage() {
@@ -145,6 +165,7 @@ void DisplayItem::clearHiResImage() {
 
 void DisplayItem::clearThumbnail() {
     mThumbnailImage.reset();
+    mSmallThumbnailImage.reset();
 }
 
 bool DisplayItem::isAnimating() const {

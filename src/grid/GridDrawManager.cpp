@@ -20,8 +20,9 @@ namespace {
 
 // What one grid thumbnail holds on the GPU: the texture, padded where
 // textures are, and a third again for its mip chain.
-size_t thumbnailBytes(const MediaItemTexture::Config &config) {
-    const int width = thumbnailTextureEdge(config.thumbnailWidth, App::PIXEL_DENSITY, App::THUMBNAIL_MAX_EDGE);
+size_t thumbnailBytes(const MediaItemTexture::Config &config, bool halfSize) {
+    const int fullWidth = thumbnailTextureEdge(config.thumbnailWidth, App::PIXEL_DENSITY, App::THUMBNAIL_MAX_EDGE);
+    const int width = halfSize ? std::max(fullWidth / 2, 1) : fullWidth;
     int height = width * config.thumbnailHeight / config.thumbnailWidth;
     if (!RenderView::unpaddedTextures()) {
         height = Shared::nextPowerOf2(height);
@@ -106,8 +107,8 @@ void GridDrawManager::prepareDraw(const IndexRange &bufferedVisibleRange, const 
     mHoldPosition = holdPosition;
 }
 
-TexturePtr GridDrawManager::thumbnailOf(DisplayItem *displayItem) const {
-    TexturePtr thumbnail = displayItem->getThumbnailImage(&sThumbnailConfig);
+TexturePtr GridDrawManager::thumbnailOf(DisplayItem *displayItem, bool halfSize) const {
+    TexturePtr thumbnail = displayItem->getThumbnailImage(&sThumbnailConfig, halfSize);
     if (thumbnail && thumbnail->getState() == Texture::STATE_ERROR && mDrawables->mTextureBroken) {
         return mDrawables->mTextureBroken;
     }
@@ -141,7 +142,13 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
     // Half the texture budget for thumbnails, the rest for labels, the
     // fullscreen pictures and the chrome. What falls outside is freed, and
     // comes back from the disk cache when it scrolls near again.
-    const size_t cardBytes = thumbnailBytes(sThumbnailConfig);
+    // On the album wall the cards under the top of a stack show only their
+    // edges, so they load at half the size. A stack spread by a pinch shows
+    // every card whole.
+    const bool stacked = state == GridLayer::STATE_MEDIA_SETS || state == GridLayer::STATE_TIMELINE;
+    auto smallCard = [&](int slot, int card) { return stacked && card > 0 && slot != mCurrentScaleSlot; };
+    const size_t cardBytes = thumbnailBytes(sThumbnailConfig, false);
+    const size_t smallCardBytes = thumbnailBytes(sThumbnailConfig, true);
     const IndexRange kept = keptSlots(mVisibleRange, mBufferedVisibleRange, RenderView::TEXTURE_BUDGET_BYTES / 2,
                                       [&](int slot) {
         const int cards = (slot == mCurrentScaleSlot) ? GridLayer::MAX_DISPLAYED_ITEMS_PER_FOCUSED_SLOT
@@ -149,7 +156,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
         size_t bytes = 0;
         for (int j = 0; j < cards; ++j) {
             if (displayItems[(slot - firstBufferedVisibleSlot) * GridLayer::MAX_ITEMS_PER_SLOT + j] != nullptr) {
-                bytes += cardBytes;
+                bytes += smallCard(slot, j) ? smallCardBytes : cardBytes;
             }
         }
         return bytes;
@@ -170,7 +177,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 if (displayItem == nullptr) {
                     continue;
                 }
-                TexturePtr texture = thumbnailOf(displayItem);
+                TexturePtr texture = thumbnailOf(displayItem, smallCard(index, j));
                 if (texture && !texture->isLoaded()) {
                     startSlotIndex = j;
                     break;
@@ -194,7 +201,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 displayItem->clearThumbnail();
                 continue;
             }
-            TexturePtr texture = thumbnailOf(displayItem);
+            TexturePtr texture = thumbnailOf(displayItem, smallCard(index, stackIndex));
             if (index == mCurrentScaleSlot && texture && !texture->isLoaded()) {
                 view->prime(texture, true);
                 view->bind(texture);
@@ -220,7 +227,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
             if (displayItem == nullptr) {
                 continue;
             }
-            TexturePtr texture = keep ? thumbnailOf(displayItem) : nullptr;
+            TexturePtr texture = keep ? thumbnailOf(displayItem, smallCard(index, j)) : nullptr;
             if (!texture || !texture->isLoaded()) {
                 if (currentScaleSlot != index) {
                     if (j == 0) {
@@ -279,7 +286,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
             if (j >= maxDisplayedItemsPerSlot || !keep) {
                 continue;
             }
-            TexturePtr texture = thumbnailOf(displayItem);
+            TexturePtr texture = thumbnailOf(displayItem, smallCard(index, j));
             if (!texture) {
                 // Move on to the next stack.
                 break;
@@ -299,6 +306,13 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                     displayList->setAlive(displayItem, true);
                 }
                 continue;
+            }
+            // A card risen to the top shows its small thumbnail until the full
+            // one arrives, rather than the placeholder.
+            if (!texture->isLoaded()) {
+                if (TexturePtr standIn = displayItem->getStandInThumbnail()) {
+                    texture = standIn;
+                }
             }
             drawDisplayItem(view, displayItem, texture, PASS_THUMBNAIL_CONTENT, placeholder,
                             displayItem->mAnimatedPlaceholderFade);

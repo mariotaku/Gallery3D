@@ -70,6 +70,13 @@ class Texture {
         return false;
     }
 
+    // Whether this texture uploads at its bitmap's own size where the GPU
+    // allows it. Art for the fixed quads was drawn for the padding, which
+    // puts a picture that is not a power of two in the corner of its quad.
+    virtual bool allowsUnpadded() const {
+        return true;
+    }
+
     void clear();
 
     bool isLoaded() const {
@@ -152,11 +159,21 @@ class ResourceTexture : public Texture {
         return true;
     }
 
+    // Padded unless set, since most art is drawn on quads made for padding.
+    // Art the size and shape of a thumbnail follows the thumbnails.
+    bool allowsUnpadded() const override {
+        return mUnpadded;
+    }
+    void setUnpadded(bool unpadded) {
+        mUnpadded = unpadded;
+    }
+
     Bitmap load(RenderView *view) override;
 
   private:
     std::string mName;
     bool mScaled;
+    bool mUnpadded = false;
 };
 
 // Loads a photo off disk, downscaled so neither edge exceeds maxEdge.
@@ -212,7 +229,10 @@ class MediaItemTexture : public Texture {
         int thumbnailHeight = 96;
     };
 
-    MediaItemTexture(const Config *config, MediaItem *item) : mConfig(config), mItem(item) {}
+    // halfSize is for a card mostly hidden behind the top of its stack, which
+    // takes half the edge and a quarter of the memory.
+    MediaItemTexture(const Config *config, MediaItem *item, bool halfSize = false)
+        : mConfig(config), mItem(item), mSmall(halfSize) {}
 
     void startLoad(RenderView *view, const TexturePtr &self) override;
 
@@ -230,6 +250,7 @@ class MediaItemTexture : public Texture {
   private:
     const Config *mConfig;
     MediaItem *mItem;
+    bool mSmall;
 };
 
 // Renders a string into a texture. Replaces StringTexture, which drew through

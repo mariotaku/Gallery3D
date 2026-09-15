@@ -249,6 +249,13 @@ void GridDrawables::onSurfaceCreated(RenderView *view) {
     mTextureTransparent = view->getResource(Res::drawable::transparent, false);
     mTexturePlaceholder = view->getResource(Res::drawable::grid_placeholder, false);
     mTextureBroken = view->getResource(Res::drawable::grid_broken, false);
+    // Both are cell shaped and drawn on the thumbnail quad, whose extents
+    // follow the thumbnails.
+    for (const TexturePtr &art : {mTexturePlaceholder, mTextureBroken}) {
+        if (auto resource = std::dynamic_pointer_cast<ResourceTexture>(art)) {
+            resource->setUnpadded(true);
+        }
+    }
 
     view->loadTexture(mTextureFrame);
     view->loadTexture(mTextureGridFrame);
