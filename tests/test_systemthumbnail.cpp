@@ -81,8 +81,10 @@ TEST(a_system_thumbnail_comes_back_in_the_stored_orientation) {
         CHECK(thumbnail.valid());
         CHECK(thumbnail.knownOpaque());
         if (thumbnail.valid()) {
-            CHECK_EQ(thumbnail.width(), 512);
-            CHECK_NEAR(thumbnail.height(), 341, 1);
+            // Reduced by a power of two, so the long edge reaches 512 without
+            // being twice it, in the picture's shape.
+            CHECK(thumbnail.width() >= 512 && thumbnail.width() < 1024);
+            CHECK_NEAR(thumbnail.height() * 3, thumbnail.width() * 2, 3);
             CHECK(isRed(thumbnail, 64, 64));
             CHECK(isBlue(thumbnail, 448, 64));
             CHECK(isBlue(thumbnail, 64, 280));

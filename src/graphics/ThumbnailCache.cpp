@@ -128,8 +128,8 @@ Bitmap ThumbnailCache::loadUpright(const std::string &root, const std::string &p
             continue;
         }
         upright.markOpaqueUnlessTransparent();
-        const Bitmap::Size fitted = Bitmap::fitWithin(upright.width(), upright.height(), maxEdge);
-        return upright.scaled(fitted.width, fitted.height);
+        return upright.sampledFromWhole(Sampling::Picked,
+                                        Bitmap::sampleSizeFor(upright.width(), upright.height(), maxEdge));
     }
     return Bitmap();
 }

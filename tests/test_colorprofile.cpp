@@ -300,8 +300,8 @@ TEST(a_tile_of_a_photo_with_a_colour_profile_is_in_srgb) {
     RegionDecoderPtr decoder = RegionDecoder::open(path.string());
     CHECK(decoder != nullptr);
     if (decoder != nullptr) {
-        CHECK(isGreen(decoder->decodeRegion(0, 0, 64, 64, 64, 64)));
-        CHECK(isGreen(decoder->decodeRegion(16, 16, 32, 32, 16, 16)));
+        CHECK(isGreen(decoder->decodeRegion(0, 0, 64, 64, 1)));
+        CHECK(isGreen(decoder->decodeRegion(16, 16, 32, 32, 2)));
     }
     decoder.reset();
     std::error_code error;

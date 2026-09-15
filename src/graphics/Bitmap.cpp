@@ -123,12 +123,10 @@ struct Taps {
 
 constexpr uint32_t kWeightOne = 1u << 14;
 
-// extent is how much of the axis the from pixels hold, in pixels: from itself,
-// or less when the last pixel holds only part of one.
-Taps tapsFor(int from, int to, double extent) {
+Taps tapsFor(int from, int to) {
     Taps taps;
     taps.starts.reserve((size_t)to + 1);
-    const double scale = std::min((double)from, std::max(extent, 1e-6)) / (double)to;
+    const double scale = (double)from / (double)to;
     for (int i = 0; i < to; ++i) {
         taps.starts.push_back((int)taps.indices.size());
         const size_t first = taps.weights.size();
@@ -177,18 +175,14 @@ Taps tapsFor(int from, int to, double extent) {
 }  // namespace
 
 Bitmap Bitmap::scaled(int newWidth, int newHeight) const {
-    return scaledCovering(newWidth, newHeight, (double)mWidth, (double)mHeight);
-}
-
-Bitmap Bitmap::scaledCovering(int newWidth, int newHeight, double coveredWidth, double coveredHeight) const {
     if (!valid() || newWidth <= 0 || newHeight <= 0) {
         return Bitmap();
     }
-    if (newWidth == mWidth && newHeight == mHeight && coveredWidth >= mWidth && coveredHeight >= mHeight) {
+    if (newWidth == mWidth && newHeight == mHeight) {
         return *this;
     }
-    const Taps across = tapsFor(mWidth, newWidth, coveredWidth);
-    const Taps down = tapsFor(mHeight, newHeight, coveredHeight);
+    const Taps across = tapsFor(mWidth, newWidth);
+    const Taps down = tapsFor(mHeight, newHeight);
 
     // Down first, whole rows at a time, which reads memory in order and lets
     // the compiler vectorize the sums. Then across the fewer rows left. The
@@ -285,15 +279,119 @@ void Bitmap::markOpaqueUnlessTransparent() {
     }
 }
 
-Bitmap::Size Bitmap::fitWithin(int width, int height, int maxEdge) {
+namespace {
+
+// Skia's get_scaled_dimension: rounded down, and 1 when the sample is larger.
+int roundedDown(int dimension, int sampleSize) {
+    return sampleSize > dimension ? 1 : dimension / sampleSize;
+}
+
+// libjpeg's reduced size, rounded up, then picked from past a reduction of 8
+// as SkSampledCodec does.
+int jpegSampled(int dimension, int sampleSize) {
+    const int native = std::min(sampleSize, 8);
+    const int reduced = (dimension + native - 1) / native;
+    const int rest = sampleSize / native;
+    return rest == 1 ? reduced : roundedDown(reduced, rest);
+}
+
+}  // namespace
+
+int Bitmap::sampleSizeFor(int width, int height, int maxEdge) {
     const int longEdge = std::max(width, height);
-    if (width <= 0 || height <= 0 || maxEdge <= 0 || longEdge <= maxEdge) {
+    int sampleSize = 1;
+    if (maxEdge <= 0 || longEdge <= 0) {
+        return sampleSize;
+    }
+    while (sampleSize < (1 << 30) && longEdge / (sampleSize * 2) >= maxEdge) {
+        sampleSize *= 2;
+    }
+    return sampleSize;
+}
+
+Bitmap::Size Bitmap::sampledSize(Sampling sampling, int width, int height, int sampleSize) {
+    if (sampleSize <= 1 || width <= 0 || height <= 0) {
         return Size{width, height};
     }
-    const int shortEdge = std::min(width, height);
-    const int scaled =
-        std::max(1, (int)(((int64_t)shortEdge * (int64_t)maxEdge + (int64_t)longEdge / 2) / (int64_t)longEdge));
-    return (width >= height) ? Size{maxEdge, scaled} : Size{scaled, maxEdge};
+    switch (sampling) {
+    case Sampling::Jpeg:
+        return Size{jpegSampled(width, sampleSize), jpegSampled(height, sampleSize)};
+    case Sampling::Rescaled:
+        // SkScalingCodec: the scale times the size, rounded to nearest.
+        return Size{std::max(1, (int)std::floor((float)width / (float)sampleSize + 0.5f)),
+                    std::max(1, (int)std::floor((float)height / (float)sampleSize + 0.5f))};
+    case Sampling::Picked:
+    default:
+        return Size{roundedDown(width, sampleSize), roundedDown(height, sampleSize)};
+    }
+}
+
+Bitmap::Size Bitmap::sampledRegionSize(int width, int height, int sampleSize) {
+    if (sampleSize <= 1 || width <= 0 || height <= 0) {
+        return Size{width, height};
+    }
+    return Size{roundedDown(width, sampleSize), roundedDown(height, sampleSize)};
+}
+
+Sampling Bitmap::samplingOf(const void *bytes, size_t size) {
+    const unsigned char *data = (const unsigned char *)bytes;
+    if (data != nullptr && size >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+        return Sampling::Jpeg;
+    }
+    if (data != nullptr && size >= 12 && std::memcmp(data, "RIFF", 4) == 0 && std::memcmp(data + 8, "WEBP", 4) == 0) {
+        return Sampling::Rescaled;
+    }
+    return Sampling::Picked;
+}
+
+Sampling Bitmap::samplingOfMimeType(const std::string &mimeType) {
+    if (mimeType == "image/jpeg") {
+        return Sampling::Jpeg;
+    }
+    if (mimeType == "image/webp") {
+        return Sampling::Rescaled;
+    }
+    return Sampling::Picked;
+}
+
+Bitmap Bitmap::picked(int newWidth, int newHeight) const {
+    if (!valid() || newWidth <= 0 || newHeight <= 0 || newWidth > mWidth || newHeight > mHeight) {
+        return Bitmap();
+    }
+    if (newWidth == mWidth && newHeight == mHeight) {
+        return *this;
+    }
+    const int sampleX = mWidth / newWidth;
+    const int sampleY = mHeight / newHeight;
+    Bitmap result(newWidth, newHeight, mOrder);
+    result.mOpaque = mOpaque;
+    for (int y = 0; y < newHeight; ++y) {
+        const uint8_t *row = mPixels.data() + (size_t)(y * sampleY + sampleY / 2) * (size_t)mWidth * 4;
+        uint8_t *target = result.pixels() + (size_t)y * (size_t)newWidth * 4;
+        for (int x = 0; x < newWidth; ++x) {
+            std::memcpy(target + (size_t)x * 4, row + (size_t)(x * sampleX + sampleX / 2) * 4, 4);
+        }
+    }
+    return result;
+}
+
+Bitmap Bitmap::sampledFromWhole(Sampling sampling, int sampleSize) const {
+    if (!valid() || sampleSize <= 1) {
+        return *this;
+    }
+    const Size size = sampledSize(sampling, mWidth, mHeight, sampleSize);
+    switch (sampling) {
+    case Sampling::Jpeg: {
+        const int native = std::min(sampleSize, 8);
+        const Bitmap reduced = scaled((mWidth + native - 1) / native, (mHeight + native - 1) / native);
+        return reduced.picked(size.width, size.height);
+    }
+    case Sampling::Rescaled:
+        return scaled(size.width, size.height);
+    case Sampling::Picked:
+    default:
+        return picked(size.width, size.height);
+    }
 }
 
 Bitmap Bitmap::cropped(int x, int y, int width, int height) const {

@@ -156,7 +156,7 @@ void RegionTexture::startLoad(RenderView *view, const TexturePtr &self) {
         view->finishLoad(self, Bitmap());
         return;
     }
-    source->requestRegion(mItem, mX, mY, mWidth, mHeight, mOutWidth, mOutHeight,
+    source->requestRegion(mItem, mX, mY, mWidth, mHeight, mSampleSize,
                           [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
 }
 

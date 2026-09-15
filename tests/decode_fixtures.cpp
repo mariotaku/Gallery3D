@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <vector>
@@ -123,47 +122,6 @@ void checkGolden(const std::string &what, const Bitmap &bitmap, const std::strin
     }
     CHECK_DETAIL(mismatches == 0, what + ": " + std::to_string(mismatches) + " pixels differ from " + goldenFile +
                                       " by up to " + std::to_string(worst) + ", first at " + first);
-}
-
-Difference fromGoldenAverage(const Bitmap &bitmap, const std::vector<uint8_t> &golden, int goldenWidth, int rectX,
-                             int rectY, int rectWidth, int rectHeight) {
-    const int outWidth = bitmap.width();
-    const int outHeight = bitmap.height();
-    const double scaleX = (double)rectWidth / outWidth;
-    const double scaleY = (double)rectHeight / outHeight;
-    int total = 0;
-    int worst = 0;
-    int count = 0;
-    for (int tileY = 1; tileY + 1 < outHeight; ++tileY) {
-        // The span of the rectangle one output pixel covers, which a reduction
-        // that is not a whole number leaves partly over its edge pixels.
-        const double top = tileY * scaleY;
-        const double bottom = (tileY + 1) * scaleY;
-        for (int tileX = 1; tileX + 1 < outWidth; ++tileX) {
-            const double left = tileX * scaleX;
-            const double right = (tileX + 1) * scaleX;
-            double sums[2] = {0.0, 0.0};
-            double area = 0.0;
-            for (int y = (int)top; y < (int)std::ceil(bottom); ++y) {
-                const double rowWeight = std::min(bottom, y + 1.0) - std::max(top, (double)y);
-                for (int x = (int)left; x < (int)std::ceil(right); ++x) {
-                    const double weight = rowWeight * (std::min(right, x + 1.0) - std::max(left, (double)x));
-                    const uint8_t *g =
-                        &golden[((size_t)(y + rectY) * (size_t)goldenWidth + (size_t)(x + rectX)) * 4];
-                    sums[0] += g[0] * weight;
-                    sums[1] += g[1] * weight;
-                    area += weight;
-                }
-            }
-            const Rgba got = pixelAt(bitmap, tileX, tileY);
-            const int difference = std::max(std::abs(got.r - (int)std::lround(sums[0] / area)),
-                                            std::abs(got.g - (int)std::lround(sums[1] / area)));
-            worst = std::max(worst, difference);
-            total += difference;
-            ++count;
-        }
-    }
-    return Difference{count > 0 ? total / count : 0, worst};
 }
 
 }  // namespace DecodeFixtures

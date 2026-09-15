@@ -18,9 +18,9 @@ std::string root();
 std::string uriFor(const std::string &path);
 
 // The thumbnail cached under root for the photo at path, as the thumbnailer
-// saved it, upright, and scaled so its long edge is maxEdge. Invalid when no
-// size folder holds one that reaches maxEdge, or when the photo was changed
-// after its thumbnail was made.
+// saved it, upright, and reduced by Bitmap::sampleSizeFor for maxEdge. Invalid
+// when no size folder holds one that reaches maxEdge, or when the photo was
+// changed after its thumbnail was made.
 Bitmap loadUpright(const std::string &root, const std::string &path, int maxEdge);
 
 // An upright picture turned back to how its pixels are stored, for a photo

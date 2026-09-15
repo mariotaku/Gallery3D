@@ -15,6 +15,20 @@ enum class PixelOrder : uint8_t {
     BGRA,
 };
 
+// How a format's decode is reduced by a sample size. Every platform follows
+// Android's decoders (Skia's SkAndroidCodec on Android 14), so a picture comes
+// out the same size, and nearly the same pixels, everywhere.
+enum class Sampling : uint8_t {
+    // JPEG: the codec divides by 2, 4 or 8 and rounds up, averaging each
+    // block. A sample past 8 is then picked from that, as Picked picks.
+    Jpeg,
+    // WebP: rescaled to the size divided and rounded to the nearest pixel.
+    Rescaled,
+    // Everything else: divided and rounded down, keeping one pixel of every
+    // sample, the one at half the sample into it.
+    Picked,
+};
+
 class Bitmap {
   public:
     Bitmap() = default;
@@ -78,7 +92,7 @@ class Bitmap {
     static PixelOrder decodeOrder();
 
     // Decodes a file. Returns an invalid bitmap when the file cannot be read.
-    // The size is fitWithin(width, height, maxEdge). The decoder is the
+    // The size is sampledSize for sampleSizeFor(width, height, maxEdge). The decoder is the
     // platform's: WIC on Windows, SDL_image elsewhere. tests/test_decode.cpp
     // states the whole contract and checks it against shared fixtures.
     static Bitmap load(const std::string &path, int maxEdge);
@@ -111,12 +125,16 @@ class Bitmap {
     // nearest pixel centres.
     Bitmap scaled(int newWidth, int newHeight) const;
 
-    // The same for a bitmap a codec reduced from a picture whose size is not a
-    // multiple of the reduction. Its last column and row hold only part of a
-    // reduced pixel, and coveredWidth and coveredHeight say how much of the
-    // bitmap is picture: a 203 pixel edge reduced by 4 is 51 pixels covering
-    // 50.75.
-    Bitmap scaledCovering(int newWidth, int newHeight, double coveredWidth, double coveredHeight) const;
+    // Keeps one pixel in every few, as Skia's sampling decoders do: across,
+    // every width / newWidth pixels, starting half that far in, and the same
+    // down. Only shrinks.
+    Bitmap picked(int newWidth, int newHeight) const;
+
+    // A whole decode of a picture in the given format, reduced by sampleSize
+    // the way the format's Sampling says. A JPEG's block averages are
+    // approximated by an area average, for a decoder with no reduction of its
+    // own.
+    Bitmap sampledFromWhole(Sampling sampling, int sampleSize) const;
 
     // Copies into a larger transparent bitmap. clampEdges repeats boundary pixels
     // for mipmapping to prevent transparent padding bleeding in; avoid it for (1, 1) extents.
@@ -142,10 +160,24 @@ class Bitmap {
         int height;
     };
 
-    // The size a decode for maxEdge gives: the long edge becomes maxEdge and
-    // the short edge is rounded to the nearest pixel, never below 1. A picture
-    // that already fits, or a maxEdge of 0 or below, keeps its size.
-    static Size fitWithin(int width, int height, int maxEdge);
+    // The power of two a decode for maxEdge reduces by: the largest whose
+    // reduced long edge, rounded down, still reaches maxEdge. 1 for a maxEdge
+    // of 0 or below, or a picture that does not reach it.
+    static int sampleSizeFor(int width, int height, int maxEdge);
+
+    // The size a whole decode reduced by sampleSize gives, for the format's
+    // Sampling. A sample of 1 keeps the size.
+    static Size sampledSize(Sampling sampling, int width, int height, int sampleSize);
+
+    // The size a region decode of a rectangle other than the whole picture
+    // gives: rounded down, never below 1, whatever the format.
+    static Size sampledRegionSize(int width, int height, int sampleSize);
+
+    // The Sampling of encoded bytes, told by their signature.
+    static Sampling samplingOf(const void *bytes, size_t size);
+
+    // The Sampling of a mime type, such as a media store reports.
+    static Sampling samplingOfMimeType(const std::string &mimeType);
 
     // What one pass over a JPEG's header yields. Every field stays at its
     // default when the tag is missing or the file is not a JPEG.

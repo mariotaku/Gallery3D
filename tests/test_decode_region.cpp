@@ -1,13 +1,12 @@
 // RegionDecoder on every platform against the decode fixtures. The contract is
-// in graphics/RegionDecoder.h: a rectangle inside the image, decoded to the
-// same pixels a whole decode has there, at exactly the size asked for.
+// in graphics/RegionDecoder.h: a rectangle inside the image, reduced by a power
+// of two sample to the size and pixels Android's BitmapRegionDecoder gives.
 #include "tests.h"
 
 #include <algorithm>
 #include <atomic>
 #include <climits>
 #include <cstdint>
-#include <cstdlib>
 #include <string>
 #include <thread>
 #include <vector>
@@ -35,7 +34,7 @@ bool regionsHere() {
 }
 
 // The fixture's region decoder. A format this platform has no region decoder
-// for is noted; a JPEG with none is a failure.
+// for is noted; a JPEG with none is a failure elsewhere.
 RegionDecoderPtr openFixture(const nlohmann::json &fixture) {
     const std::string file = fixture["file"];
     RegionDecoderPtr decoder = RegionDecoder::open(folder() + file);
@@ -43,6 +42,12 @@ RegionDecoderPtr openFixture(const nlohmann::json &fixture) {
         reportNote(file + ": no region decoder here");
     }
     return decoder;
+}
+
+Sampling samplingOfFile(const std::string &file) {
+    std::vector<uint8_t> bytes;
+    Bitmap::readFile(folder() + file, &bytes);
+    return Bitmap::samplingOf(bytes.data(), bytes.size());
 }
 
 // The four patches of a quartered fixture, in the manifest's probe order.
@@ -129,13 +134,17 @@ TEST(a_region_at_full_size_has_the_fixture_pixels) {
             rectangles.insert(rectangles.end(), odd.begin(), odd.end());
         }
         for (const Rect &rect : rectangles) {
-            if (rect.width <= 0 || rect.height <= 0) {
+            // A WebP rectangle is widened to start at even coordinates, which
+            // the odd ones here would not survive.
+            if (rect.width <= 0 || rect.height <= 0 ||
+                (samplingOfFile(file) == Sampling::Rescaled && ((rect.x | rect.y) & 1) != 0)) {
                 continue;
             }
             const std::string what = file + " " + describe(rect);
-            const Bitmap tile = decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, rect.width, rect.height);
-            CHECK_DETAIL(tile.valid(), what + ": did not decode");
-            if (!tile.valid()) {
+            const Bitmap tile = decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, 1);
+            CHECK_DETAIL(tile.valid() && tile.width() == rect.width && tile.height() == rect.height,
+                         what + ": did not decode at its own size");
+            if (!tile.valid() || tile.width() != rect.width || tile.height() != rect.height) {
                 continue;
             }
             checkForm(what, tile, fixture);
@@ -157,7 +166,7 @@ TEST(a_region_at_full_size_has_the_fixture_pixels) {
     }
 }
 
-TEST(a_reduced_region_has_the_fixture_colours_at_the_size_asked_for) {
+TEST(a_reduced_region_comes_back_at_the_size_android_gives) {
     if (!regionsHere()) {
         SKIP("no region decoder on this platform");
     }
@@ -170,41 +179,56 @@ TEST(a_reduced_region_has_the_fixture_colours_at_the_size_asked_for) {
             continue;
         }
         const std::string file = fixture["file"];
+        const int width = fixture["width"];
+        const int height = fixture["height"];
         const int tolerance = fixture["tolerance"];
-        const std::vector<Rect> rectangles = quarters(fixture["width"], fixture["height"]);
+        const Sampling sampling = samplingOfFile(file);
+        const std::vector<Rect> rectangles = quarters(width, height);
         for (int sample : {2, 4, 8, 16}) {
+            // The whole picture, at the size a whole decode has.
+            const Bitmap::Size wholeSize = Bitmap::sampledSize(sampling, width, height, sample);
+            const Bitmap whole = decoder->decodeRegion(0, 0, width, height, sample);
+            const std::string wholeWhat = file + " whole at 1/" + std::to_string(sample);
+            CHECK_DETAIL(whole.valid() && whole.width() == wholeSize.width && whole.height() == wholeSize.height,
+                         wholeWhat + ": decoded " + std::to_string(whole.width()) + "x" +
+                             std::to_string(whole.height()) + ", wanted " + std::to_string(wholeSize.width) + "x" +
+                             std::to_string(wholeSize.height));
+            if (whole.valid()) {
+                checkForm(wholeWhat, whole, fixture);
+            }
+
             for (size_t index = 0; index < rectangles.size(); ++index) {
                 const Rect &rect = rectangles[index];
-                // Two output pixels each way at least, so the middle is inside
-                // the patch.
-                if (rect.width < sample * 2 || rect.height < sample * 2) {
+                // Two reduced pixels each way at least, so the middle is
+                // inside the patch.
+                if (rect.width < sample * 2 || rect.height < sample * 2 ||
+                    (sampling == Sampling::Rescaled && ((rect.x | rect.y) & 1) != 0)) {
                     continue;
                 }
-                const int outWidth = rect.width / sample;
-                const int outHeight = rect.height / sample;
+                const Bitmap::Size size = Bitmap::sampledRegionSize(rect.width, rect.height, sample);
                 const std::string what = file + " " + describe(rect) + " at 1/" + std::to_string(sample);
-                const Bitmap tile = decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, outWidth, outHeight);
-                CHECK_DETAIL(tile.valid(), what + ": did not decode");
-                if (!tile.valid()) {
+                const Bitmap tile = decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, sample);
+                CHECK_DETAIL(tile.valid() && tile.width() == size.width && tile.height() == size.height,
+                             what + ": decoded " + std::to_string(tile.width()) + "x" +
+                                 std::to_string(tile.height()) + ", wanted " + std::to_string(size.width) + "x" +
+                                 std::to_string(size.height));
+                if (!tile.valid() || tile.width() != size.width || tile.height() != size.height) {
                     continue;
                 }
-                CHECK_DETAIL(tile.width() == outWidth && tile.height() == outHeight,
-                             what + ": decoded " + std::to_string(tile.width()) + "x" +
-                                 std::to_string(tile.height()));
                 checkForm(what, tile, fixture);
                 const nlohmann::json &probe = fixture["probes"][index];
                 const nlohmann::json middle = nlohmann::json::array(
-                    {nlohmann::json::array({outWidth / 2, outHeight / 2, probe[2], probe[3], probe[4], probe[5]})});
+                    {nlohmann::json::array({size.width / 2, size.height / 2, probe[2], probe[3], probe[4], probe[5]})});
                 checkProbes(what, tile, middle, tolerance);
             }
         }
     }
 }
 
-TEST(a_reduced_region_lands_on_its_part_of_the_picture) {
-    // The ramps change eight levels a pixel, so a reduced tile taken from a
-    // little off its rectangle is further from the golden averaged over that
-    // rectangle than a scaler's rounding.
+TEST(a_reduced_region_has_the_pixels_of_the_reduced_decode_there) {
+    // The ramps change every pixel. A tile whose corner is a multiple of the
+    // sample holds the reduced decode's pixels from its corner divided by the
+    // sample, so it matches that golden cut at the same place.
     if (!regionsHere()) {
         SKIP("no region decoder on this platform");
     }
@@ -219,34 +243,35 @@ TEST(a_reduced_region_lands_on_its_part_of_the_picture) {
         const std::string file = fixture["file"];
         const int width = fixture["width"];
         const int height = fixture["height"];
-        std::vector<uint8_t> golden;
-        CHECK(Bitmap::readFile(folder() + fixture["golden"].get<std::string>(), &golden));
-        if (golden.size() != (size_t)width * (size_t)height * 4) {
-            continue;
-        }
-        for (int sample : {2, 4, 8}) {
-            // From a multiple of the reduction, as the tile grid asks, and as
-            // many whole samples as fit.
-            const Rect rect = {sample, sample * 2, (width - sample) / sample * sample,
-                               (height - sample * 2) / sample * sample};
-            const int outWidth = rect.width / sample;
-            const int outHeight = rect.height / sample;
-            const std::string what = file + " " + describe(rect) + " at 1/" + std::to_string(sample);
-            const Bitmap tile = decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, outWidth, outHeight);
-            CHECK_DETAIL(tile.valid() && tile.width() == outWidth && tile.height() == outHeight,
-                         what + ": did not decode at the size asked for");
-            if (!tile.valid() || tile.width() != outWidth || tile.height() != outHeight) {
+        const int tolerance = fixture["tolerance"];
+        for (const nlohmann::json &scaled : fixture["scaled"]) {
+            if (!scaled.contains("golden")) {
                 continue;
             }
-            const Difference difference =
-                fromGoldenAverage(tile, golden, width, rect.x, rect.y, rect.width, rect.height);
-            CHECK_DETAIL(difference.mean <= 6, what + ": off the golden by " + std::to_string(difference.mean) +
-                                                   " on average, " + std::to_string(difference.worst) + " at worst");
+            const int sample = scaled["sampleSize"];
+            const int goldenWidth = scaled["width"];
+            const std::vector<Rect> rectangles = {
+                {0, 0, width, height},
+                {sample * 2, sample * 3, sample * 8, sample * 6},
+                {sample, sample, sample * 4, sample * 4},
+            };
+            for (const Rect &rect : rectangles) {
+                if (rect.x + rect.width > width || rect.y + rect.height > height) {
+                    continue;
+                }
+                const std::string what = file + " " + describe(rect) + " at 1/" + std::to_string(sample);
+                const Bitmap tile = decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, sample);
+                CHECK_DETAIL(tile.valid(), what + ": did not decode");
+                if (tile.valid()) {
+                    checkGolden(what, tile, scaled["golden"], goldenWidth, rect.x / sample, rect.y / sample,
+                                tolerance);
+                }
+            }
         }
     }
 }
 
-TEST(a_region_not_inside_the_image_is_invalid) {
+TEST(a_region_not_inside_the_image_or_at_no_power_of_two_is_invalid) {
     if (!regionsHere()) {
         SKIP("no region decoder on this platform");
     }
@@ -258,25 +283,42 @@ TEST(a_region_not_inside_the_image_is_invalid) {
     CHECK_EQ(decoder->width(), 96);
     CHECK_EQ(decoder->height(), 64);
     // Up to the edges is inside.
-    CHECK(decoder->decodeRegion(0, 0, 96, 64, 96, 64).valid());
-    CHECK(decoder->decodeRegion(95, 63, 1, 1, 1, 1).valid());
+    CHECK(decoder->decodeRegion(0, 0, 96, 64, 1).valid());
+    CHECK(decoder->decodeRegion(95, 63, 1, 1, 1).valid());
+    // A sample larger than the rectangle still gives a pixel.
+    const Bitmap sliver = decoder->decodeRegion(90, 0, 6, 64, 8);
+    CHECK(sliver.valid());
+    CHECK_EQ(sliver.width(), 1);
+    CHECK_EQ(sliver.height(), 8);
 
     struct Request {
-        int x, y, width, height, outWidth, outHeight;
+        int x, y, width, height, sampleSize;
     };
     const Request outside[] = {
-        {-1, 0, 10, 10, 10, 10},      {0, -1, 10, 10, 10, 10},     {87, 0, 10, 10, 10, 10},
-        {0, 55, 10, 10, 10, 10},      {96, 0, 1, 1, 1, 1},         {0, 64, 1, 1, 1, 1},
-        {0, 0, 97, 64, 97, 64},       {0, 0, 96, 65, 96, 65},      {0, 0, 0, 10, 1, 10},
-        {0, 0, 10, 0, 10, 1},         {0, 0, 10, -5, 10, 5},       {0, 0, 10, 10, 0, 10},
-        {0, 0, 10, 10, 10, 0},        {0, 0, 10, 10, -10, 10},     {INT_MAX, 0, 1, 1, 1, 1},
-        {1, 0, INT_MAX, 1, 1, 1},     {0, 1, 1, INT_MAX, 1, 1},    {INT_MIN, INT_MIN, 10, 10, 10, 10},
+        {-1, 0, 10, 10, 1},      {0, -1, 10, 10, 1},        {87, 0, 10, 10, 1},     {0, 55, 10, 10, 1},
+        {96, 0, 1, 1, 1},        {0, 64, 1, 1, 1},          {0, 0, 97, 64, 1},      {0, 0, 96, 65, 1},
+        {0, 0, 0, 10, 1},        {0, 0, 10, 0, 1},          {0, 0, 10, -5, 1},      {0, 0, 10, 10, 0},
+        {0, 0, 10, 10, -2},      {0, 0, 10, 10, 3},         {0, 0, 10, 10, 6},      {INT_MAX, 0, 1, 1, 1},
+        {1, 0, INT_MAX, 1, 1},   {0, 1, 1, INT_MAX, 1},     {INT_MIN, INT_MIN, 10, 10, 1},
     };
     for (const Request &r : outside) {
-        const Bitmap tile = decoder->decodeRegion(r.x, r.y, r.width, r.height, r.outWidth, r.outHeight);
-        CHECK_DETAIL(!tile.valid(), "decoded " + describe(Rect{r.x, r.y, r.width, r.height}) + " to " +
-                                        std::to_string(r.outWidth) + "x" + std::to_string(r.outHeight));
+        const Bitmap tile = decoder->decodeRegion(r.x, r.y, r.width, r.height, r.sampleSize);
+        CHECK_DETAIL(!tile.valid(), "decoded " + describe(Rect{r.x, r.y, r.width, r.height}) + " at sample " +
+                                        std::to_string(r.sampleSize));
     }
+}
+
+TEST(a_webp_region_starts_at_even_coordinates) {
+    const RegionDecoderPtr decoder = RegionDecoder::open(folder() + "lossless.webp");
+    if (decoder == nullptr) {
+        SKIP("no WebP region decoder on this platform");
+    }
+    // libwebp decodes from even coordinates, and the rectangle is widened back
+    // to them rather than shifted.
+    const Bitmap tile = decoder->decodeRegion(1, 3, 10, 10, 1);
+    CHECK(tile.valid());
+    CHECK_EQ(tile.width(), 11);
+    CHECK_EQ(tile.height(), 11);
 }
 
 TEST(a_region_of_a_file_that_is_cut_short_or_not_an_image_is_invalid) {
@@ -292,10 +334,7 @@ TEST(a_region_of_a_file_that_is_cut_short_or_not_an_image_is_invalid) {
         // The header can be whole when the scan is not. A tile of what is
         // missing still does not decode.
         for (int sample : {1, 8}) {
-            const int width = decoder->width();
-            const int height = decoder->height();
-            const Bitmap tile = decoder->decodeRegion(0, 0, width, height, std::max(1, width / sample),
-                                                      std::max(1, height / sample));
+            const Bitmap tile = decoder->decodeRegion(0, 0, decoder->width(), decoder->height(), sample);
             CHECK_DETAIL(!tile.valid(), file + ": decoded whole at 1/" + std::to_string(sample));
         }
     }
@@ -322,8 +361,7 @@ TEST(one_region_decoder_serves_eight_threads_at_once) {
         const int edge = 48;
         for (int y = 0; y + edge <= decoder->height(); y += edge) {
             for (int x = 0; x + edge <= decoder->width(); x += edge) {
-                const Rect rect = {x, y, edge, edge};
-                tiles.push_back({rect, sample, decoder->decodeRegion(x, y, edge, edge, edge / sample, edge / sample)});
+                tiles.push_back({{x, y, edge, edge}, sample, decoder->decodeRegion(x, y, edge, edge, sample)});
             }
         }
     }
@@ -335,8 +373,7 @@ TEST(one_region_decoder_serves_eight_threads_at_once) {
                 for (size_t i = 0; i < tiles.size(); ++i) {
                     const Tile &tile = tiles[(i + (size_t)thread * 7) % tiles.size()];
                     const Rect &r = tile.rect;
-                    const Bitmap got =
-                        decoder->decodeRegion(r.x, r.y, r.width, r.height, r.width / tile.sample, r.height / tile.sample);
+                    const Bitmap got = decoder->decodeRegion(r.x, r.y, r.width, r.height, tile.sample);
                     const bool same = got.valid() && tile.expected.valid() && got.width() == tile.expected.width() &&
                                       got.height() == tile.expected.height() &&
                                       std::equal(got.pixels(),

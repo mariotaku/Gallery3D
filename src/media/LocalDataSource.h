@@ -84,20 +84,20 @@ class DataSource {
         return false;
     }
 
-    // Requests a region in original-image pixels, decoded at outWidth by outHeight.
-    // Only used with supportsRegions; callback may run inline or later.
+    // Requests a region in original-image pixels, reduced by sampleSize as
+    // RegionDecoder::decodeRegion reduces it. Only used with supportsRegions;
+    // callback may run inline or later.
     //
     // This hands back pixels rather than encoded bytes so each source can reach
     // them its own way: a local file is cropped straight out of the original,
     // and the media store goes through the platform's region decoder.
-    virtual void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+    virtual void requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
                                RegionCallback done) {
         (void)x;
         (void)y;
         (void)width;
         (void)height;
-        (void)outWidth;
-        (void)outHeight;
+        (void)sampleSize;
         (void)item;
         if (done) {
             done(Bitmap());
@@ -127,7 +127,7 @@ class LocalDataSource : public DataSource {
     bool supportsOperation(int operation) const override;
 
     bool supportsRegions(const MediaItem *item) const override;
-    void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+    void requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
                        RegionCallback done) override;
     bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) override;
 

@@ -2,7 +2,7 @@
 
 Gallery3D SDL is a C++17 / SDL3 port of the Cooliris 3D photo wall from AOSP
 `platform/packages/apps/Gallery3D`, tag `android-2.3.7_r1`. Browse folder stacks,
-open albums, and zoom photos. Java reference sources are in `reference/`.
+open albums, and zoom photos. Java reference sources are in `reference/gallery3d`.
 Apache 2.0, Copyright 2009 The Android Open Source Project; see `LICENSE`.
 
 ![album view](docs/albums.png)

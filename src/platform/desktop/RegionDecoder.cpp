@@ -63,16 +63,6 @@ void noteMessage(j_common_ptr info, int level) {
     }
 }
 
-// libjpeg scales by an eighth, so it covers sample sizes up to 8. Anything
-// coarser decodes at an eighth and scales the rest of the way afterwards.
-int scaleDenominatorFor(int sampleSize) {
-    int denominator = 1;
-    while (denominator < 8 && denominator * 2 <= sampleSize) {
-        denominator *= 2;
-    }
-    return denominator;
-}
-
 // Holds the encoded file rather than an open libjpeg context. libjpeg cannot
 // seek back into a scan it has already read, so every region restarts
 // decompression regardless; what must not repeat is reading the file off the
@@ -80,10 +70,14 @@ int scaleDenominatorFor(int sampleSize) {
 // out of each other's way.
 class JpegRegionDecoder : public RegionDecoder {
   public:
+    JpegRegionDecoder() {
+        mSampling = Sampling::Jpeg;
+    }
+
     bool read(const std::string &path);
 
   protected:
-    Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) override;
+    Bitmap decode(int x, int y, int width, int height, int sampleSize, Bitmap::Size size) override;
 
   private:
     bool readSize();
@@ -150,7 +144,7 @@ bool JpegRegionDecoder::readSize() {
     return ok;
 }
 
-Bitmap JpegRegionDecoder::decode(int x, int y, int width, int height, int outWidth, int outHeight) {
+Bitmap JpegRegionDecoder::decode(int x, int y, int width, int height, int sampleSize, Bitmap::Size size) {
     jpeg_decompress_struct cinfo {};
     JumpOnError error {};
     cinfo.err = jpeg_std_error(&error.base);
@@ -178,11 +172,12 @@ Bitmap JpegRegionDecoder::decode(int x, int y, int width, int height, int outWid
         jpeg_mem_src(&cinfo, mBytes.data(), (unsigned long)mBytes.size());
         jpeg_read_header(&cinfo, TRUE);
 
-        // The caller asks for a whole-pixel reduction, which is what its tile
-        // grid is built on.
-        const int denominator = scaleDenominatorFor(width / outWidth);
+        // libjpeg reduces by a half, a quarter or an eighth, rounding its size
+        // up. A sample past an eighth is picked from that below, as Android's
+        // decoder picks.
+        const int native = std::min(sampleSize, 8);
         cinfo.scale_num = 1;
-        cinfo.scale_denom = (unsigned)denominator;
+        cinfo.scale_denom = (unsigned)native;
         // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
         // straight into the bitmap. JPEG carries no alpha, so opaque pixels are
         // already premultiplied. A four channel JPEG comes out as CMYK in the
@@ -193,11 +188,18 @@ Bitmap JpegRegionDecoder::decode(int x, int y, int width, int height, int outWid
         jpeg_start_decompress(&cinfo);
 
         // The region arrives in the original's pixels; libjpeg works in the
-        // reduced ones it is about to output.
-        const int scaledLeft = std::min((int)cinfo.output_width, x / denominator);
-        const int scaledTop = std::min((int)cinfo.output_height, y / denominator);
-        const int scaledRight = std::min((int)cinfo.output_width, (x + width + denominator - 1) / denominator);
-        const int scaledBottom = std::min((int)cinfo.output_height, (y + height + denominator - 1) / denominator);
+        // reduced ones it is about to output. Skia takes the whole reduced
+        // picture for the whole rectangle, and otherwise the rectangle's size
+        // divided and rounded down, from its corner divided.
+        const bool whole = x == 0 && y == 0 && width == mWidth && height == mHeight;
+        const int scaledLeft = std::min((int)cinfo.output_width, x / native);
+        const int scaledTop = std::min((int)cinfo.output_height, y / native);
+        const int scaledRight =
+            whole ? (int)cinfo.output_width
+                  : std::min((int)cinfo.output_width, scaledLeft + (width < native ? 1 : width / native));
+        const int scaledBottom =
+            whole ? (int)cinfo.output_height
+                  : std::min((int)cinfo.output_height, scaledTop + (height < native ? 1 : height / native));
         const int scaledHeight = scaledBottom - scaledTop;
 
         if (scaledRight > scaledLeft && scaledHeight > 0) {
@@ -252,14 +254,9 @@ Bitmap JpegRegionDecoder::decode(int x, int y, int width, int height, int outWid
     } else if (mAdobeRgb) {
         ColorProfile::adobeRgbToSrgb(decoded.pixels(), count);
     }
-    // Scaling happens past the jump target, where allocating is safe again. A
-    // sample size above eight, or an edge tile libjpeg rounded up, still needs
-    // this last step to the requested size.
-    // How much of the decoded window is picture, in libjpeg's reduced pixels.
-    // Worked out again here rather than kept from before the jump, where
-    // longjmp could leave it clobbered.
-    const int reduction = scaleDenominatorFor(width / outWidth);
-    return decoded.scaledCovering(outWidth, outHeight, (double)width / reduction, (double)height / reduction);
+    // A sample past an eighth keeps one pixel of every few, past the jump
+    // target, where allocating is safe again.
+    return decoded.picked(size.width, size.height);
 }
 
 }  // namespace

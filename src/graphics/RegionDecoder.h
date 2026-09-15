@@ -41,28 +41,35 @@ class RegionDecoder {
         return mHeight;
     }
 
-    // Decodes the rectangle given in the original's pixels and returns it at
-    // outWidth by outHeight. The contract, on every platform:
-    // - The rectangle lies inside the image and every size is above zero.
-    //   Anything else gives an invalid Bitmap; nothing is clipped.
-    // - Pixels are what Bitmap::load gives for the same rectangle: premultiplied
-    //   in Bitmap::decodeOrder(), in stored orientation, converted to sRGB.
-    // - A reduced tile, width / outWidth to one, lands on its rectangle when x
-    //   and y are multiples of that reduction, as the tile grid's are. Other
-    //   origins may start the tile up to one reduced pixel early.
+    // Decodes the rectangle given in the original's pixels, reduced by
+    // sampleSize, as Android's BitmapRegionDecoder does. The contract, on every
+    // platform:
+    // - The rectangle lies inside the image, every size is above zero and
+    //   sampleSize is a power of two. Anything else gives an invalid Bitmap;
+    //   nothing is clipped.
+    // - The whole picture comes back at Bitmap::sampledSize for the format.
+    //   Any other rectangle comes back at Bitmap::sampledRegionSize.
+    // - Pixels are what Bitmap::load gives reduced by the same sample, in the
+    //   same place: pixel k of a JPEG tile is reduced pixel x / sampleSize + k
+    //   when x is a multiple of the sample, as the tile grid's always are.
+    //   Premultiplied in Bitmap::decodeOrder(), in stored orientation, sRGB.
+    // - A WebP rectangle starts at even x and y, as libwebp decodes it.
     // - A format with no alpha channel is marked opaque.
     // - A rectangle the file ends before gives an invalid Bitmap.
     // tests/test_decode_region.cpp checks it against the decode fixtures.
     // Several decode threads share one decoder, so this must stay callable
     // from all of them at once.
-    Bitmap decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight);
+    Bitmap decodeRegion(int x, int y, int width, int height, int sampleSize);
 
   protected:
-    // decodeRegion for a rectangle already known to lie inside the image.
-    virtual Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) = 0;
+    // decodeRegion for a rectangle already known to lie inside the image, and
+    // the size the result has to be.
+    virtual Bitmap decode(int x, int y, int width, int height, int sampleSize, Bitmap::Size size) = 0;
 
     int mWidth = 0;
     int mHeight = 0;
+    // How the format reduces, which decides the size a rectangle comes back at.
+    Sampling mSampling = Sampling::Picked;
 };
 
 using RegionDecoderPtr = std::shared_ptr<RegionDecoder>;

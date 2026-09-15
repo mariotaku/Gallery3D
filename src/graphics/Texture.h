@@ -178,8 +178,8 @@ class FileTexture : public Texture {
 // Requires DataSource::supportsRegions; coordinates use original pixels.
 class RegionTexture : public Texture {
   public:
-    RegionTexture(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight)
-        : mItem(item), mX(x), mY(y), mWidth(width), mHeight(height), mOutWidth(outWidth), mOutHeight(outHeight) {}
+    RegionTexture(MediaItem *item, int x, int y, int width, int height, int sampleSize)
+        : mItem(item), mX(x), mY(y), mWidth(width), mHeight(height), mSampleSize(sampleSize) {}
 
     void startLoad(RenderView *view, const TexturePtr &self) override;
 
@@ -196,8 +196,7 @@ class RegionTexture : public Texture {
     int mY;
     int mWidth;
     int mHeight;
-    int mOutWidth;
-    int mOutHeight;
+    int mSampleSize;
 };
 
 // The grid thumbnail for one media item. Replaces MediaItemTexture.

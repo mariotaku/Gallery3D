@@ -181,9 +181,8 @@ bool MediaStoreDataSource::supportsRegions(const MediaItem *item) const {
 }
 
 void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height,
-                                         int outWidth, int outHeight, RegionCallback done) {
-    if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 ||
-        outHeight <= 0) {
+                                         int sampleSize, RegionCallback done) {
+    if (item == nullptr || !item->hasFullSize()) {
         done(Bitmap());
         return;
     }
@@ -194,7 +193,7 @@ void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int widt
         return;
     }
     // The decode pool already runs this off the render thread.
-    done(decoder->decodeRegion(x, y, width, height, outWidth, outHeight));
+    done(decoder->decodeRegion(x, y, width, height, sampleSize));
 }
 
 std::string MediaStoreDataSource::bucketIdForSet(int64_t setId) const {

@@ -26,7 +26,7 @@ class MediaStoreDataSource : public DataSource {
     // Zoomed photos are cropped by BitmapRegionDecoder, which reads the same
     // content uri.
     bool supportsRegions(const MediaItem *item) const override;
-    void requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth, int outHeight,
+    void requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
                        RegionCallback done) override;
 
   private:

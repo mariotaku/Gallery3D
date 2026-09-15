@@ -28,6 +28,7 @@ const char *const kBridgeClass = "me/mariotaku/gallery3d/RegionDecoderBridge";
 // the app's class loader and cannot look this up by name.
 jclass gBridge = nullptr;
 jmethodID gOpen = nullptr;
+jmethodID gMimeType = nullptr;
 jmethodID gWidth = nullptr;
 jmethodID gHeight = nullptr;
 jmethodID gDecodeRegion = nullptr;
@@ -76,11 +77,27 @@ class AndroidRegionDecoder : public RegionDecoder {
 
         mWidth = env->CallStaticIntMethod(gBridge, gWidth, mDecoder);
         mHeight = env->CallStaticIntMethod(gBridge, gHeight, mDecoder);
-        return !threw(env, "size") && mWidth > 0 && mHeight > 0;
+        if (threw(env, "size") || mWidth <= 0 || mHeight <= 0) {
+            return false;
+        }
+        // The size a whole picture comes back at depends on its format, which
+        // the platform tells from the bytes.
+        jstring uriArgument = env->NewStringUTF(uri.c_str());
+        jstring mimeType = (jstring)env->CallStaticObjectMethod(gBridge, gMimeType, uriArgument);
+        env->DeleteLocalRef(uriArgument);
+        if (!threw(env, "mimeType") && mimeType != nullptr) {
+            const char *chars = env->GetStringUTFChars(mimeType, nullptr);
+            if (chars != nullptr) {
+                mSampling = Bitmap::samplingOfMimeType(chars);
+                env->ReleaseStringUTFChars(mimeType, chars);
+            }
+            env->DeleteLocalRef(mimeType);
+        }
+        return true;
     }
 
   protected:
-    Bitmap decode(int x, int y, int width, int height, int outWidth, int outHeight) override;
+    Bitmap decode(int x, int y, int width, int height, int sampleSize, Bitmap::Size size) override;
 
   private:
     jobject mDecoder = nullptr;
@@ -90,7 +107,9 @@ class AndroidRegionDecoder : public RegionDecoder {
     std::mutex mMutex;
 };
 
-Bitmap AndroidRegionDecoder::decode(int x, int y, int width, int height, int outWidth, int outHeight) {
+Bitmap AndroidRegionDecoder::decode(int x, int y, int width, int height, int sampleSize, Bitmap::Size size) {
+    // BitmapRegionDecoder's size is the contract's, which decodeRegion checks.
+    (void)size;
     JNIEnv *env = jni();
     if (env == nullptr || mDecoder == nullptr) {
         return Bitmap();
@@ -98,9 +117,6 @@ Bitmap AndroidRegionDecoder::decode(int x, int y, int width, int height, int out
 
     std::lock_guard<std::mutex> lock(mMutex);
 
-    // The caller asks for a whole-number reduction; the platform rounds it down
-    // to a power of two, which is what the tile grid works in anyway.
-    const int sampleSize = std::max(1, width / outWidth);
     jobject tile = env->CallStaticObjectMethod(gBridge, gDecodeRegion, mDecoder, (jint)x, (jint)y,
                                                (jint)width, (jint)height, (jint)sampleSize);
     if (threw(env, "decodeRegion") || tile == nullptr) {
@@ -142,15 +158,7 @@ Bitmap AndroidRegionDecoder::decode(int x, int y, int width, int height, int out
     threw(env, "recycle");
     env->DeleteLocalRef(tile);
 
-    if (!decoded.valid()) {
-        return Bitmap();
-    }
-    if (decoded.width() == outWidth && decoded.height() == outHeight) {
-        return decoded;
-    }
-    // An edge tile the platform rounded differently still needs the last step
-    // to the size the caller asked for.
-    return decoded.scaled(outWidth, outHeight);
+    return decoded;
 }
 
 }  // namespace
@@ -172,6 +180,7 @@ void RegionDecoder::initAndroid() {
     env->DeleteLocalRef(local);
 
     gOpen = env->GetStaticMethodID(gBridge, "open", "(Ljava/lang/String;)Ljava/lang/Object;");
+    gMimeType = env->GetStaticMethodID(gBridge, "mimeType", "(Ljava/lang/String;)Ljava/lang/String;");
     gWidth = env->GetStaticMethodID(gBridge, "width", "(Ljava/lang/Object;)I");
     gHeight = env->GetStaticMethodID(gBridge, "height", "(Ljava/lang/Object;)I");
     gDecodeRegion = env->GetStaticMethodID(gBridge, "decodeRegion",
@@ -183,7 +192,8 @@ void RegionDecoder::initAndroid() {
         gHasAlpha = env->GetMethodID(bitmapClass, "hasAlpha", "()Z");
         env->DeleteLocalRef(bitmapClass);
     }
-    if (threw(env, "initAndroid") || gOpen == nullptr || gDecodeRegion == nullptr || gHasAlpha == nullptr) {
+    if (threw(env, "initAndroid") || gOpen == nullptr || gMimeType == nullptr || gDecodeRegion == nullptr ||
+        gHasAlpha == nullptr) {
         SDL_Log("The region decoder bridge is not the shape expected");
         gBridge = nullptr;
     }

@@ -67,13 +67,13 @@ Bitmap fromSurface(SDL_Surface *surface, const void *bytes, size_t size) {
     return result;
 }
 
-// Brings a whole decoded image to the size the rule gives for maxEdge.
-Bitmap fitToMaxEdge(Bitmap decoded, int maxEdge) {
+// Reduces a whole decoded image by the sample maxEdge gives, the way Android's
+// decoder reduces the format.
+Bitmap sampledToMaxEdge(Bitmap decoded, Sampling sampling, int maxEdge) {
     if (!decoded.valid()) {
         return decoded;
     }
-    const Bitmap::Size size = Bitmap::fitWithin(decoded.width(), decoded.height(), maxEdge);
-    return decoded.scaled(size.width, size.height);
+    return decoded.sampledFromWhole(sampling, Bitmap::sampleSizeFor(decoded.width(), decoded.height(), maxEdge));
 }
 
 }  // namespace
@@ -93,29 +93,26 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     if (bytes == nullptr || size == 0 || endsEarly(bytes, size)) {
         return Bitmap();
     }
-    // The thumbnail a camera stores beside the photo, when a reduced decode
-    // asks for no more than it holds and it has the photo's shape. WIC answers
-    // from it the same way on Windows.
+    // The thumbnail a camera stores beside the photo, when the decode is
+    // reduced, the thumbnail's long edge reaches maxEdge and it has the
+    // photo's shape. It is then decoded for maxEdge as a picture of its own.
+    // WIC answers from it the same way on Windows.
     if (maxEdge > 0) {
         const ExifInfo exif = readExif(bytes, size);
-        if (exif.thumbnailLength > 0 && exif.pixelWidth > 0 && exif.pixelHeight > 0) {
-            const Size target = fitWithin(exif.pixelWidth, exif.pixelHeight, maxEdge);
-            if (target.width < exif.pixelWidth || target.height < exif.pixelHeight) {
-                Bitmap thumbnail =
-                    loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, 0);
-                if (thumbnail.valid() &&
-                    std::max(thumbnail.width(), thumbnail.height()) >= std::max(target.width, target.height) &&
-                    sameShape(thumbnail.width(), thumbnail.height(), exif.pixelWidth, exif.pixelHeight)) {
-                    return thumbnail.scaled(target.width, target.height);
-                }
+        if (exif.thumbnailLength > 0 && exif.pixelWidth > 0 && exif.pixelHeight > 0 &&
+            sampleSizeFor(exif.pixelWidth, exif.pixelHeight, maxEdge) > 1) {
+            const Bitmap whole = loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, 0);
+            if (whole.valid() && std::max(whole.width(), whole.height()) >= maxEdge &&
+                sameShape(whole.width(), whole.height(), exif.pixelWidth, exif.pixelHeight)) {
+                return loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, maxEdge);
             }
         }
     }
     // The platform's own decoder first, where it has one. It reduces inside the
     // codec where that is close to free, rather than building the full size
     // image only to throw most of it away, and on the desktop it converts a
-    // JPEG's colour profile at any size. It answers at the size the rule gives,
-    // which only it can work out, since it alone knows the original's size.
+    // JPEG's colour profile at any size. It works out the sample itself, since
+    // it alone knows the original's size.
     Bitmap decoded = SubsampledDecode::decode(bytes, size, maxEdge);
     if (decoded.valid()) {
         return decoded;
@@ -125,7 +122,7 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
         return Bitmap();
     }
     // IMG_Load_IO closes the stream for us, including on failure.
-    return fitToMaxEdge(fromSurface(IMG_Load_IO(stream, true), bytes, size), maxEdge);
+    return sampledToMaxEdge(fromSurface(IMG_Load_IO(stream, true), bytes, size), samplingOf(bytes, size), maxEdge);
 }
 
 PixelOrder Bitmap::decodeOrder() {

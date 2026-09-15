@@ -53,6 +53,25 @@ public final class RegionDecoderBridge {
         }
     }
 
+    /** The mime type the platform reads the photo at this content uri as, or null. */
+    public static String mimeType(String uri) {
+        Context context = MainActivity.getContext();
+        if (context == null || uri == null) {
+            return null;
+        }
+        try (InputStream input = context.getContentResolver().openInputStream(Uri.parse(uri))) {
+            if (input == null) {
+                return null;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(input, null, options);
+            return options.outMimeType;
+        } catch (Exception error) {
+            return null;
+        }
+    }
+
     public static int width(Object decoder) {
         return (decoder instanceof BitmapRegionDecoder) ? ((BitmapRegionDecoder) decoder).getWidth() : 0;
     }

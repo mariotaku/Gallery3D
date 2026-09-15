@@ -47,6 +47,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -86,6 +87,7 @@
     },
     {
      "maxEdge": 24,
+     "sampleSize": 4,
      "width": 24,
      "height": 16,
      "probes": [
@@ -170,6 +172,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -254,6 +257,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -338,6 +342,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -467,21 +472,167 @@
    "scaled": [
     {
      "maxEdge": 101,
-     "width": 101,
-     "height": 78,
-     "probes": []
+     "sampleSize": 2,
+     "width": 102,
+     "height": 79,
+     "probes": [
+      [
+       25,
+       19,
+       150,
+       52,
+       99,
+       255
+      ],
+      [
+       76,
+       19,
+       56,
+       53,
+       100,
+       255
+      ],
+      [
+       25,
+       59,
+       150,
+       184,
+       100,
+       255
+      ],
+      [
+       76,
+       59,
+       55,
+       183,
+       100,
+       255
+      ]
+     ],
+     "golden": "gradient_s2.rgba"
     },
     {
      "maxEdge": 50,
-     "width": 50,
-     "height": 39,
-     "probes": []
+     "sampleSize": 4,
+     "width": 51,
+     "height": 40,
+     "probes": [
+      [
+       12,
+       10,
+       141,
+       77,
+       101,
+       255
+      ],
+      [
+       38,
+       10,
+       47,
+       77,
+       101,
+       255
+      ],
+      [
+       12,
+       30,
+       141,
+       207,
+       101,
+       255
+      ],
+      [
+       38,
+       30,
+       47,
+       207,
+       101,
+       255
+      ]
+     ],
+     "golden": "gradient_s4.rgba"
     },
     {
      "maxEdge": 25,
-     "width": 25,
-     "height": 19,
-     "probes": []
+     "sampleSize": 8,
+     "width": 26,
+     "height": 20,
+     "probes": [
+      [
+       6,
+       5,
+       158,
+       93,
+       101,
+       255
+      ],
+      [
+       19,
+       5,
+       30,
+       93,
+       100,
+       255
+      ],
+      [
+       6,
+       15,
+       157,
+       223,
+       100,
+       255
+      ],
+      [
+       19,
+       15,
+       31,
+       223,
+       101,
+       255
+      ]
+     ],
+     "golden": "gradient_s8.rgba"
+    },
+    {
+     "maxEdge": 12,
+     "sampleSize": 16,
+     "width": 13,
+     "height": 10,
+     "probes": [
+      [
+       3,
+       2,
+       222,
+       92,
+       100,
+       255
+      ],
+      [
+       9,
+       2,
+       30,
+       93,
+       100,
+       255
+      ],
+      [
+       3,
+       7,
+       222,
+       224,
+       101,
+       255
+      ],
+      [
+       9,
+       7,
+       31,
+       223,
+       101,
+       255
+      ]
+     ],
+     "golden": "gradient_s16.rgba"
     }
    ],
    "golden": "gradient.rgba",
@@ -577,6 +728,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -662,6 +814,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -747,6 +900,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -832,6 +986,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -917,6 +1072,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -1002,6 +1158,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -1087,6 +1244,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -1172,6 +1330,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 2,
      "width": 160,
      "height": 120,
      "probes": [
@@ -1257,6 +1416,7 @@
    "scaled": [
     {
      "maxEdge": 160,
+     "sampleSize": 1,
      "width": 160,
      "height": 120,
      "probes": [
@@ -1297,36 +1457,37 @@
     },
     {
      "maxEdge": 100,
-     "width": 100,
-     "height": 75,
+     "sampleSize": 1,
+     "width": 160,
+     "height": 120,
      "probes": [
       [
-       25,
-       18,
+       40,
+       30,
        240,
        240,
        240,
        255
       ],
       [
-       75,
-       18,
+       120,
+       30,
        20,
        20,
        20,
        255
       ],
       [
-       25,
-       56,
+       40,
+       90,
        150,
        41,
        160,
        255
       ],
       [
-       75,
-       56,
+       120,
+       90,
        40,
        150,
        151,
@@ -1337,36 +1498,37 @@
     },
     {
      "maxEdge": 161,
-     "width": 161,
-     "height": 121,
+     "sampleSize": 8,
+     "width": 200,
+     "height": 150,
      "probes": [
       [
-       40,
-       30,
+       50,
+       37,
        201,
        60,
        50,
        255
       ],
       [
-       120,
-       30,
+       150,
+       37,
        60,
        180,
        80,
        255
       ],
       [
-       40,
-       90,
+       50,
+       112,
        50,
        80,
        200,
        255
       ],
       [
-       120,
-       90,
+       150,
+       112,
        220,
        199,
        71,
@@ -1377,6 +1539,7 @@
     },
     {
      "maxEdge": 400,
+     "sampleSize": 4,
      "width": 400,
      "height": 300,
      "probes": [
@@ -1416,7 +1579,7 @@
      "source": "frame"
     }
    ],
-   "notes": "1600x1200 frame with a 160x120 IFD1 thumbnail of different colours."
+   "notes": "1600x1200 frame with a 160x120 IFD1 thumbnail of different colours. A reduced decode whose thumbnail reaches maxEdge is the thumbnail decoded for maxEdge."
   },
   {
    "file": "opaque.png",
@@ -1463,6 +1626,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -1819,6 +1983,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -1903,6 +2068,7 @@
    "scaled": [
     {
      "maxEdge": 48,
+     "sampleSize": 2,
      "width": 48,
      "height": 32,
      "probes": [
@@ -2168,37 +2334,78 @@
    ],
    "scaled": [
     {
-     "maxEdge": 256,
-     "width": 256,
-     "height": 91,
+     "maxEdge": 141,
+     "sampleSize": 2,
+     "width": 141,
+     "height": 50,
      "probes": [
       [
-       64,
-       22,
+       35,
+       12,
        200,
        60,
        50,
        255
       ],
       [
-       192,
-       22,
+       105,
+       12,
        200,
        60,
        50,
        255
       ],
       [
-       64,
-       68,
+       35,
+       37,
        200,
        60,
        50,
        255
       ],
       [
-       192,
-       68,
+       105,
+       37,
+       200,
+       60,
+       50,
+       255
+      ]
+     ]
+    },
+    {
+     "maxEdge": 70,
+     "sampleSize": 4,
+     "width": 70,
+     "height": 25,
+     "probes": [
+      [
+       17,
+       6,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       52,
+       6,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       17,
+       18,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       52,
+       18,
        200,
        60,
        50,
@@ -2253,6 +2460,7 @@
    "scaled": [
     {
      "maxEdge": 500,
+     "sampleSize": 2,
      "width": 500,
      "height": 167,
      "probes": [
@@ -2283,6 +2491,46 @@
       [
        375,
        125,
+       201,
+       60,
+       50,
+       255
+      ]
+     ]
+    },
+    {
+     "maxEdge": 250,
+     "sampleSize": 4,
+     "width": 250,
+     "height": 84,
+     "probes": [
+      [
+       62,
+       21,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       187,
+       21,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       62,
+       63,
+       201,
+       60,
+       50,
+       255
+      ],
+      [
+       187,
+       63,
        201,
        60,
        50,
@@ -2337,6 +2585,7 @@
    "scaled": [
     {
      "maxEdge": 256,
+     "sampleSize": 8,
      "width": 256,
      "height": 192,
      "probes": [
@@ -2421,6 +2670,7 @@
    "scaled": [
     {
      "maxEdge": 512,
+     "sampleSize": 1,
      "width": 300,
      "height": 200,
      "probes": [
@@ -2460,6 +2710,7 @@
     },
     {
      "maxEdge": 0,
+     "sampleSize": 1,
      "width": 300,
      "height": 200,
      "probes": [
@@ -2499,6 +2750,7 @@
     },
     {
      "maxEdge": -1,
+     "sampleSize": 1,
      "width": 300,
      "height": 200,
      "probes": [
@@ -2583,11 +2835,12 @@
    "scaled": [
     {
      "maxEdge": 10,
-     "width": 10,
+     "sampleSize": 64,
+     "width": 15,
      "height": 1,
      "probes": [
       [
-       2,
+       3,
        0,
        200,
        60,
@@ -2595,7 +2848,7 @@
        255
       ],
       [
-       7,
+       11,
        0,
        200,
        60,
@@ -2603,7 +2856,7 @@
        255
       ],
       [
-       2,
+       3,
        0,
        200,
        60,
@@ -2611,7 +2864,7 @@
        255
       ],
       [
-       7,
+       11,
        0,
        200,
        60,
@@ -2667,12 +2920,13 @@
    "scaled": [
     {
      "maxEdge": 10,
+     "sampleSize": 64,
      "width": 1,
-     "height": 10,
+     "height": 15,
      "probes": [
       [
        0,
-       2,
+       3,
        200,
        60,
        50,
@@ -2680,7 +2934,7 @@
       ],
       [
        0,
-       2,
+       3,
        200,
        60,
        50,
@@ -2688,7 +2942,7 @@
       ],
       [
        0,
-       7,
+       11,
        200,
        60,
        50,
@@ -2696,7 +2950,257 @@
       ],
       [
        0,
-       7,
+       11,
+       200,
+       60,
+       50,
+       255
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "file": "size_203x157.png",
+   "width": 203,
+   "height": 157,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": true,
+   "tolerance": 6,
+   "probes": [
+    [
+     50,
+     39,
+     200,
+     60,
+     50,
+     255
+    ],
+    [
+     152,
+     39,
+     200,
+     60,
+     50,
+     255
+    ],
+    [
+     50,
+     117,
+     200,
+     60,
+     50,
+     255
+    ],
+    [
+     152,
+     117,
+     200,
+     60,
+     50,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 50,
+     "sampleSize": 4,
+     "width": 50,
+     "height": 39,
+     "probes": [
+      [
+       12,
+       9,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       37,
+       9,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       12,
+       29,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       37,
+       29,
+       200,
+       60,
+       50,
+       255
+      ]
+     ]
+    },
+    {
+     "maxEdge": 25,
+     "sampleSize": 8,
+     "width": 25,
+     "height": 19,
+     "probes": [
+      [
+       6,
+       4,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       18,
+       4,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       6,
+       14,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       18,
+       14,
+       200,
+       60,
+       50,
+       255
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "file": "size_203x157.webp",
+   "width": 203,
+   "height": 157,
+   "pattern": "quarters",
+   "alpha": false,
+   "lossless": true,
+   "tolerance": 6,
+   "probes": [
+    [
+     50,
+     39,
+     200,
+     60,
+     50,
+     255
+    ],
+    [
+     152,
+     39,
+     200,
+     60,
+     50,
+     255
+    ],
+    [
+     50,
+     117,
+     200,
+     60,
+     50,
+     255
+    ],
+    [
+     152,
+     117,
+     200,
+     60,
+     50,
+     255
+    ]
+   ],
+   "scaled": [
+    {
+     "maxEdge": 50,
+     "sampleSize": 4,
+     "width": 51,
+     "height": 39,
+     "probes": [
+      [
+       12,
+       9,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       38,
+       9,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       12,
+       29,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       38,
+       29,
+       200,
+       60,
+       50,
+       255
+      ]
+     ]
+    },
+    {
+     "maxEdge": 25,
+     "sampleSize": 8,
+     "width": 25,
+     "height": 20,
+     "probes": [
+      [
+       6,
+       5,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       18,
+       5,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       6,
+       15,
+       200,
+       60,
+       50,
+       255
+      ],
+      [
+       18,
+       15,
        200,
        60,
        50,

@@ -8,11 +8,12 @@
 // - Colours are converted to sRGB from an embedded ICC profile, or from EXIF
 //   ColorSpace 2 (Adobe RGB) when there is no profile.
 // - A format with no alpha channel is marked opaque.
-// - maxEdge scales the long edge to maxEdge and rounds the short edge to the
-//   nearest pixel. A picture that already fits, or maxEdge 0 or below, keeps
-//   its size.
+// - maxEdge picks a power of two sample, the largest whose reduced long edge
+//   still reaches maxEdge, and the picture comes back at the size and with
+//   the pixels Android's decoder gives for that sample (Sampling in Bitmap.h).
+//   maxEdge 0 or below keeps the size.
 // - A reduced decode may answer from an embedded thumbnail in the picture's
-//   shape whose long edge reaches the size asked for.
+//   shape whose long edge reaches maxEdge, decoded for maxEdge in turn.
 // - A file that is cut short or is not an image does not decode.
 #include "tests.h"
 
@@ -121,39 +122,11 @@ TEST(a_fixture_decodes_reduced_to_the_size_the_rule_gives) {
             }
             checkForm(what, bitmap, fixture);
             checkProbes(what, bitmap, scaled["probes"], fixture["tolerance"].get<int>());
-        }
-    }
-}
-
-TEST(a_reduced_decode_of_ramps_follows_the_golden_averaged) {
-    // Flat patches cannot show where a scaler puts a reduced pixel. The ramps
-    // change eight levels a pixel, so a decoder that samples half a reduced
-    // pixel off, or skips instead of averaging, is further off than rounding.
-    for (const nlohmann::json &fixture : all()) {
-        if (fixture.value("invalid", false) || fixture.value("pattern", "") != "ramps" || !decodable(fixture)) {
-            continue;
-        }
-        const std::string file = fixture["file"];
-        std::vector<uint8_t> golden;
-        const int width = fixture["width"];
-        const int height = fixture["height"];
-        CHECK(Bitmap::readFile(folder() + fixture["golden"].get<std::string>(), &golden));
-        if (golden.size() != (size_t)width * (size_t)height * 4) {
-            continue;
-        }
-        for (const nlohmann::json &scaled : fixture["scaled"]) {
-            const std::string what = file + " at " + std::to_string(scaled["maxEdge"].get<int>());
-            const Bitmap bitmap = Bitmap::load(folder() + file, scaled["maxEdge"]);
-            CHECK_DETAIL(bitmap.valid() && bitmap.width() == scaled["width"].get<int>() &&
-                             bitmap.height() == scaled["height"].get<int>(),
-                         what + ": did not decode at the size the rule gives");
-            if (!bitmap.valid() || bitmap.width() != scaled["width"].get<int>() ||
-                bitmap.height() != scaled["height"].get<int>()) {
-                continue;
+            // Ramps change every pixel, so a golden of the reduced picture
+            // shows where each reduced pixel came from.
+            if (scaled.contains("golden")) {
+                checkGolden(what, bitmap, scaled["golden"], width, 0, 0, fixture["tolerance"].get<int>());
             }
-            const Difference difference = fromGoldenAverage(bitmap, golden, width, 0, 0, width, height);
-            CHECK_DETAIL(difference.mean <= 6, what + ": off the golden by " + std::to_string(difference.mean) +
-                                                   " on average, " + std::to_string(difference.worst) + " at worst");
         }
     }
 }

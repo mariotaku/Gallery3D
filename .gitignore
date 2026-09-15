@@ -21,22 +21,31 @@ vcpkg_installed/
 *.dmp
 build-ios/
 
-# The Java this is a port of, at the tag it was taken from:
+# Other projects' sources, one folder each under reference/. Not committed,
+# because they are someone else's repositories and each is one command to get
+# back.
+#
+# The Java this is a port of, at the tag it was taken from. Every file there
+# has a counterpart under src/ with the same name:
 #   git clone --depth 1 --branch android-2.3.7_r1 \
-#     https://android.googlesource.com/platform/packages/apps/Gallery3D reference
-# Not committed, because it is someone else's repository and it is one command
-# to get back. Every file here has a counterpart under src/ with the same name.
-reference/
-
+#     https://android.googlesource.com/platform/packages/apps/Gallery3D reference/gallery3d
+#
 # The iOS cross toolchain's source, for its documentation and SDK layout:
-#   git clone --depth 1 --branch 1.19.2 https://github.com/xtool-org/xtool reference-xtool
-reference-xtool/
-
+#   git clone --depth 1 --branch 1.19.2 https://github.com/xtool-org/xtool reference/xtool
+#
 # GLib, for the escaping g_filename_to_uri applies, which the freedesktop
 # thumbnail cache hashes:
-#   git clone --depth 1 https://gitlab.gnome.org/GNOME/glib.git reference-glib
-reference-glib/
-
+#   git clone --depth 1 https://gitlab.gnome.org/GNOME/glib.git reference/glib
+#
 # The freedesktop specifications, for the thumbnail cache's layout:
-#   git clone --depth 1 https://gitlab.freedesktop.org/xdg/xdg-specs.git reference-xdg-specs
-reference-xdg-specs/
+#   git clone --depth 1 https://gitlab.freedesktop.org/xdg/xdg-specs.git reference/xdg-specs
+#
+# Skia and the Android framework, for the sizes BitmapFactory and
+# BitmapRegionDecoder give with inSampleSize. Sparse, only the codec code:
+#   git clone --depth 1 --filter=blob:none --sparse --branch android14-release \
+#     https://android.googlesource.com/platform/external/skia reference/skia
+#   git -C reference/skia sparse-checkout set src/codec include/codec client_utils/android
+#   git clone --depth 1 --filter=blob:none --sparse --branch android14-release \
+#     https://android.googlesource.com/platform/frameworks/base reference/frameworks-base
+#   git -C reference/frameworks-base sparse-checkout set libs/hwui/jni graphics/java/android/graphics
+reference/

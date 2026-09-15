@@ -227,6 +227,76 @@ TEST(shrinking_averages_what_each_new_pixel_covers) {
     }
 }
 
+TEST(the_sample_is_the_largest_power_of_two_that_still_reaches_max_edge) {
+    CHECK_EQ(Bitmap::sampleSizeFor(1600, 1200, 160), 8);
+    CHECK_EQ(Bitmap::sampleSizeFor(1600, 1200, 200), 8);
+    CHECK_EQ(Bitmap::sampleSizeFor(1600, 1200, 201), 4);
+    CHECK_EQ(Bitmap::sampleSizeFor(1200, 1600, 400), 4);
+    CHECK_EQ(Bitmap::sampleSizeFor(1000, 1, 10), 64);
+    // A picture that does not reach maxEdge, or no maxEdge, is not reduced.
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, 512), 1);
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, 0), 1);
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, -1), 1);
+}
+
+TEST(a_sampled_size_is_what_android_decodes_the_format_at) {
+    // JPEG: libjpeg rounds up at a half, a quarter and an eighth, and Skia
+    // picks from an eighth past that, rounding down.
+    const Bitmap::Size jpeg2 = Bitmap::sampledSize(Sampling::Jpeg, 203, 157, 2);
+    CHECK_EQ(jpeg2.width, 102);
+    CHECK_EQ(jpeg2.height, 79);
+    const Bitmap::Size jpeg8 = Bitmap::sampledSize(Sampling::Jpeg, 203, 157, 8);
+    CHECK_EQ(jpeg8.width, 26);
+    CHECK_EQ(jpeg8.height, 20);
+    const Bitmap::Size jpeg32 = Bitmap::sampledSize(Sampling::Jpeg, 203, 157, 32);
+    CHECK_EQ(jpeg32.width, 6);
+    CHECK_EQ(jpeg32.height, 5);
+    // WebP rounds to the nearest pixel.
+    const Bitmap::Size webp = Bitmap::sampledSize(Sampling::Rescaled, 203, 157, 8);
+    CHECK_EQ(webp.width, 25);
+    CHECK_EQ(webp.height, 20);
+    // The rest round down, and never below one.
+    const Bitmap::Size png = Bitmap::sampledSize(Sampling::Picked, 203, 157, 8);
+    CHECK_EQ(png.width, 25);
+    CHECK_EQ(png.height, 19);
+    const Bitmap::Size line = Bitmap::sampledSize(Sampling::Picked, 1000, 1, 64);
+    CHECK_EQ(line.width, 15);
+    CHECK_EQ(line.height, 1);
+    // A sample of one keeps the size.
+    CHECK_EQ(Bitmap::sampledSize(Sampling::Jpeg, 203, 157, 1).width, 203);
+    // A region other than the whole picture rounds down whatever the format.
+    const Bitmap::Size region = Bitmap::sampledRegionSize(203, 157, 8);
+    CHECK_EQ(region.width, 25);
+    CHECK_EQ(region.height, 19);
+    CHECK_EQ(Bitmap::sampledRegionSize(2, 1024, 4).width, 1);
+
+    const unsigned char jpeg[] = {0xFF, 0xD8, 0xFF, 0xE0};
+    const unsigned char webpBytes[] = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
+    const unsigned char pngBytes[] = {0x89, 'P', 'N', 'G'};
+    CHECK(Bitmap::samplingOf(jpeg, sizeof(jpeg)) == Sampling::Jpeg);
+    CHECK(Bitmap::samplingOf(webpBytes, sizeof(webpBytes)) == Sampling::Rescaled);
+    CHECK(Bitmap::samplingOf(pngBytes, sizeof(pngBytes)) == Sampling::Picked);
+    CHECK(Bitmap::samplingOfMimeType("image/jpeg") == Sampling::Jpeg);
+    CHECK(Bitmap::samplingOfMimeType("image/webp") == Sampling::Rescaled);
+    CHECK(Bitmap::samplingOfMimeType("image/heif") == Sampling::Picked);
+}
+
+TEST(picking_keeps_the_pixel_half_a_sample_into_each) {
+    Bitmap row(9, 1);
+    for (int x = 0; x < 9; ++x) {
+        std::fill(row.pixels() + x * 4, row.pixels() + x * 4 + 4, (uint8_t)(x * 10));
+    }
+    // Every third pixel, from the second.
+    const Bitmap thirds = row.picked(3, 1);
+    CHECK_EQ((int)pixelAt(thirds, 0, 0)[0], 10);
+    CHECK_EQ((int)pixelAt(thirds, 1, 0)[0], 40);
+    CHECK_EQ((int)pixelAt(thirds, 2, 0)[0], 70);
+    // Nine into four is two apiece, and the last pixel is left out.
+    const Bitmap halves = row.picked(4, 1);
+    CHECK_EQ((int)pixelAt(halves, 0, 0)[0], 10);
+    CHECK_EQ((int)pixelAt(halves, 3, 0)[0], 70);
+}
+
 TEST(next_power_of_two_is_what_the_padding_relies_on) {
     CHECK_EQ(Shared::nextPowerOf2(1), 1);
     CHECK_EQ(Shared::nextPowerOf2(2), 2);

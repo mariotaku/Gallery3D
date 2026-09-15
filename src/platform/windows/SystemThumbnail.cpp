@@ -128,18 +128,7 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
         return Bitmap();
     }
 
-    Bitmap bitmap;
-    const Bitmap::Size fitted = Bitmap::fitWithin((int)width, (int)height, maxEdge);
-    if ((UINT)fitted.width == width && (UINT)fitted.height == height) {
-        bitmap = Wic::copy(source.get(), nullptr);
-    } else {
-        Wic::Ptr<IWICBitmapScaler> scaler;
-        if (SUCCEEDED(imaging->CreateBitmapScaler(scaler.put())) &&
-            SUCCEEDED(scaler->Initialize(source.get(), (UINT)fitted.width, (UINT)fitted.height,
-                                         WICBitmapInterpolationModeFant))) {
-            bitmap = Wic::copy(scaler.get(), nullptr);
-        }
-    }
+    Bitmap bitmap = Wic::copy(source.get(), nullptr);
     if (!bitmap.valid()) {
         return Bitmap();
     }
@@ -164,5 +153,7 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
     if (!anyAlpha || opaque) {
         bitmap.markOpaque();
     }
-    return bitmap;
+    // Reduced by the sample maxEdge gives, picking pixels as a decode of a
+    // format with no reduction of its own does.
+    return bitmap.sampledFromWhole(Sampling::Picked, Bitmap::sampleSizeFor(bitmap.width(), bitmap.height(), maxEdge));
 }

@@ -17,27 +17,54 @@ UINT longEdge(UINT width, UINT height) {
     return std::max(width, height);
 }
 
-// An image stored beside the frame, if it covers wanted on its long edge in the
+// An image stored beside the frame, if its long edge reaches maxEdge in the
 // frame's shape.
-Wic::Ptr<IWICBitmapSource> embeddedCovering(HRESULT fetched, Wic::Ptr<IWICBitmapSource> image, UINT wanted,
+Wic::Ptr<IWICBitmapSource> embeddedReaching(HRESULT fetched, Wic::Ptr<IWICBitmapSource> image, int maxEdge,
                                             UINT frameWidth, UINT frameHeight) {
     UINT width = 0;
     UINT height = 0;
-    if (FAILED(fetched) || !image || FAILED(image->GetSize(&width, &height)) || longEdge(width, height) < wanted ||
-        !Wic::sameShape(width, height, frameWidth, frameHeight)) {
+    if (FAILED(fetched) || !image || FAILED(image->GetSize(&width, &height)) ||
+        longEdge(width, height) < (UINT)maxEdge || !Wic::sameShape(width, height, frameWidth, frameHeight)) {
         image.reset();
     }
     return image;
 }
 
-// A four channel picture with no CMYK profile, converted without colour
-// management, the way every platform here converts one. WIC would otherwise run
-// it through a system CMYK profile, and the colours would depend on Windows.
-Bitmap fromCmyk(IWICBitmapSource *source, UINT targetWidth, UINT targetHeight) {
-    const Bitmap bitmap = Wic::copyInks(source, nullptr);
-    return bitmap.valid() ? bitmap.scaled((int)targetWidth, (int)targetHeight) : Bitmap();
+// The source at its own size, in sRGB and premultiplied, and marked opaque when
+// its format has no alpha or its pixels use none.
+Bitmap wholeOf(IWICBitmapSource *source, IWICColorContext *profile) {
+    if (profile == nullptr && Wic::isCmyk(source)) {
+        // A four channel picture with no CMYK profile, converted without
+        // colour management, the way every platform here converts one. WIC
+        // would otherwise run it through a system CMYK profile, and the
+        // colours would depend on Windows.
+        return Wic::copyInks(source, nullptr);
+    }
+    // Converted to sRGB while the colour is still straight, which is what a
+    // profile describes, and premultiplied by the copy.
+    Bitmap bitmap = Wic::copy(Wic::inSrgb(source, profile).get(), nullptr);
+    if (!Wic::hasAlpha(source)) {
+        bitmap.markOpaque();
+    } else {
+        // WIC hands some formats out with alpha whether or not the file uses
+        // it, WebP among them.
+        bitmap.markOpaqueUnlessTransparent();
+    }
+    return bitmap;
 }
 
+// An image stored beside the frame, decoded for maxEdge as a picture of its
+// own. Both a thumbnail and a RAW preview are JPEGs.
+Bitmap embeddedFor(IWICBitmapSource *image, IWICColorContext *profile, int maxEdge) {
+    UINT width = 0;
+    UINT height = 0;
+    image->GetSize(&width, &height);
+    return wholeOf(image, profile).sampledFromWhole(Sampling::Jpeg,
+                                                    Bitmap::sampleSizeFor((int)width, (int)height, maxEdge));
+}
+
+// Decodes the first frame reduced by the sample maxEdge gives, the way Android's
+// decoder reduces the format.
 Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     IWICImagingFactory *imaging = Wic::factory();
     Wic::Ptr<IWICBitmapFrameDecode> frame;
@@ -52,113 +79,56 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     // What the pixels' colours mean. Every picture leaves here in sRGB, which
     // is what the wall draws in.
     const Wic::Ptr<IWICColorContext> profile = Wic::colorProfileOf(frame.get());
+    const int sampleSize = Bitmap::sampleSizeFor((int)width, (int)height, maxEdge);
 
-    // The size asked for, in the frame's shape and never larger than it.
-    const Bitmap::Size fitted = Bitmap::fitWithin((int)width, (int)height, maxEdge);
-    const UINT targetWidth = (UINT)fitted.width;
-    const UINT targetHeight = (UINT)fitted.height;
-    const UINT wanted = longEdge(targetWidth, targetHeight);
-    const bool reducing = wanted < longEdge(width, height);
-
-    // What to decode from. An embedded thumbnail that covers the request costs
-    // a tenth of reducing a HEIF. A codec that cannot reduce while decoding,
-    // which is RAW's, is better served by the full-size JPEG preview the camera
-    // stored beside the raw data. Everything else decodes the frame, which a
-    // codec like JPEG's reduces as it goes.
-    Wic::Ptr<IWICBitmapSource> source;
-    if (reducing) {
+    // An embedded thumbnail whose long edge reaches maxEdge costs a tenth of
+    // reducing a HEIF, and every platform answers from it the same way. A
+    // codec that cannot reduce while decoding, which is RAW's, is better served
+    // by the JPEG preview the camera stored beside the raw data.
+    if (sampleSize > 1) {
         Wic::Ptr<IWICBitmapSource> thumbnail;
-        const HRESULT fetched = frame->GetThumbnail(thumbnail.put());
-        source = embeddedCovering(fetched, std::move(thumbnail), wanted, width, height);
-    }
-    if (!source) {
+        HRESULT fetched = frame->GetThumbnail(thumbnail.put());
+        thumbnail = embeddedReaching(fetched, std::move(thumbnail), maxEdge, width, height);
+        if (thumbnail) {
+            return embeddedFor(thumbnail.get(), profile.get(), maxEdge);
+        }
         Wic::Ptr<IWICBitmapSourceTransform> transform;
         if (FAILED(frame->QueryInterface(IID_PPV_ARGS(transform.put())))) {
             Wic::Ptr<IWICBitmapSource> preview;
-            const HRESULT fetched = decoder->GetPreview(preview.put());
-            source = embeddedCovering(fetched, std::move(preview), wanted, width, height);
+            fetched = decoder->GetPreview(preview.put());
+            preview = embeddedReaching(fetched, std::move(preview), maxEdge, width, height);
+            if (preview) {
+                return embeddedFor(preview.get(), profile.get(), maxEdge);
+            }
         }
-    }
-    bool fromFrame = false;
-    if (!source) {
-        if (FAILED(frame->QueryInterface(IID_PPV_ARGS(source.put())))) {
-            return Bitmap();
-        }
-        fromFrame = true;
     }
 
-    UINT sourceWidth = 0;
-    UINT sourceHeight = 0;
-    source->GetSize(&sourceWidth, &sourceHeight);
-    // A format with no alpha channel decodes fully opaque, which saves the
-    // upload a pass over the pixels to find that out.
-    const bool alpha = Wic::hasAlpha(source.get());
-    // A JPEG frame reduces inside its codec by a half, a quarter or an eighth,
-    // the smallest that still covers the size asked for, and is scaled the rest
-    // of the way here, as libjpeg's decode is on the other platforms.
-    if (reducing && fromFrame && !alpha) {
-        for (UINT sample = 8; sample >= 2; sample /= 2) {
-            if (longEdge((width + sample - 1) / sample, (height + sample - 1) / sample) < wanted) {
-                continue;
-            }
-            const Wic::Ptr<IWICBitmap> reduced = Wic::reducedByCodec(frame.get(), sample, nullptr);
-            if (!reduced) {
-                continue;
-            }
-            Bitmap bitmap = (!profile && Wic::isCmyk(reduced.get()))
-                                ? Wic::copyInks(reduced.get(), nullptr)
-                                : Wic::copy(Wic::inSrgb(reduced.get(), profile.get()).get(), nullptr);
-            if (!bitmap.valid()) {
-                break;
-            }
-            bitmap.markOpaque();
-            return bitmap.scaledCovering((int)targetWidth, (int)targetHeight, (double)width / sample,
-                                         (double)height / sample);
-        }
-    }
-    if (!profile && Wic::isCmyk(source.get())) {
-        return fromCmyk(source.get(), targetWidth, targetHeight);
-    }
-    if (sourceWidth == targetWidth && sourceHeight == targetHeight) {
-        Bitmap bitmap = Wic::copy(Wic::inSrgb(source.get(), profile.get()).get(), nullptr);
-        if (!alpha) {
-            bitmap.markOpaque();
-        } else {
-            // WIC hands some formats out with alpha whether or not the file
-            // uses it, WebP among them.
-            bitmap.markOpaqueUnlessTransparent();
-        }
-        return bitmap;
-    }
-
-    // With alpha, converted to sRGB while the colour is still straight, which
-    // is what a profile describes, then scaled once premultiplied, so a
-    // transparent pixel lends no colour to its neighbours.
-    Wic::Ptr<IWICBitmapScaler> scaler;
-    if (alpha) {
-        const Wic::Ptr<IWICBitmapSource> straight = Wic::inSrgb(source.get(), profile.get());
-        Wic::Ptr<IWICFormatConverter> premultiplied;
-        if (!straight || FAILED(imaging->CreateFormatConverter(premultiplied.put())) ||
-            FAILED(premultiplied->Initialize(straight.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone,
-                                             nullptr, 0.0, WICBitmapPaletteTypeCustom)) ||
-            FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
-            FAILED(scaler->Initialize(premultiplied.get(), targetWidth, targetHeight,
-                                      WICBitmapInterpolationModeFant))) {
-            return Bitmap();
-        }
-        Bitmap bitmap = Wic::copy(scaler.get(), nullptr);
-        bitmap.markOpaqueUnlessTransparent();
-        return bitmap;
-    }
-    // Without, the scaler sits straight on the source, which is what lets WIC
-    // hand the reduction to the codec, and only the pixels kept are converted.
-    if (FAILED(imaging->CreateBitmapScaler(scaler.put())) ||
-        FAILED(scaler->Initialize(source.get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant))) {
+    Wic::Ptr<IWICBitmapSource> source;
+    if (FAILED(frame->QueryInterface(IID_PPV_ARGS(source.put())))) {
         return Bitmap();
     }
-    Bitmap bitmap = Wic::copy(Wic::inSrgb(scaler.get(), profile.get()).get(), nullptr);
-    bitmap.markOpaque();
-    return bitmap;
+    const Sampling sampling = [decoder]() {
+        GUID container;
+        if (FAILED(decoder->GetContainerFormat(&container))) {
+            return Sampling::Picked;
+        }
+        return container == GUID_ContainerFormatJpeg   ? Sampling::Jpeg
+               : container == GUID_ContainerFormatWebp ? Sampling::Rescaled
+                                                       : Sampling::Picked;
+    }();
+
+    // A JPEG frame reduces inside its codec by a half, a quarter or an eighth,
+    // rounding up, as libjpeg does on the other platforms and Android's decoder
+    // does with the same sample. A sample past an eighth is picked from that.
+    if (sampling == Sampling::Jpeg && sampleSize > 1) {
+        const Wic::Ptr<IWICBitmap> reduced = Wic::reducedByCodec(frame.get(), (UINT)std::min(sampleSize, 8), nullptr);
+        if (reduced) {
+            const Bitmap bitmap = wholeOf(reduced.get(), profile.get());
+            const Bitmap::Size size = Bitmap::sampledSize(Sampling::Jpeg, (int)width, (int)height, sampleSize);
+            return bitmap.valid() ? bitmap.picked(size.width, size.height) : Bitmap();
+        }
+    }
+    return wholeOf(source.get(), profile.get()).sampledFromWhole(sampling, sampleSize);
 }
 
 std::unordered_set<std::string> installedExtensions() {

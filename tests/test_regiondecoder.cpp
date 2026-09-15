@@ -170,7 +170,7 @@ TEST(a_region_matches_the_same_rectangle_of_the_whole_image) {
 
     for (const Rect &rect : rectangles) {
         const Bitmap tile =
-            decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, rect.width, rect.height);
+            decoder->decodeRegion(rect.x, rect.y, rect.width, rect.height, 1);
         CHECK(tile.valid());
         CHECK_EQ(tile.width(), rect.width);
         CHECK_EQ(tile.height(), rect.height);
@@ -198,7 +198,7 @@ TEST(a_sampled_region_comes_back_at_the_size_asked_for) {
     for (int sampleSize : sampleSizes) {
         const int width = 512;
         const int height = 256;
-        const Bitmap tile = decoder->decodeRegion(128, 64, width, height, width / sampleSize, height / sampleSize);
+        const Bitmap tile = decoder->decodeRegion(128, 64, width, height, sampleSize);
         CHECK(tile.valid());
         CHECK_EQ(tile.width(), width / sampleSize);
         CHECK_EQ(tile.height(), height / sampleSize);
@@ -224,7 +224,7 @@ TEST(one_decoder_serves_every_tile_and_outlives_the_file) {
     CHECK(!fs::exists(path));
 
     for (int column = 0; column < 4; ++column) {
-        const Bitmap tile = decoder->decodeRegion(column * 256, 0, 256, 256, 256, 256);
+        const Bitmap tile = decoder->decodeRegion(column * 256, 0, 256, 256, 1);
         CHECK(tile.valid());
         CHECK_EQ(tile.width(), 256);
         // Red follows x in the gradient, so each tile starts where the last
@@ -247,7 +247,7 @@ TEST(a_sampled_region_still_lands_on_the_right_part_of_the_picture) {
     if (decoder == nullptr) {
         return;
     }
-    const Bitmap tile = decoder->decodeRegion(400, 200, 256, 256, 128, 128);
+    const Bitmap tile = decoder->decodeRegion(400, 200, 256, 256, 2);
     CHECK(tile.valid());
     // A JPEG has no alpha, which the decoder says so the upload need not look.
     CHECK(tile.knownOpaque());
@@ -313,7 +313,7 @@ TEST(a_reduced_tile_from_a_codec_that_cannot_reduce_lands_on_its_part_of_the_pic
     // Coarse first, then finer, then coarse again from the finer level kept.
     for (int sample : {8, 2, 4, 8}) {
         const int edge = 128 * sample;
-        const Bitmap tile = decoder->decodeRegion(256, 256, edge, edge, 128, 128);
+        const Bitmap tile = decoder->decodeRegion(256, 256, edge, edge, sample);
         CHECK(tile.valid());
         CHECK_EQ(tile.width(), 128);
         CHECK_EQ(tile.height(), 128);
@@ -353,8 +353,8 @@ TEST(a_region_outside_the_picture_fails_instead_of_guessing) {
     const RegionDecoderPtr decoder = RegionDecoder::open(path);
     CHECK(decoder != nullptr);
     if (decoder != nullptr) {
-        CHECK(!decoder->decodeRegion(200, 200, 64, 64, 64, 64).valid());
-        CHECK(!decoder->decodeRegion(0, 0, 0, 0, 0, 0).valid());
+        CHECK(!decoder->decodeRegion(200, 200, 64, 64, 1).valid());
+        CHECK(!decoder->decodeRegion(0, 0, 0, 0, 1).valid());
     }
     fs::remove(path);
 }
@@ -381,7 +381,7 @@ TEST(the_cache_holds_one_decoder_and_swaps_it_for_another_photo) {
     // The first decoder is still usable while someone holds it, even though the
     // cache has moved on. In the app that someone is a tile still decoding.
     fs::remove(first);
-    CHECK(a->decodeRegion(0, 0, 256, 256, 256, 256).valid());
+    CHECK(a->decodeRegion(0, 0, 256, 256, 1).valid());
 
     // A source with no decoder behind it caches the miss rather than reopening.
     CHECK(cache.get("/no/such/file.jpg") == nullptr);
@@ -445,14 +445,14 @@ TEST(a_local_tile_comes_back_through_the_data_source) {
     photo.mFullHeight = 1500;
 
     Bitmap tile;
-    source.requestRegion(&photo, 512, 512, 512, 512, 512, 512,
+    source.requestRegion(&photo, 512, 512, 512, 512, 1,
                          [&tile](Bitmap bitmap) { tile = std::move(bitmap); });
     CHECK(tile.valid());
     CHECK_EQ(tile.width(), 512);
 
     // A rectangle running off the right edge is refused, not trimmed.
     Bitmap edge;
-    source.requestRegion(&photo, 1900, 1400, 512, 512, 100, 100,
+    source.requestRegion(&photo, 1900, 1400, 512, 512, 4,
                          [&edge](Bitmap bitmap) { edge = std::move(bitmap); });
     CHECK(!edge.valid());
 
@@ -460,7 +460,7 @@ TEST(a_local_tile_comes_back_through_the_data_source) {
     // not go back to the disk.
     fs::remove(jpeg);
     Bitmap afterDelete;
-    source.requestRegion(&photo, 0, 0, 512, 512, 512, 512,
+    source.requestRegion(&photo, 0, 0, 512, 512, 1,
                          [&afterDelete](Bitmap bitmap) { afterDelete = std::move(bitmap); });
     CHECK(afterDelete.valid());
 
@@ -471,7 +471,7 @@ TEST(a_local_tile_comes_back_through_the_data_source) {
     other.mFullWidth = 100;
     other.mFullHeight = 100;
     Bitmap missing;
-    source.requestRegion(&other, 0, 0, 50, 50, 50, 50,
+    source.requestRegion(&other, 0, 0, 50, 50, 1,
                          [&missing](Bitmap bitmap) { missing = std::move(bitmap); });
     CHECK(!missing.valid());
 }
@@ -514,13 +514,17 @@ TEST(a_photo_decodes_reduced_without_being_built_at_full_size_first) {
 
 TEST(a_format_with_no_reducing_decoder_still_loads) {
     // PNG has no subsampled path on the desktop, so it falls back to decoding
-    // whole. The caller cannot tell the difference.
+    // whole and picking pixels. The caller cannot tell the difference.
     std::vector<uint8_t> encoded;
     CHECK(Bitmap::readFile(std::string(GALLERY3D_ASSET_ROOT) + "/drawable/icon_home_small.png", &encoded));
     const Bitmap decoded = Bitmap::loadFromMemory(encoded.data(), encoded.size(), 32);
+    const Bitmap whole = Bitmap::loadFromMemory(encoded.data(), encoded.size(), 0);
     CHECK(decoded.valid());
-    if (decoded.valid()) {
-        CHECK(decoded.width() <= 32);
-        CHECK(decoded.height() <= 32);
+    CHECK(whole.valid());
+    if (decoded.valid() && whole.valid()) {
+        const Bitmap::Size size = Bitmap::sampledSize(Sampling::Picked, whole.width(), whole.height(),
+                                                      Bitmap::sampleSizeFor(whole.width(), whole.height(), 32));
+        CHECK_EQ(decoded.width(), size.width);
+        CHECK_EQ(decoded.height(), size.height);
     }
 }

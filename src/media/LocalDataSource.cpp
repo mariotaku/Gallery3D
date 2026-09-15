@@ -397,9 +397,9 @@ bool LocalDataSource::supportsRegions(const MediaItem *item) const {
     return item != nullptr && !item->mFilePath.empty() && RegionDecoder::looksSupported(item->mMimeType);
 }
 
-void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height, int outWidth,
-                                    int outHeight, RegionCallback done) {
-    if (item == nullptr || !item->hasFullSize() || width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0) {
+void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
+                                    RegionCallback done) {
+    if (item == nullptr || !item->hasFullSize()) {
         done(Bitmap());
         return;
     }
@@ -411,7 +411,7 @@ void LocalDataSource::requestRegion(MediaItem *item, int x, int y, int width, in
     }
     // The decode pool already runs this off the render thread, so it answers
     // before returning rather than queueing work of its own.
-    done(decoder->decodeRegion(x, y, width, height, outWidth, outHeight));
+    done(decoder->decodeRegion(x, y, width, height, sampleSize));
 }
 
 bool LocalDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) {

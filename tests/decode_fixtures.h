@@ -3,9 +3,7 @@
 // pixels with what the manifest expects.
 #pragma once
 
-#include <cstdint>
 #include <string>
-#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -52,17 +50,5 @@ void checkProbes(const std::string &what, const Bitmap &bitmap, const nlohmann::
 // starts at originX, originY. The golden is straight RGBA of goldenWidth.
 void checkGolden(const std::string &what, const Bitmap &bitmap, const std::string &goldenFile, int goldenWidth,
                  int originX, int originY, int tolerance);
-
-struct Difference {
-    int mean;
-    int worst;
-};
-
-// How far a reduced decode of the golden's rectangle is from the golden
-// averaged over what each of its pixels covers, in red and green. The outermost
-// ring of pixels is left out, where scalers disagree about what lies past the
-// edge.
-Difference fromGoldenAverage(const Bitmap &bitmap, const std::vector<uint8_t> &golden, int goldenWidth, int rectX,
-                             int rectY, int rectWidth, int rectHeight);
 
 }  // namespace DecodeFixtures

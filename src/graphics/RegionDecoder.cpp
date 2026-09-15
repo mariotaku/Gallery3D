@@ -2,14 +2,25 @@
 
 #include <cstdint>
 
-Bitmap RegionDecoder::decodeRegion(int x, int y, int width, int height, int outWidth, int outHeight) {
+Bitmap RegionDecoder::decodeRegion(int x, int y, int width, int height, int sampleSize) {
     // In 64 bits, so a rectangle near INT_MAX does not wrap round to inside.
-    if (x < 0 || y < 0 || width <= 0 || height <= 0 || outWidth <= 0 || outHeight <= 0 ||
+    if (x < 0 || y < 0 || width <= 0 || height <= 0 || sampleSize <= 0 || (sampleSize & (sampleSize - 1)) != 0 ||
         (int64_t)x + width > mWidth || (int64_t)y + height > mHeight) {
         return Bitmap();
     }
-    Bitmap tile = decode(x, y, width, height, outWidth, outHeight);
-    if (tile.valid() && (tile.width() != outWidth || tile.height() != outHeight)) {
+    if (mSampling == Sampling::Rescaled) {
+        // libwebp decodes from even coordinates, and Skia widens the rectangle
+        // to start there rather than shift it.
+        width += x & 1;
+        height += y & 1;
+        x &= ~1;
+        y &= ~1;
+    }
+    const bool whole = x == 0 && y == 0 && width == mWidth && height == mHeight;
+    const Bitmap::Size size = whole ? Bitmap::sampledSize(mSampling, width, height, sampleSize)
+                                    : Bitmap::sampledRegionSize(width, height, sampleSize);
+    Bitmap tile = decode(x, y, width, height, sampleSize, size);
+    if (tile.valid() && (tile.width() != size.width || tile.height() != size.height)) {
         return Bitmap();
     }
     return tile;

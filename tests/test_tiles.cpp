@@ -66,28 +66,27 @@ TEST(an_edge_tile_stops_at_the_edge) {
     CHECK(corner.y + corner.height <= 2000);
 }
 
-TEST(a_tile_is_asked_for_at_the_size_it_will_be_drawn) {
+TEST(a_tile_comes_back_at_its_size_divided_by_the_sample) {
     const TiledImage::Grid grid = TiledImage::gridFor(3000, 2000, 1322.0f);
     const TiledImage::Region inner = TiledImage::regionFor(grid, 3000, 2000, 0, 0);
     CHECK_EQ(inner.width, 1024);
-    CHECK_EQ(inner.outWidth, TiledImage::kTileEdge);
+    CHECK_EQ(Bitmap::sampledRegionSize(inner.width, inner.height, grid.sampleSize).width, TiledImage::kTileEdge);
 
-    // A short edge tile scales by the same factor, so it lands on the picture
-    // at the same scale as its neighbours rather than being stretched to fill a
-    // whole tile.
+    // A short edge tile divides by the same sample, rounded down as Android's
+    // region decoder rounds, so it lands on the picture at the same scale as
+    // its neighbours rather than being stretched to fill a whole tile.
     const TiledImage::Region edge = TiledImage::regionFor(grid, 3000, 2000, grid.columns - 1, 0);
     CHECK_EQ(edge.width, 952);
-    CHECK_EQ(edge.outWidth, 952 / grid.sampleSize);
+    CHECK_EQ(Bitmap::sampledRegionSize(edge.width, edge.height, grid.sampleSize).width, 952 / grid.sampleSize);
 
     // Never zero, however thin the remainder is. Here the picture ends two
     // pixels past the last whole tile while four of its pixels go into one, so
-    // the division alone would ask for an image no pixels wide,
-    // which is an error rather than an empty tile.
+    // the division alone would give an image no pixels wide.
     const TiledImage::Grid sliver = TiledImage::gridFor(4098, 4098, 1000.0f);
     CHECK_EQ(sliver.sampleSize, 4);
     const TiledImage::Region last = TiledImage::regionFor(sliver, 4098, 4098, sliver.columns - 1, 0);
     CHECK_EQ(last.width, 2);
-    CHECK_EQ(last.outWidth, 1);
+    CHECK_EQ(Bitmap::sampledRegionSize(last.width, last.height, sliver.sampleSize).width, 1);
 }
 
 TEST(a_region_outside_the_grid_is_empty_rather_than_wrong) {

@@ -22,24 +22,9 @@ public final class ImageDecodeBridge {
     }
 
     /**
-     * The size a decode for maxEdge gives, as Bitmap::fitWithin in the native
-     * code works it out: the long edge becomes maxEdge and the short edge is
-     * rounded to the nearest pixel, never below 1. A picture that already
-     * fits keeps its size.
-     */
-    static int[] fitWithin(int width, int height, int maxEdge) {
-        final int longEdge = Math.max(width, height);
-        if (width <= 0 || height <= 0 || maxEdge <= 0 || longEdge <= maxEdge) {
-            return new int[] {width, height};
-        }
-        final int shortEdge = Math.min(width, height);
-        final int scaled = (int) Math.max(1L, ((long) shortEdge * maxEdge + longEdge / 2) / longEdge);
-        return width >= height ? new int[] {maxEdge, scaled} : new int[] {scaled, maxEdge};
-    }
-
-    /**
-     * Decodes at the size fitWithin gives. inSampleSize halves, so the decode
-     * lands between that size and twice it, and the last step scales down.
+     * Decodes reduced by the sample Bitmap::sampleSizeFor gives, at whatever
+     * size the platform decoder hands back for it. The other platforms follow
+     * this decoder's sizes, so nothing is scaled after.
      */
     public static Bitmap decodeSampled(byte[] encoded, int maxEdge) {
         if (encoded == null || encoded.length == 0 || maxEdge <= 0) {
@@ -56,8 +41,8 @@ public final class ImageDecodeBridge {
 
             BitmapFactory.Options options = new BitmapFactory.Options();
             // Powers of two only: anything else is rounded down to one. The
-            // sample stops before a halving would fall short of maxEdge, since
-            // the size is the same on every platform and a scale only shrinks.
+            // sample stops before a halving would fall short of maxEdge, as
+            // Bitmap::sampleSizeFor does.
             int sample = 1;
             while (longest / (sample * 2) >= maxEdge) {
                 sample *= 2;
@@ -71,19 +56,7 @@ public final class ImageDecodeBridge {
                 // sRGB.
                 options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
             }
-            final Bitmap decoded = BitmapFactory.decodeByteArray(encoded, 0, encoded.length, options);
-            if (decoded == null) {
-                return null;
-            }
-            final int[] size = fitWithin(measure.outWidth, measure.outHeight, maxEdge);
-            if (decoded.getWidth() == size[0] && decoded.getHeight() == size[1]) {
-                return decoded;
-            }
-            final Bitmap scaled = Bitmap.createScaledBitmap(decoded, size[0], size[1], true);
-            if (scaled != decoded) {
-                decoded.recycle();
-            }
-            return scaled;
+            return BitmapFactory.decodeByteArray(encoded, 0, encoded.length, options);
         } catch (Exception | OutOfMemoryError error) {
             Log.w(TAG, "Could not decode a photo", error);
             return null;

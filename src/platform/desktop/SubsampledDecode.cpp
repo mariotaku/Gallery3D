@@ -59,10 +59,6 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     IccToSrgb toSrgb;
     int originalWidth = 0;
     int originalHeight = 0;
-    // How much of the reduced scan is picture, which falls short of its
-    // rounded-up size when the original is not a multiple of eight.
-    double coveredWidth = 0.0;
-    double coveredHeight = 0.0;
     // A four channel JPEG, and whether an Adobe marker says its values are
     // stored inverted, as Photoshop writes them.
     bool cmyk = false;
@@ -80,23 +76,14 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
                 toSrgb.open(profile, profileSize);
                 std::free(profile);
             }
-            // libjpeg scales by eighths. Take the smallest that still covers
-            // the size asked for, so the last step below only ever shrinks.
-            // No maxEdge is the whole picture.
+            // libjpeg reduces by a half, a quarter or an eighth, rounding the
+            // size up, which is what Android's JPEG decode does with the same
+            // sample. A sample past eight is picked from the eighth below.
             originalWidth = (int)cinfo.image_width;
             originalHeight = (int)cinfo.image_height;
-            const long longest = (long)std::max(cinfo.image_width, cinfo.image_height);
-            unsigned numerator = 8;
-            for (long candidate = 1; maxEdge > 0 && candidate <= 8; ++candidate) {
-                if (longest * candidate >= (long)maxEdge * 8) {
-                    numerator = (unsigned)candidate;
-                    break;
-                }
-            }
-            cinfo.scale_num = numerator;
-            cinfo.scale_denom = 8;
-            coveredWidth = originalWidth * numerator / 8.0;
-            coveredHeight = originalHeight * numerator / 8.0;
+            const int sampleSize = Bitmap::sampleSizeFor(originalWidth, originalHeight, maxEdge);
+            cinfo.scale_num = 1;
+            cinfo.scale_denom = (unsigned)std::min(sampleSize, 8);
             // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
             // straight into the bitmap. JPEG carries no alpha, so opaque
             // pixels are already premultiplied. A four channel JPEG comes out
@@ -142,6 +129,7 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
         // No profile, but EXIF says Adobe RGB, which WIC honours as well.
         ColorProfile::adobeRgbToSrgb(decoded.pixels(), count);
     }
-    const Bitmap::Size fitted = Bitmap::fitWithin(originalWidth, originalHeight, maxEdge);
-    return decoded.scaledCovering(fitted.width, fitted.height, coveredWidth, coveredHeight);
+    const Bitmap::Size sampled = Bitmap::sampledSize(Sampling::Jpeg, originalWidth, originalHeight,
+                                                     Bitmap::sampleSizeFor(originalWidth, originalHeight, maxEdge));
+    return decoded.picked(sampled.width, sampled.height);
 }

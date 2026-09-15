@@ -66,8 +66,6 @@ TiledImage::Region TiledImage::regionFor(const Grid &grid, int fullWidth, int fu
     // Trim edge tiles: Android's region decoder refuses a rectangle outside the image.
     region.width = std::min(grid.regionEdge, fullWidth - region.x);
     region.height = std::min(grid.regionEdge, fullHeight - region.y);
-    region.outWidth = std::max(1, region.width / grid.sampleSize);
-    region.outHeight = std::max(1, region.height / grid.sampleSize);
     return region;
 }
 
@@ -123,7 +121,7 @@ void TiledImage::update(RenderView *view, float left, float top, float right, fl
                 tile.bottom = region.y + region.height;
                 tile.sampleSize = grid.sampleSize;
                 tile.texture = std::make_shared<RegionTexture>(mItem, region.x, region.y, region.width, region.height,
-                                                               region.outWidth, region.outHeight);
+                                                               grid.sampleSize);
                 found = mTiles.emplace(key, std::move(tile)).first;
                 view->prime(found->second.texture, true);
                 ++started;

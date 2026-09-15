@@ -18,6 +18,7 @@ pixel.
 
 import io
 import json
+import math
 import os
 import struct
 
@@ -212,15 +213,86 @@ def probes(expected, width=None, height=None):
     return [[x, y] + list(image.getpixel((x, y))) for x, y in probe_points(width, height)]
 
 
-def fit_within(width, height, max_edge):
-    """The size rule every decoder follows: the long edge becomes max_edge and
-    the short edge is rounded to the nearest pixel, never below 1. A picture
-    that already fits keeps its size."""
-    if max_edge <= 0 or max(width, height) <= max_edge:
+# How a format reduces with Android's inSampleSize (SkAndroidCodec on Android
+# 14), which every platform follows. Sampling in src/graphics/Bitmap.h.
+JPEG = "jpeg"
+RESCALED = "rescaled"
+PICKED = "picked"
+
+
+def sampling_of(name):
+    extension = os.path.splitext(name)[1].lower()
+    if extension in (".jpg", ".jpeg"):
+        return JPEG
+    return RESCALED if extension == ".webp" else PICKED
+
+
+def sample_size_for(width, height, max_edge):
+    """The largest power of two whose reduced long edge, rounded down, still
+    reaches max_edge."""
+    sample = 1
+    if max_edge <= 0:
+        return sample
+    while max(width, height) // (sample * 2) >= max_edge:
+        sample *= 2
+    return sample
+
+
+def rounded_down(dimension, sample):
+    return 1 if sample > dimension else dimension // sample
+
+
+def sampled_size(sampling, width, height, sample):
+    """SkAndroidCodec::getSampledDimensions for the format."""
+    if sample <= 1:
         return width, height
-    long_edge, short_edge = max(width, height), min(width, height)
-    scaled = max(1, (short_edge * max_edge + long_edge // 2) // long_edge)
-    return (max_edge, scaled) if width >= height else (scaled, max_edge)
+    if sampling == JPEG:
+        native = min(sample, 8)
+        rest = sample // native
+
+        def one(dimension):
+            reduced = -(-dimension // native)
+            return reduced if rest == 1 else rounded_down(reduced, rest)
+
+        return one(width), one(height)
+    if sampling == RESCALED:
+        return max(1, int(math.floor(width / sample + 0.5))), max(1, int(math.floor(height / sample + 0.5)))
+    return rounded_down(width, sample), rounded_down(height, sample)
+
+
+def picked(image, width, height):
+    """One pixel of every sample, half a sample in, as SkSwizzler picks."""
+    sample_x = image.width // width
+    sample_y = image.height // height
+    return image.resize((width, height), Image.NEAREST, box=(0, 0, width * sample_x, height * sample_y))
+
+
+def drafted(data, native):
+    """libjpeg's decode reduced by native, 2, 4 or 8, its size rounded up."""
+    image = Image.open(io.BytesIO(data))
+    width, height = image.size
+    image.draft(image.mode, (max(1, width // native), max(1, height // native)))
+    assert image.size == (-(-width // native), -(-height // native)), (image.size, width, height, native)
+    image.load()
+    return image
+
+
+def sampled_image(data, expected, sampling, sample, transform=None):
+    """What a decode reduced by sample gives: libjpeg's reduced decode for JPEG,
+    picked past an eighth; a box filter standing in for libwebp's rescaler; and
+    picked pixels for the rest. transform is what turns a JPEG's decode into its
+    expected colours."""
+    if sample <= 1:
+        return expected
+    width, height = sampled_size(sampling, expected.width, expected.height, sample)
+    if sampling == JPEG:
+        reduced = drafted(data, min(sample, 8))
+        if transform:
+            reduced = transform(reduced)
+        return picked(reduced, width, height)
+    if sampling == RESCALED:
+        return expected.resize((width, height), Image.BOX)
+    return picked(expected, width, height)
 
 
 def encode(image, format, **options):
@@ -242,7 +314,7 @@ def write(name, data):
 
 
 def fixture(name, data, expected, *, alpha, lossless, tolerance, scaled=(), golden=None, notes="",
-            pattern="quarters"):
+            pattern="quarters", transform=None):
     """pattern is "quarters" for four flat patches, whose middles any scaler
     agrees on, or "ramps" for a picture that changes every pixel."""
     write(name, data)
@@ -258,12 +330,20 @@ def fixture(name, data, expected, *, alpha, lossless, tolerance, scaled=(), gold
         "probes": probes(image),
         "scaled": [],
     }
+    sampling = sampling_of(name)
     for max_edge in scaled:
-        width, height = fit_within(image.width, image.height, max_edge)
-        # A point of a reduced ramp depends on the scaler, so ramps are checked
-        # against their golden averaged instead.
-        entry["scaled"].append({"maxEdge": max_edge, "width": width, "height": height,
-                                "probes": probes(image, width, height) if pattern == "quarters" else []})
+        sample = sample_size_for(image.width, image.height, max_edge)
+        reduced = rgba(sampled_image(data, expected, sampling, sample, transform))
+        assert reduced.size == sampled_size(sampling, image.width, image.height, sample), (name, max_edge)
+        scaled_entry = {"maxEdge": max_edge, "sampleSize": sample, "width": reduced.width,
+                        "height": reduced.height, "probes": probes(reduced)}
+        # Ramps change every pixel, so a golden of the reduced picture shows
+        # where each reduced pixel came from.
+        if pattern == "ramps":
+            scaled_name = "%s_s%d.rgba" % (os.path.splitext(name)[0], sample)
+            write(scaled_name, reduced.tobytes())
+            scaled_entry["golden"] = scaled_name
+        entry["scaled"].append(scaled_entry)
     if golden is None:
         golden = lossless and image.width * image.height <= 96 * 64
     if golden:
@@ -307,7 +387,7 @@ def main():
     # on both edges, so the last row and column of blocks are partial.
     gradient = encode(ramps(203, 157), "JPEG", quality=95, subsampling=0)
     fixture("gradient.jpg", gradient, decoded(gradient), alpha=False, lossless=False, tolerance=LOSSY,
-            scaled=(101, 50, 25), golden=True, pattern="ramps",
+            scaled=(101, 50, 25, 12), golden=True, pattern="ramps",
             notes="Red and green ramps of eight levels a pixel. The golden is Pillow's decode.")
 
     # Orientation is a tag, not the pixels: every decoder hands out the pixels
@@ -334,6 +414,13 @@ def main():
     write("thumbnail.jpg", with_thumbnail)
     main_image = rgba(decoded(large_jpeg))
     thumbnail_image = rgba(decoded(thumbnail_jpeg))
+
+    def reduced(data, image, max_edge, source):
+        sample = sample_size_for(image.width, image.height, max_edge)
+        result = rgba(sampled_image(data, image, JPEG, sample))
+        return {"maxEdge": max_edge, "sampleSize": sample, "width": result.width, "height": result.height,
+                "probes": probes(result), "source": source}
+
     FIXTURES.append({
         "file": "thumbnail.jpg",
         "width": 1600,
@@ -344,16 +431,13 @@ def main():
         "tolerance": LOSSY,
         "probes": probes(main_image),
         "scaled": [
-            {"maxEdge": 160, "width": 160, "height": 120, "probes": probes(thumbnail_image),
-             "source": "thumbnail"},
-            {"maxEdge": 100, "width": 100, "height": 75, "probes": probes(thumbnail_image, 100, 75),
-             "source": "thumbnail"},
-            {"maxEdge": 161, "width": 161, "height": 121, "probes": probes(main_image, 161, 121),
-             "source": "frame"},
-            {"maxEdge": 400, "width": 400, "height": 300, "probes": probes(main_image, 400, 300),
-             "source": "frame"},
+            reduced(thumbnail_jpeg, thumbnail_image, 160, "thumbnail"),
+            reduced(thumbnail_jpeg, thumbnail_image, 100, "thumbnail"),
+            reduced(large_jpeg, main_image, 161, "frame"),
+            reduced(large_jpeg, main_image, 400, "frame"),
         ],
-        "notes": "1600x1200 frame with a 160x120 IFD1 thumbnail of different colours.",
+        "notes": "1600x1200 frame with a 160x120 IFD1 thumbnail of different colours. A reduced decode whose "
+                 "thumbnail reaches maxEdge is the thumbnail decoded for maxEdge.",
     })
 
     # Lossless formats.
@@ -382,7 +466,8 @@ def main():
     swapped_expected = to_srgb(picture, SWAPPED)
     swapped_jpeg = encode(picture, "JPEG", quality=95, subsampling=0, icc_profile=SWAPPED)
     fixture("icc.jpg", swapped_jpeg, to_srgb(decoded(swapped_jpeg).convert("RGB"), SWAPPED), alpha=False,
-            lossless=False, tolerance=COLOUR, scaled=(48,))
+            lossless=False, tolerance=COLOUR, scaled=(48,),
+            transform=lambda image: to_srgb(image.convert("RGB"), SWAPPED))
     fixture("icc.png", encode(picture, "PNG", icc_profile=SWAPPED), swapped_expected, alpha=False,
             lossless=True, tolerance=COLOUR, scaled=(48,), golden=True)
     fixture("icc.webp", encode(picture, "WEBP", lossless=True, icc_profile=SWAPPED), swapped_expected,
@@ -398,17 +483,22 @@ def main():
             lossless=False, tolerance=COLOUR,
             notes="No ICC profile. EXIF ColorSpace 2 says Adobe RGB (1998).")
 
-    # Sizes, for the rule in fit_within. One flat colour each, so any scaler
-    # agrees on the colour.
+    # Sizes, for the rule in sampled_size. One flat colour each, so any scaler
+    # agrees on the colour. 203x157 is off every power of two, so rounding up,
+    # down and to nearest all give different sizes.
     for width, height, format, extension, max_edges in [
-            (282, 100, "PNG", "png", (256,)),
-            (1000, 333, "JPEG", "jpg", (500,)),
+            (282, 100, "PNG", "png", (141, 70)),
+            (1000, 333, "JPEG", "jpg", (500, 250)),
             (2048, 1536, "PNG", "png", (256,)),
             (300, 200, "JPEG", "jpg", (512, 0, -1)),
             (1000, 1, "PNG", "png", (10,)),
-            (1, 1000, "PNG", "png", (10,))]:
+            (1, 1000, "PNG", "png", (10,)),
+            (203, 157, "PNG", "png", (50, 25)),
+            (203, 157, "WEBP", "webp", (50, 25))]:
         flat = Image.new("RGB", (width, height), PATCHES[0])
         options = {"quality": 95, "subsampling": 0} if format == "JPEG" else {}
+        if format == "WEBP":
+            options = {"lossless": True}
         data = encode(flat, format, **options)
         fixture("size_%dx%d.%s" % (width, height, extension), data, decoded(data).convert("RGB"),
                 alpha=False, lossless=format != "JPEG", tolerance=LOSSY, scaled=max_edges, golden=False)

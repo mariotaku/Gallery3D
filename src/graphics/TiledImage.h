@@ -39,13 +39,12 @@ class TiledImage {
     };
 
     // One tile's rectangle in the original's pixels, trimmed at the far edges.
+    // The region decoder reduces it by the grid's sample size.
     struct Region {
         int x = 0;
         int y = 0;
         int width = 0;
         int height = 0;
-        int outWidth = 0;
-        int outHeight = 0;
     };
 
     // Grid for a whole-picture width of drawnWidth screen pixels; fetch only visible detail.
