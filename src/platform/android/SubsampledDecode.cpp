@@ -100,8 +100,12 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             }
         }
         AndroidBitmap_unlockPixels(env, image);
-        if (decoded.valid() && env->CallBooleanMethod(image, gHasAlpha) == JNI_FALSE && !threw(env, "hasAlpha")) {
-            decoded.markOpaque();
+        if (decoded.valid()) {
+            if (env->CallBooleanMethod(image, gHasAlpha) == JNI_FALSE && !threw(env, "hasAlpha")) {
+                decoded.markOpaque();
+            } else {
+                decoded.markOpaqueUnlessTransparent();
+            }
         }
     }
 

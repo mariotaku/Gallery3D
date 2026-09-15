@@ -7,6 +7,8 @@
 #include <cstdlib>
 
 #include <jpeglib.h>
+// After jpeglib.h, which it depends on.
+#include <jerror.h>
 
 #include "platform/desktop/IccToSrgb.h"
 
@@ -38,7 +40,10 @@ void SubsampledDecode::init() {
 }
 
 Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
-    if (bytes == nullptr || size == 0) {
+    // Only a JPEG goes to libjpeg. Anything else would fail there too, but
+    // only after it logged an error for a file that was never its to read.
+    const unsigned char *start = (const unsigned char *)bytes;
+    if (bytes == nullptr || size < 3 || start[0] != 0xFF || start[1] != 0xD8 || start[2] != 0xFF) {
         return Bitmap();
     }
 
@@ -50,6 +55,8 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     // Above the jump target, so a file libjpeg rejects does not leak them.
     Bitmap decoded;
     IccToSrgb toSrgb;
+    int originalWidth = 0;
+    int originalHeight = 0;
 
     if (setjmp(error.escape) == 0) {
         jpeg_create_decompress(&cinfo);
@@ -64,8 +71,10 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
                 std::free(profile);
             }
             // libjpeg scales by eighths. Take the smallest that still covers
-            // the size asked for, so the caller's last step only ever shrinks.
+            // the size asked for, so the last step below only ever shrinks.
             // No maxEdge is the whole picture.
+            originalWidth = (int)cinfo.image_width;
+            originalHeight = (int)cinfo.image_height;
             const long longest = (long)std::max(cinfo.image_width, cinfo.image_height);
             unsigned numerator = 8;
             for (long candidate = 1; maxEdge > 0 && candidate <= 8; ++candidate) {
@@ -90,8 +99,14 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
                 for (int line = 0; line < height; ++line) {
                     JSAMPROW rows[1] = {decoded.pixels() + (size_t)line * (size_t)width * 4};
                     if (jpeg_read_scanlines(&cinfo, rows, 1) != 1) {
+                        decoded = Bitmap();
                         break;
                     }
+                }
+                // libjpeg pads a file that ends early with grey rows and only
+                // warns. Such a picture is not the photo, so it does not decode.
+                if (error.base.msg_code == JWRN_JPEG_EOF) {
+                    decoded = Bitmap();
                 }
             }
             jpeg_abort_decompress(&cinfo);
@@ -99,8 +114,12 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
     }
 
     jpeg_destroy_decompress(&cinfo);
-    if (decoded.valid() && toSrgb) {
+    if (!decoded.valid()) {
+        return Bitmap();
+    }
+    if (toSrgb) {
         toSrgb.convert(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
     }
-    return decoded;
+    const Bitmap::Size fitted = Bitmap::fitWithin(originalWidth, originalHeight, maxEdge);
+    return decoded.scaled(fitted.width, fitted.height);
 }

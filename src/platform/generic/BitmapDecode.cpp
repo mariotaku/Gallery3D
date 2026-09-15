@@ -34,6 +34,7 @@ Bitmap fromSurface(SDL_Surface *surface) {
                                                 SDL_PIXELFORMAT_RGBA32, bitmap.pixels(), source->w * 4)) {
             if (SDL_ISPIXELFORMAT_ALPHA(source->format)) {
                 bitmap.premultiply();
+                bitmap.markOpaqueUnlessTransparent();
             } else {
                 bitmap.markOpaque();
             }
@@ -47,19 +48,13 @@ Bitmap fromSurface(SDL_Surface *surface) {
     return result;
 }
 
-// Brings a decoded image down to maxEdge on its long edge, keeping its shape.
-Bitmap trimToMaxEdge(Bitmap decoded, int maxEdge) {
-    if (!decoded.valid() || maxEdge <= 0) {
+// Brings a whole decoded image to the size the rule gives for maxEdge.
+Bitmap fitToMaxEdge(Bitmap decoded, int maxEdge) {
+    if (!decoded.valid()) {
         return decoded;
     }
-    int longest = std::max(decoded.width(), decoded.height());
-    if (longest <= maxEdge) {
-        return decoded;
-    }
-    float ratio = (float)maxEdge / (float)longest;
-    int newWidth = std::max(1, (int)(decoded.width() * ratio));
-    int newHeight = std::max(1, (int)(decoded.height() * ratio));
-    return decoded.scaled(newWidth, newHeight);
+    const Bitmap::Size size = Bitmap::fitWithin(decoded.width(), decoded.height(), maxEdge);
+    return decoded.scaled(size.width, size.height);
 }
 
 }  // namespace
@@ -81,19 +76,18 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     // The platform's own decoder first, where it has one. It reduces inside the
     // codec where that is close to free, rather than building the full size
     // image only to throw most of it away, and on the desktop it converts a
-    // JPEG's colour profile at any size. What comes back can land a little
-    // under maxEdge, or over it, in which case the tail below trims it to
-    // exactly that.
+    // JPEG's colour profile at any size. It answers at the size the rule gives,
+    // which only it can work out, since it alone knows the original's size.
     Bitmap decoded = SubsampledDecode::decode(bytes, size, maxEdge);
     if (decoded.valid()) {
-        return trimToMaxEdge(std::move(decoded), maxEdge);
+        return decoded;
     }
     SDL_IOStream *stream = SDL_IOFromConstMem(bytes, size);
     if (stream == nullptr) {
         return Bitmap();
     }
     // IMG_Load_IO closes the stream for us, including on failure.
-    return trimToMaxEdge(fromSurface(IMG_Load_IO(stream, true)), maxEdge);
+    return fitToMaxEdge(fromSurface(IMG_Load_IO(stream, true)), maxEdge);
 }
 
 PixelOrder Bitmap::decodeOrder() {

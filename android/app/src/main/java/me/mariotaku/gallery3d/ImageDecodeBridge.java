@@ -22,9 +22,24 @@ public final class ImageDecodeBridge {
     }
 
     /**
-     * Decodes so the result is no smaller than three quarters of maxEdge on
-     * its long edge. inSampleSize halves, so the result can be up to twice
-     * maxEdge; the caller scales the last step down when it is over.
+     * The size a decode for maxEdge gives, as Bitmap::fitWithin in the native
+     * code works it out: the long edge becomes maxEdge and the short edge is
+     * rounded to the nearest pixel, never below 1. A picture that already
+     * fits keeps its size.
+     */
+    static int[] fitWithin(int width, int height, int maxEdge) {
+        final int longEdge = Math.max(width, height);
+        if (width <= 0 || height <= 0 || maxEdge <= 0 || longEdge <= maxEdge) {
+            return new int[] {width, height};
+        }
+        final int shortEdge = Math.min(width, height);
+        final int scaled = (int) Math.max(1L, ((long) shortEdge * maxEdge + longEdge / 2) / longEdge);
+        return width >= height ? new int[] {maxEdge, scaled} : new int[] {scaled, maxEdge};
+    }
+
+    /**
+     * Decodes at the size fitWithin gives. inSampleSize halves, so the decode
+     * lands between that size and twice it, and the last step scales down.
      */
     public static Bitmap decodeSampled(byte[] encoded, int maxEdge) {
         if (encoded == null || encoded.length == 0 || maxEdge <= 0) {
@@ -40,14 +55,11 @@ public final class ImageDecodeBridge {
             }
 
             BitmapFactory.Options options = new BitmapFactory.Options();
-            // Powers of two only: anything else is rounded down to one, and a
-            // sample size that overshoots would decode smaller than asked for.
-            // A little under maxEdge is taken over the next size up. A 4000
-            // pixel photo wanted at 2048 would otherwise decode at full size
-            // and scale down, which takes several times as long as decoding
-            // it at 2000 and leaving it there.
+            // Powers of two only: anything else is rounded down to one. The
+            // sample stops before a halving would fall short of maxEdge, since
+            // the size is the same on every platform and a scale only shrinks.
             int sample = 1;
-            while (longest / (sample * 2) >= maxEdge * 3 / 4) {
+            while (longest / (sample * 2) >= maxEdge) {
                 sample *= 2;
             }
             options.inSampleSize = sample;
@@ -59,7 +71,19 @@ public final class ImageDecodeBridge {
                 // sRGB.
                 options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
             }
-            return BitmapFactory.decodeByteArray(encoded, 0, encoded.length, options);
+            final Bitmap decoded = BitmapFactory.decodeByteArray(encoded, 0, encoded.length, options);
+            if (decoded == null) {
+                return null;
+            }
+            final int[] size = fitWithin(measure.outWidth, measure.outHeight, maxEdge);
+            if (decoded.getWidth() == size[0] && decoded.getHeight() == size[1]) {
+                return decoded;
+            }
+            final Bitmap scaled = Bitmap.createScaledBitmap(decoded, size[0], size[1], true);
+            if (scaled != decoded) {
+                decoded.recycle();
+            }
+            return scaled;
         } catch (Exception | OutOfMemoryError error) {
             Log.w(TAG, "Could not decode a photo", error);
             return null;

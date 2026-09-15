@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <string>
 #include <unordered_set>
 
@@ -45,13 +46,9 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     const Wic::Ptr<IWICColorContext> profile = Wic::colorProfileOf(frame.get());
 
     // The size asked for, in the frame's shape and never larger than it.
-    UINT targetWidth = width;
-    UINT targetHeight = height;
-    if (maxEdge > 0 && longEdge(width, height) > (UINT)maxEdge) {
-        const float ratio = (float)maxEdge / (float)longEdge(width, height);
-        targetWidth = std::max(1u, (UINT)(width * ratio));
-        targetHeight = std::max(1u, (UINT)(height * ratio));
-    }
+    const Bitmap::Size fitted = Bitmap::fitWithin((int)width, (int)height, maxEdge);
+    const UINT targetWidth = (UINT)fitted.width;
+    const UINT targetHeight = (UINT)fitted.height;
     const UINT wanted = longEdge(targetWidth, targetHeight);
     const bool reducing = wanted < longEdge(width, height);
 
@@ -88,6 +85,10 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
         Bitmap bitmap = Wic::copy(Wic::inSrgb(source.get(), profile.get()).get(), nullptr);
         if (!alpha) {
             bitmap.markOpaque();
+        } else {
+            // WIC hands some formats out with alpha whether or not the file
+            // uses it, WebP among them.
+            bitmap.markOpaqueUnlessTransparent();
         }
         return bitmap;
     }
@@ -107,7 +108,9 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
                                       WICBitmapInterpolationModeFant))) {
             return Bitmap();
         }
-        return Wic::copy(scaler.get(), nullptr);
+        Bitmap bitmap = Wic::copy(scaler.get(), nullptr);
+        bitmap.markOpaqueUnlessTransparent();
+        return bitmap;
     }
     // Without, the scaler sits straight on the source, which is what lets WIC
     // hand the reduction to the codec, and only the pixels kept are converted.
@@ -171,6 +174,19 @@ Bitmap Bitmap::load(const std::string &path, int maxEdge) {
 }
 
 Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
+    // WIC hands out what it could read of a PNG that ends early, with the rest
+    // left empty. libpng on the other platforms refuses such a file, and so
+    // does this: a PNG without its IEND chunk does not decode.
+    static const unsigned char kPngSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+    const unsigned char *data = (const unsigned char *)bytes;
+    if (bytes != nullptr && size >= 8 && std::memcmp(data, kPngSignature, 8) == 0) {
+        const size_t tail = std::min<size_t>(size, 64);
+        const unsigned char *end = data + size;
+        static const char kEnd[4] = {'I', 'E', 'N', 'D'};
+        if (std::search(end - tail, end, kEnd, kEnd + 4) == end) {
+            return Bitmap();
+        }
+    }
     Wic::Ptr<IWICBitmapDecoder> decoder = Wic::decoderFor(bytes, size);
     return decoder ? decode(decoder.get(), maxEdge) : Bitmap();
 }

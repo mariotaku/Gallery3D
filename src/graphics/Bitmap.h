@@ -78,9 +78,9 @@ class Bitmap {
     static PixelOrder decodeOrder();
 
     // Decodes a file. Returns an invalid bitmap when the file cannot be read.
-    // maxEdge scales the result down so neither edge exceeds it; pass 0 to keep
-    // the natural size. The decoder is the platform's: WIC on Windows,
-    // SDL_image elsewhere.
+    // The size is fitWithin(width, height, maxEdge). The decoder is the
+    // platform's: WIC on Windows, SDL_image elsewhere. tests/test_decode.cpp
+    // states the whole contract and checks it against shared fixtures.
     static Bitmap load(const std::string &path, int maxEdge);
 
     // Decodes encoded bytes without an intermediate file.
@@ -116,6 +116,21 @@ class Bitmap {
     // Whether any pixel is less than fully opaque. Reads every pixel of an
     // opaque bitmap unless it is marked as one.
     bool hasTransparency() const;
+
+    // Marks the bitmap opaque when no pixel is transparent. A decoder whose
+    // output has an alpha channel calls it, so a picture that never uses its
+    // alpha is known opaque the same way on every platform.
+    void markOpaqueUnlessTransparent();
+
+    struct Size {
+        int width;
+        int height;
+    };
+
+    // The size a decode for maxEdge gives: the long edge becomes maxEdge and
+    // the short edge is rounded to the nearest pixel, never below 1. A picture
+    // that already fits, or a maxEdge of 0 or below, keeps its size.
+    static Size fitWithin(int width, int height, int maxEdge);
 
     // What one pass over a JPEG's header yields. Every field stays at its
     // default when the tag is missing or the file is not a JPEG.

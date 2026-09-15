@@ -5,8 +5,9 @@
 // nearly all of which is then thrown away. Both backends here reduce inside the
 // decoder, where it is close to free.
 //
-// The reductions are coarse, so the result is the smallest the decoder offers
-// that is still at least as large as asked for. The caller scales the last step.
+// The reductions are coarse, so each backend decodes at the smallest reduction
+// that still covers the size asked for, then scales the last step itself: only
+// it knows the original's size, which the size rule is worked out from.
 #pragma once
 
 #include <cstddef>
@@ -21,11 +22,11 @@ namespace SubsampledDecode {
 // anywhere else.
 void init();
 
-// Decodes so the result is no smaller than maxEdge on its long edge, at the
-// largest reduction that holds, or whole when maxEdge is 0. Returns an invalid
-// Bitmap when this build cannot decode the format or the size this way, which
-// leaves the caller its whole-image path. The desktop's libjpeg also converts
-// the JPEG's colour profile to sRGB. Android answers only a maxEdge above 0.
+// Decodes at Bitmap::fitWithin of the original's size and maxEdge, or whole
+// when maxEdge is 0. Returns an invalid Bitmap when this build cannot decode
+// the format or the size this way, which leaves the caller its whole-image
+// path. The desktop's libjpeg also converts the JPEG's colour profile to sRGB.
+// Android answers only a maxEdge above 0.
 Bitmap decode(const void *bytes, size_t size, int maxEdge);
 
 }  // namespace SubsampledDecode

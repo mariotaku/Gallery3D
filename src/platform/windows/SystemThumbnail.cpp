@@ -129,14 +129,14 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
     }
 
     Bitmap bitmap;
-    if (std::max(width, height) == (UINT)maxEdge) {
+    const Bitmap::Size fitted = Bitmap::fitWithin((int)width, (int)height, maxEdge);
+    if ((UINT)fitted.width == width && (UINT)fitted.height == height) {
         bitmap = Wic::copy(source.get(), nullptr);
     } else {
-        const float ratio = (float)maxEdge / (float)std::max(width, height);
         Wic::Ptr<IWICBitmapScaler> scaler;
         if (SUCCEEDED(imaging->CreateBitmapScaler(scaler.put())) &&
-            SUCCEEDED(scaler->Initialize(source.get(), std::max(1u, (UINT)(width * ratio)),
-                                         std::max(1u, (UINT)(height * ratio)), WICBitmapInterpolationModeFant))) {
+            SUCCEEDED(scaler->Initialize(source.get(), (UINT)fitted.width, (UINT)fitted.height,
+                                         WICBitmapInterpolationModeFant))) {
             bitmap = Wic::copy(scaler.get(), nullptr);
         }
     }

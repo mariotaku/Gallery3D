@@ -66,19 +66,6 @@ std::string pngText(const std::vector<uint8_t> &png, const std::string &key) {
     return std::string();
 }
 
-// Marks a bitmap opaque when every pixel is. A PNG decode does not know, and a
-// thumbnail with no transparency is the common case.
-void markOpaqueIfSo(Bitmap &bitmap) {
-    const uint8_t *pixel = bitmap.pixels();
-    const uint8_t *end = pixel + (size_t)bitmap.width() * (size_t)bitmap.height() * 4;
-    for (; pixel < end; pixel += 4) {
-        if (pixel[3] != 255) {
-            return;
-        }
-    }
-    bitmap.markOpaque();
-}
-
 }  // namespace
 
 std::string ThumbnailCache::root() {
@@ -140,14 +127,9 @@ Bitmap ThumbnailCache::loadUpright(const std::string &root, const std::string &p
         if (!upright.valid() || std::max(upright.width(), upright.height()) < maxEdge) {
             continue;
         }
-        markOpaqueIfSo(upright);
-        const int longEdge = std::max(upright.width(), upright.height());
-        if (longEdge == maxEdge) {
-            return upright;
-        }
-        const float ratio = (float)maxEdge / (float)longEdge;
-        return upright.scaled(std::max(1, (int)((float)upright.width() * ratio)),
-                              std::max(1, (int)((float)upright.height() * ratio)));
+        upright.markOpaqueUnlessTransparent();
+        const Bitmap::Size fitted = Bitmap::fitWithin(upright.width(), upright.height(), maxEdge);
+        return upright.scaled(fitted.width, fitted.height);
     }
     return Bitmap();
 }

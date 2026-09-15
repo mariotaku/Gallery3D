@@ -195,6 +195,23 @@ bool Bitmap::hasTransparency() const {
     return false;
 }
 
+void Bitmap::markOpaqueUnlessTransparent() {
+    if (valid() && !mOpaque && !hasTransparency()) {
+        mOpaque = true;
+    }
+}
+
+Bitmap::Size Bitmap::fitWithin(int width, int height, int maxEdge) {
+    const int longEdge = std::max(width, height);
+    if (width <= 0 || height <= 0 || maxEdge <= 0 || longEdge <= maxEdge) {
+        return Size{width, height};
+    }
+    const int shortEdge = std::min(width, height);
+    const int scaled =
+        std::max(1, (int)(((int64_t)shortEdge * (int64_t)maxEdge + (int64_t)longEdge / 2) / (int64_t)longEdge));
+    return (width >= height) ? Size{maxEdge, scaled} : Size{scaled, maxEdge};
+}
+
 Bitmap Bitmap::cropped(int x, int y, int width, int height) const {
     if (!valid() || x < 0 || y < 0 || width <= 0 || height <= 0 || width > mWidth - x || height > mHeight - y) {
         return Bitmap();
