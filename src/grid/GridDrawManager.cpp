@@ -32,6 +32,9 @@ GridDrawManager::GridDrawManager(GridCamera *camera, GridDrawables *drawables, D
     StringTexture::Config stc;
     stc.bold = true;
     stc.fontSize = 16 * App::PIXEL_DENSITY;
+    // The box scales with the font. At a fixed 32 pixels, a denser screen's
+    // text is taller than the box and loses its descenders.
+    stc.height = (int)std::ceil(32.0f * App::PIXEL_DENSITY);
     stc.sizeMode = StringTexture::Config::SIZE_EXACT;
     stc.overflowMode = StringTexture::Config::OVERFLOW_FADE;
     mNoItemsTexture = std::make_shared<StringTexture>(Res::string::no_items, stc);
