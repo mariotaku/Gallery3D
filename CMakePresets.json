@@ -25,6 +25,18 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     },
     {
+      "name": "linux-sanitize",
+      "displayName": "Linux, AddressSanitizer with leak checks and UndefinedBehaviorSanitizer",
+      "inherits": "linux",
+      "binaryDir": "${sourceDir}/build-sanitize",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
       "name": "ios",
       "displayName": "iOS device, as an Xcode project on macOS",
       "generator": "Xcode",
@@ -43,6 +55,7 @@
     { "name": "release", "configurePreset": "default", "configuration": "Release" },
     { "name": "linux", "configurePreset": "linux" },
     { "name": "linux-debug", "configurePreset": "linux-debug" },
+    { "name": "linux-sanitize", "configurePreset": "linux-sanitize" },
     { "name": "ios", "configurePreset": "ios", "configuration": "Release" }
   ]
 }

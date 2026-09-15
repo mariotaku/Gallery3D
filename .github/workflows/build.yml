@@ -34,6 +34,34 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  sanitize:
+    name: Linux sanitizers
+    runs-on: ubuntu-24.04
+    # LeakSanitizer stops the world through ptrace when the process exits.
+    container:
+      image: debian:trixie
+      options: --cap-add SYS_PTRACE
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates git build-essential cmake ninja-build pkg-config \
+            libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
+            libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset linux-sanitize
+      - name: Build
+        run: cmake --build build-sanitize --target gallery3d_tests
+      - name: Test
+        # A leak, a memory error or undefined behaviour makes the run fail.
+        env:
+          SDL_VIDEODRIVER: dummy
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --test-dir build-sanitize --output-on-failure
+
   macos:
     name: macOS
     # The only run of the Linux and macOS code on a case-insensitive disk.
