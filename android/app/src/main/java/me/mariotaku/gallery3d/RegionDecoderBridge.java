@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
 
@@ -82,6 +83,28 @@ public final class RegionDecoderBridge {
             BitmapFactory.decodeStream(input, null, options);
             return options.outMimeType;
         } catch (Exception error) {
+            return null;
+        }
+    }
+
+    /** Every byte of the photo at this content uri or path, or null. */
+    public static byte[] readBytes(String source) {
+        if (source == null) {
+            return null;
+        }
+        try (InputStream input = openSource(source)) {
+            if (input == null) {
+                return null;
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
+            byte[] buffer = new byte[1 << 16];
+            int read;
+            while ((read = input.read(buffer)) > 0) {
+                out.write(buffer, 0, read);
+            }
+            return out.toByteArray();
+        } catch (Exception error) {
+            Log.i(TAG, "Could not read " + source + ": " + error);
             return null;
         }
     }

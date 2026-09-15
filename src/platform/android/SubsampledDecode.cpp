@@ -1,5 +1,8 @@
 #include "graphics/SubsampledDecode.h"
 
+#include "graphics/ColorProfile.h"
+#include "graphics/EmbeddedProfile.h"
+
 #include <SDL3/SDL.h>
 
 #include <android/bitmap.h>
@@ -102,6 +105,13 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             }
         }
         AndroidBitmap_unlockPixels(env, image);
+        // BitmapFactory converts an embedded profile, but not Adobe RGB named
+        // by EXIF alone, which every other platform converts. Only JPEG carries
+        // the tag, and a JPEG is opaque, so the pixels are straight.
+        if (decoded.valid() && Bitmap::readExif(bytes, size).colorSpace == 2 &&
+            EmbeddedProfile::of(bytes, size).empty()) {
+            ColorProfile::adobeRgbToSrgb(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
+        }
         if (decoded.valid()) {
             if (env->CallBooleanMethod(image, gHasAlpha) == JNI_FALSE && !threw(env, "hasAlpha")) {
                 decoded.markOpaque();

@@ -1,6 +1,7 @@
 // Converting a picture's colours to sRGB, which the wall draws in, for the
 // decoders that hand out the file's own colours. WIC converts inside its
-// decodes on Windows. Linux and macOS convert through LittleCMS.
+// decodes on Windows. Linux and macOS convert through LittleCMS. Android
+// converts Adobe RGB with fixed matrices, since BitmapFactory ignores EXIF.
 #pragma once
 
 #include <cstddef>

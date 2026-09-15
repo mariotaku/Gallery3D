@@ -13,6 +13,11 @@
 #include <android/bitmap.h>
 #include <jni.h>
 
+#include <vector>
+
+#include "graphics/ColorProfile.h"
+#include "graphics/EmbeddedProfile.h"
+
 bool RegionDecoder::looksSupported(const std::string &mimeType) {
     // What BitmapRegionDecoder documents. A format it turns out not to handle
     // fails at open() instead, and that photo keeps its screennail.
@@ -29,6 +34,7 @@ const char *const kBridgeClass = "me/mariotaku/gallery3d/RegionDecoderBridge";
 jclass gBridge = nullptr;
 jmethodID gOpen = nullptr;
 jmethodID gMimeType = nullptr;
+jmethodID gReadBytes = nullptr;
 jmethodID gWidth = nullptr;
 jmethodID gHeight = nullptr;
 jmethodID gDecodeRegion = nullptr;
@@ -93,6 +99,25 @@ class AndroidRegionDecoder : public RegionDecoder {
             }
             env->DeleteLocalRef(mimeType);
         }
+        // The whole file, once, as the desktop and Windows decoders read it.
+        // BitmapRegionDecoder hands out what it could read of a file cut
+        // short, so such a file opens nothing, and EXIF says whether the tiles
+        // are Adobe RGB with no profile, which BitmapRegionDecoder ignores.
+        jstring sourceArgument = env->NewStringUTF(uri.c_str());
+        jbyteArray encoded = (jbyteArray)env->CallStaticObjectMethod(gBridge, gReadBytes, sourceArgument);
+        env->DeleteLocalRef(sourceArgument);
+        if (threw(env, "readBytes") || encoded == nullptr) {
+            return false;
+        }
+        const jsize length = env->GetArrayLength(encoded);
+        std::vector<uint8_t> bytes((size_t)length);
+        env->GetByteArrayRegion(encoded, 0, length, (jbyte *)bytes.data());
+        env->DeleteLocalRef(encoded);
+        if (Bitmap::endsEarly(bytes.data(), bytes.size())) {
+            return false;
+        }
+        mAdobeRgb = Bitmap::readExif(bytes.data(), bytes.size()).colorSpace == 2 &&
+                    EmbeddedProfile::of(bytes.data(), bytes.size()).empty();
         return true;
     }
 
@@ -101,6 +126,9 @@ class AndroidRegionDecoder : public RegionDecoder {
 
   private:
     jobject mDecoder = nullptr;
+    // Whether EXIF names Adobe RGB and no profile is embedded, so each tile is
+    // converted to sRGB here.
+    bool mAdobeRgb = false;
     // BitmapRegionDecoder serializes on its own native lock, so two threads
     // decoding one photo would queue up inside it regardless. Holding the lock
     // here keeps the jobject handling around the call single threaded too.
@@ -158,6 +186,9 @@ Bitmap AndroidRegionDecoder::decode(int x, int y, int width, int height, int sam
     threw(env, "recycle");
     env->DeleteLocalRef(tile);
 
+    if (mAdobeRgb) {
+        ColorProfile::adobeRgbToSrgb(decoded.pixels(), (size_t)decoded.width() * (size_t)decoded.height());
+    }
     return decoded;
 }
 
@@ -181,6 +212,7 @@ void RegionDecoder::initAndroid() {
 
     gOpen = env->GetStaticMethodID(gBridge, "open", "(Ljava/lang/String;)Ljava/lang/Object;");
     gMimeType = env->GetStaticMethodID(gBridge, "mimeType", "(Ljava/lang/String;)Ljava/lang/String;");
+    gReadBytes = env->GetStaticMethodID(gBridge, "readBytes", "(Ljava/lang/String;)[B");
     gWidth = env->GetStaticMethodID(gBridge, "width", "(Ljava/lang/Object;)I");
     gHeight = env->GetStaticMethodID(gBridge, "height", "(Ljava/lang/Object;)I");
     gDecodeRegion = env->GetStaticMethodID(gBridge, "decodeRegion",
@@ -192,8 +224,8 @@ void RegionDecoder::initAndroid() {
         gHasAlpha = env->GetMethodID(bitmapClass, "hasAlpha", "()Z");
         env->DeleteLocalRef(bitmapClass);
     }
-    if (threw(env, "initAndroid") || gOpen == nullptr || gMimeType == nullptr || gDecodeRegion == nullptr ||
-        gHasAlpha == nullptr) {
+    if (threw(env, "initAndroid") || gOpen == nullptr || gMimeType == nullptr || gReadBytes == nullptr ||
+        gDecodeRegion == nullptr || gHasAlpha == nullptr) {
         SDL_Log("The region decoder bridge is not the shape expected");
         gBridge = nullptr;
     }
