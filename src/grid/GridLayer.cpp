@@ -440,6 +440,9 @@ void GridLayer::setDataSource(DataSource *dataSource) {
     if (feed) {
         mMediaFeed->copySlotStateFrom(*feed);
         feed->shutdown();
+        // A queued or running load holds a bare pointer to one of the old
+        // feed's items, and through it to the old source.
+        mView->cancelLoads();
         feed.reset();
         clearDisplayList();
         mBackground.clear();

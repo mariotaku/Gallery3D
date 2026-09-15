@@ -104,6 +104,9 @@ class RenderView {
     TexturePtr getResource(const std::string &name, bool scaled = true);
     void clearCache();
     void prime(const TexturePtr &texture, bool highPriority);
+    // Drops the loads still queued and waits for those under way, on the
+    // render thread, before the items they load are freed.
+    void cancelLoads();
     void loadTexture(const TexturePtr &texture);
     bool bind(const TexturePtr &texture);
     bool bindMixed(const TexturePtr &from, const TexturePtr &to, float ratio);
@@ -236,6 +239,9 @@ class RenderView {
     bool mRenderRequested = true;
 
     int mLoadingCount = 0;
+    // Loads a loader thread has taken and not finished, under mQueueMutex.
+    int mLoadsRunning = 0;
+    std::condition_variable mLoadsFinished;
     int64_t mLoadingExpensiveTexturesStartTime = 0;
 
     // Every uploaded texture, weakly held so this list never keeps one alive.

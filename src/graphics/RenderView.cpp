@@ -856,6 +856,7 @@ void RenderView::textureLoadThread(int index) {
             }
             texture = queue->front();
             queue->pop_front();
+            ++mLoadsRunning;
         }
 
         if (index != 0) {
@@ -863,7 +864,24 @@ void RenderView::textureLoadThread(int index) {
         }
         texture->startLoad(this, texture);
         mThreadIsLoading[index].store(false);
+        {
+            std::lock_guard<std::mutex> lock(mQueueMutex);
+            --mLoadsRunning;
+        }
+        mLoadsFinished.notify_all();
     }
+}
+
+void RenderView::cancelLoads() {
+    std::unique_lock<std::mutex> lock(mQueueMutex);
+    for (std::deque<TexturePtr> *queue : {&mLoadInputQueue, &mLoadInputQueueCached, &mLoadInputQueueVideo}) {
+        for (const TexturePtr &texture : *queue) {
+            texture->mState = Texture::STATE_UNLOADED;
+            --mLoadingCount;
+        }
+        queue->clear();
+    }
+    mLoadsFinished.wait(lock, [this]() { return mLoadsRunning == 0; });
 }
 
 // Binding and colour
