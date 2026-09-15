@@ -25,6 +25,11 @@ void decodeItemPixels(MediaItem *item, int maxEdge, ImageDecode::Callback done);
 // density asks for without the wall stopping.
 int thumbnailTextureEdge(int thumbnailWidth, float density, int maxEdge);
 
+// The long edge to decode a photo at before it is cropped to width by height:
+// the edge it has once scaled to cover both. Without the photo's size, twice
+// the larger of the two, which covers any shape up to two to one.
+int thumbnailDecodeEdge(int width, int height, int photoWidth, int photoHeight);
+
 class Texture {
   public:
     enum State {

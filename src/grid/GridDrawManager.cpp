@@ -16,6 +16,56 @@
 
 MediaItemTexture::Config GridDrawManager::sThumbnailConfig;
 
+namespace {
+
+// What one grid thumbnail holds on the GPU: the texture, padded where
+// textures are, and a third again for its mip chain.
+size_t thumbnailBytes(const MediaItemTexture::Config &config) {
+    const int width = thumbnailTextureEdge(config.thumbnailWidth, App::PIXEL_DENSITY, App::THUMBNAIL_MAX_EDGE);
+    int height = width * config.thumbnailHeight / config.thumbnailWidth;
+    if (!RenderView::unpaddedTextures()) {
+        height = Shared::nextPowerOf2(height);
+    }
+    const size_t base = (size_t)width * (size_t)height * 4;
+    return base + base / 3;
+}
+
+}  // namespace
+
+IndexRange GridDrawManager::keptSlots(const IndexRange &visible, const IndexRange &buffered, size_t allowanceBytes,
+                                      const std::function<size_t(int slot)> &slotBytes) {
+    int begin = std::max(visible.begin, buffered.begin);
+    int end = std::min(visible.end, buffered.end);
+    if (begin > end) {
+        return IndexRange(begin, end);
+    }
+    size_t spent = 0;
+    for (int slot = begin; slot <= end; ++slot) {
+        spent += slotBytes(slot);
+    }
+    bool grew = true;
+    while (grew) {
+        grew = false;
+        if (end < buffered.end) {
+            const size_t bytes = slotBytes(end + 1);
+            if (spent + bytes <= allowanceBytes) {
+                spent += bytes;
+                ++end;
+                grew = true;
+            }
+        }
+        if (begin > buffered.begin) {
+            const size_t bytes = slotBytes(begin - 1);
+            if (spent + bytes <= allowanceBytes) {
+                spent += bytes;
+                --begin;
+                grew = true;
+            }
+        }
+    }
+    return IndexRange(begin, end);
+}
+
 // GridDrawManager
 
 GridDrawManager::GridDrawManager(GridCamera *camera, GridDrawables *drawables, DisplayList *displayList,
@@ -88,14 +138,32 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
     grid->bindArrays(view);
     int numTexturesQueued = 0;
 
+    // Half the texture budget for thumbnails, the rest for labels, the
+    // fullscreen pictures and the chrome. What falls outside is freed, and
+    // comes back from the disk cache when it scrolls near again.
+    const size_t cardBytes = thumbnailBytes(sThumbnailConfig);
+    const IndexRange kept = keptSlots(mVisibleRange, mBufferedVisibleRange, RenderView::TEXTURE_BUDGET_BYTES / 2,
+                                      [&](int slot) {
+        const int cards = (slot == mCurrentScaleSlot) ? GridLayer::MAX_DISPLAYED_ITEMS_PER_FOCUSED_SLOT
+                                                      : GridLayer::MAX_DISPLAYED_ITEMS_PER_SLOT;
+        size_t bytes = 0;
+        for (int j = 0; j < cards; ++j) {
+            if (displayItems[(slot - firstBufferedVisibleSlot) * GridLayer::MAX_ITEMS_PER_SLOT + j] != nullptr) {
+                bytes += cardBytes;
+            }
+        }
+        return bytes;
+    });
+
     for (int itrSlotIndex = firstBufferedVisibleSlot; itrSlotIndex <= lastBufferedVisibleSlot; ++itrSlotIndex) {
         int index = itrSlotIndex;
+        const bool keep = index >= kept.begin && index <= kept.end;
         bool priority = !(index < firstVisibleSlot || index > lastVisibleSlot);
         int startSlotIndex = 0;
         const int maxDisplayedItemsPerSlot = (index == mCurrentScaleSlot)
                                                  ? GridLayer::MAX_DISPLAYED_ITEMS_PER_FOCUSED_SLOT
                                                  : GridLayer::MAX_DISPLAYED_ITEMS_PER_SLOT;
-        if (index != mCurrentScaleSlot) {
+        if (index != mCurrentScaleSlot && keep) {
             for (int j = maxDisplayedItemsPerSlot - 1; j >= 0; --j) {
                 DisplayItem *displayItem =
                     displayItems[(index - firstBufferedVisibleSlot) * GridLayer::MAX_ITEMS_PER_SLOT + j];
@@ -121,6 +189,10 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
             if (selectedSlotIndex != Shared::INVALID &&
                 (index <= selectedSlotIndex - 2 || index >= selectedSlotIndex + 2)) {
                 displayItem->clearScreennailImage();
+            }
+            if (!keep) {
+                displayItem->clearThumbnail();
+                continue;
             }
             TexturePtr texture = thumbnailOf(displayItem);
             if (index == mCurrentScaleSlot && texture && !texture->isLoaded()) {
@@ -148,7 +220,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
             if (displayItem == nullptr) {
                 continue;
             }
-            TexturePtr texture = thumbnailOf(displayItem);
+            TexturePtr texture = keep ? thumbnailOf(displayItem) : nullptr;
             if (!texture || !texture->isLoaded()) {
                 if (currentScaleSlot != index) {
                     if (j == 0) {
@@ -204,7 +276,7 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 displayList->setHasFocus(displayItem, false, pushDown);
                 displayList->setHovered(displayItem, mHoverSlot == index, pushDown);
             }
-            if (j >= maxDisplayedItemsPerSlot) {
+            if (j >= maxDisplayedItemsPerSlot || !keep) {
                 continue;
             }
             TexturePtr texture = thumbnailOf(displayItem);
@@ -221,6 +293,8 @@ void GridDrawManager::drawThumbnails(RenderView *view, int state) {
                 continue;
             }
             if (index < firstVisibleSlot || index > lastVisibleSlot) {
+                // Kept for scrolling back to. Binding loads it and holds it
+                // against the budget, and keptSlots holds how many that is.
                 if (view->bind(texture)) {
                     displayList->setAlive(displayItem, true);
                 }

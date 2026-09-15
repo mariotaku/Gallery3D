@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <mutex>
 #include <vector>
@@ -176,6 +177,16 @@ int thumbnailTextureEdge(int thumbnailWidth, float density, int maxEdge) {
     return wanted;
 }
 
+int thumbnailDecodeEdge(int width, int height, int photoWidth, int photoHeight) {
+    const int fallback = std::max(width, height) * 2;
+    if (width <= 0 || height <= 0 || photoWidth <= 0 || photoHeight <= 0) {
+        return fallback;
+    }
+    const double scale = std::max((double)width / photoWidth, (double)height / photoHeight);
+    const int edge = (int)std::ceil(std::max(photoWidth, photoHeight) * scale - 1e-9);
+    return std::min(fallback, std::max(edge, std::max(width, height)));
+}
+
 Bitmap MediaItemTexture::load(RenderView *view) {
     // startLoad handles asynchronous decoding; load is required by the base class.
     (void)view;
@@ -228,7 +239,15 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     // completion.
     const int thumbnailWidth = mConfig->thumbnailWidth;
     const int thumbnailHeight = mConfig->thumbnailHeight;
-    decodeThumbnail(mItem, std::max(side, height) * 2,
+    // A folder tree's photo learns its size late, through atomics the render
+    // thread also reads.
+    int photoWidth = mItem->mLateDetails.width.load();
+    int photoHeight = mItem->mLateDetails.height.load();
+    if (photoWidth <= 0 || photoHeight <= 0) {
+        photoWidth = mItem->mFullWidth;
+        photoHeight = mItem->mFullHeight;
+    }
+    decodeThumbnail(mItem, thumbnailDecodeEdge(side, height, photoWidth, photoHeight),
                     [view, self, side, height, key, thumbnailWidth, thumbnailHeight](Bitmap decoded) {
         if (!decoded.valid()) {
             view->finishLoad(self, std::move(decoded));

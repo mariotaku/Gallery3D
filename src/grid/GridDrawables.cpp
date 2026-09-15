@@ -136,7 +136,10 @@ void GridDrawables::buildQuads(int itemWidth, int itemHeight) {
     const float aspectRatio = (float)itemWidth / (float)itemHeight;
     const float oneByAspect = 1.0f / aspectRatio;
 
-    sGrid = GridQuad::createGridQuad(width, height, 0, 0, 1.0f, oneByAspect, true);
+    // Thumbnails are cell shaped. Padded to a power of two, the picture fills
+    // only the top oneByAspect of its texture.
+    sGrid = GridQuad::createGridQuad(width, height, 0, 0, 1.0f, RenderView::unpaddedTextures() ? 1.0f : oneByAspect,
+                                     true);
 
     // The quads used in fullscreen. Their vertices move as the image changes,
     // so they live in dynamic buffers.

@@ -43,6 +43,15 @@ class RenderView {
   public:
     static const int NUM_TEXTURE_LOAD_THREADS = 4;
     static const int MAX_LOADING_COUNT = 8;
+    // The GPU memory textures may hold before the least recently drawn go.
+    static constexpr size_t TEXTURE_BUDGET_BYTES = 192u * 1024u * 1024u;
+
+    // Whether a texture uploads at its bitmap's own size, mip chain and all:
+    // ES 3, desktop GL, or ES 2 with GL_OES_texture_npot. Anywhere else it is
+    // padded out to powers of two. Known once init has run.
+    static bool unpaddedTextures() {
+        return sUnpaddedTextures;
+    }
 
     RenderView();
     ~RenderView();
@@ -237,6 +246,8 @@ class RenderView {
     uint64_t mFrameTimeNs = 0;
     float mFrameInterval = 0.0f;
     bool mRenderRequested = true;
+
+    static bool sUnpaddedTextures;
 
     int mLoadingCount = 0;
     // Loads a loader thread has taken and not finished, under mQueueMutex.

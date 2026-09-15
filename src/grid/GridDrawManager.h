@@ -1,6 +1,8 @@
 // Port of com.cooliris.media.GridDrawManager.
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <vector>
 
 #include "grid/DisplayItem.h"
@@ -51,6 +53,13 @@ class GridDrawManager {
     float getFocusQuadHeight() const {
         return mCurrentFocusItemHeight;
     }
+
+    // The slots whose thumbnails stay loaded: every visible slot, then the
+    // nearest neighbours on either side, one side and then the other, while
+    // their thumbnails fit in allowanceBytes. slotBytes is what one slot's
+    // thumbnails take. Both ranges include their end.
+    static IndexRange keptSlots(const IndexRange &visible, const IndexRange &buffered, size_t allowanceBytes,
+                                const std::function<size_t(int slot)> &slotBytes);
 
   private:
     // The item's grid thumbnail, or the broken picture once that thumbnail

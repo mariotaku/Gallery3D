@@ -7,6 +7,7 @@
 #include "tests.h"
 
 #include "app/App.h"
+#include "grid/GridDrawManager.h"
 #include "grid/GridLayer.h"
 #include "grid/GridLayoutInterface.h"
 #include "graphics/Texture.h"
@@ -146,4 +147,39 @@ TEST(a_device_can_ask_for_a_smaller_thumbnail_than_its_density_wants) {
 TEST(a_thumbnail_with_no_size_to_work_from_is_not_a_texture) {
     CHECK_EQ(thumbnailTextureEdge(0, 4.5f, 0), 0);
     CHECK_EQ(thumbnailTextureEdge(128, 0.0f, 0), 0);
+}
+
+TEST(a_thumbnail_decodes_just_large_enough_to_cover_its_crop) {
+    // A landscape photo of the cell's own shape needs no more than the crop.
+    CHECK_EQ(thumbnailDecodeEdge(512, 384, 4000, 3000), 512);
+    // A portrait one covers the crop's width with its short edge.
+    CHECK_EQ(thumbnailDecodeEdge(512, 384, 3000, 4000), 683);
+    // A wide one covers the height, up to twice the crop's long edge.
+    CHECK_EQ(thumbnailDecodeEdge(512, 384, 1920, 1080), 683);
+    CHECK_EQ(thumbnailDecodeEdge(512, 384, 8000, 2000), 1024);
+    // Unknown until the photo is read: twice the crop, as before.
+    CHECK_EQ(thumbnailDecodeEdge(512, 384, 0, 0), 1024);
+    // A photo smaller than the crop is asked for at the crop's size.
+    CHECK_EQ(thumbnailDecodeEdge(512, 384, 100, 75), 512);
+}
+
+TEST(the_kept_slots_are_the_visible_ones_and_the_nearest_that_fit) {
+    const auto tenEach = [](int) { return (size_t)10; };
+    // 30 for the three visible slots, then one after, one before, and so on.
+    IndexRange kept = GridDrawManager::keptSlots(IndexRange(10, 12), IndexRange(0, 40), 70, tenEach);
+    CHECK_EQ(kept.begin, 8);
+    CHECK_EQ(kept.end, 14);
+    // The visible slots stay even past the allowance.
+    kept = GridDrawManager::keptSlots(IndexRange(10, 12), IndexRange(0, 40), 20, tenEach);
+    CHECK_EQ(kept.begin, 10);
+    CHECK_EQ(kept.end, 12);
+    // Never past the buffered slots.
+    kept = GridDrawManager::keptSlots(IndexRange(0, 2), IndexRange(0, 5), 1000, tenEach);
+    CHECK_EQ(kept.begin, 0);
+    CHECK_EQ(kept.end, 5);
+    // A slot too large to fit stops its side, and the other side goes on.
+    kept = GridDrawManager::keptSlots(IndexRange(10, 12), IndexRange(0, 40), 70,
+                                      [](int slot) { return slot == 13 ? (size_t)100 : (size_t)10; });
+    CHECK_EQ(kept.begin, 6);
+    CHECK_EQ(kept.end, 12);
 }

@@ -268,6 +268,13 @@ bool RenderView::init(SDL_Window *window) {
         mBgraInternalFormat = GL_BGRA;
     }
     SDL_Log("BGRA textures %s", (mBgraInternalFormat != 0) ? "upload as they are" : "are swapped to RGBA first");
+    // ES 2.0 takes a texture that is not a power of two only without a mip
+    // chain, and a padded thumbnail spends a third of its memory on padding.
+    // ES 3.0 and desktop GL 2.0 take any size.
+    const bool es = version != nullptr && SDL_strstr(version, "OpenGL ES") != nullptr;
+    sUnpaddedTextures = !es || SDL_strstr(version, "OpenGL ES 2") == nullptr ||
+                        (extensions != nullptr && SDL_strstr(extensions, "GL_OES_texture_npot") != nullptr);
+    SDL_Log("Textures %s", sUnpaddedTextures ? "upload at their own size" : "are padded to powers of two");
 
     mLoadThreadsRunning.store(true);
     for (int i = 0; i < NUM_TEXTURE_LOAD_THREADS; ++i) {
@@ -295,6 +302,8 @@ void RenderView::shutdown() {
     mCacheScaled.clear();
     mCacheUnscaled.clear();
 }
+
+bool RenderView::sUnpaddedTextures = false;
 
 void RenderView::setRootLayer(RootLayer *layer) {
     if (mRootLayer != layer) {
@@ -621,7 +630,7 @@ void RenderView::applyBitmap(const TexturePtr &texture, Bitmap bitmap) {
         // The texture is a power of two, so the normalized extents the meshes
         // use stay meaningful and wrap modes behave everywhere. uploadTexture
         // puts the bitmap in its corner and fills the rest.
-        if (!Shared::isPowerOf2(width) || !Shared::isPowerOf2(height)) {
+        if (!sUnpaddedTextures && (!Shared::isPowerOf2(width) || !Shared::isPowerOf2(height))) {
             int paddedWidth = Shared::nextPowerOf2(width);
             int paddedHeight = Shared::nextPowerOf2(height);
             texture->mNormalizedWidth = (float)width / (float)paddedWidth;
@@ -673,8 +682,8 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     // Every texture is a power of two, which is also the only size ES 2.0
     // builds a mip chain for.
-    const int paddedWidth = Shared::nextPowerOf2(width);
-    const int paddedHeight = Shared::nextPowerOf2(height);
+    const int paddedWidth = sUnpaddedTextures ? width : Shared::nextPowerOf2(width);
+    const int paddedHeight = sUnpaddedTextures ? height : Shared::nextPowerOf2(height);
     const bool clampEdges = texture->wantsMipmaps();
     const bool mipmapped = clampEdges && mMaxAnisotropy > 1.0f;
     const GLint minFilter = mipmapped ? GL_LINEAR_MIPMAP_LINEAR : (repeat ? GL_NEAREST : GL_LINEAR);
@@ -766,7 +775,7 @@ void RenderView::processTextures(bool processAll) {
 
 void RenderView::enforceTextureBudget() {
     // Evict least-recently-bound textures above the memory budget.
-    const size_t kBudgetBytes = 192u * 1024u * 1024u;
+    const size_t kBudgetBytes = TEXTURE_BUDGET_BYTES;
     // Never drop something drawn in the last couple of seconds, or scrolling
     // would evict and reload the same thumbnails as it goes.
     const uint64_t kKeepMs = 2000;
