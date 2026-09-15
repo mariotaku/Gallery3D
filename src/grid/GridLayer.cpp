@@ -149,6 +149,13 @@ void GridLayer::keepWallInRange() {
         mInputProcessor->getCurrentSelectedSlot() != Shared::INVALID) {
         return;
     }
+    // The feed rather than mCompleteRange, which keeps the previous feed's
+    // slot count until the next draw. Leaving an album for the stacks would
+    // otherwise clamp the camera to the album's few slots.
+    const int numSlots = mMediaFeed ? mMediaFeed->getNumSlots() : 0;
+    if (numSlots <= 0) {
+        return;
+    }
     Vector3f firstPosition;
     Vector3f lastPosition;
     // The anchor onLayout has just set rather than the one the draw last
@@ -159,7 +166,7 @@ void GridLayer::keepWallInRange() {
     Vector3f deltaAnchorPosition(mDeltaAnchorPositionUncommited);
     GridCameraManager::getSlotPositionForSlotIndex(0, mCamera.get(), mLayoutInterface, deltaAnchorPosition,
                                                   firstPosition);
-    GridCameraManager::getSlotPositionForSlotIndex(mCompleteRange.end, mCamera.get(), mLayoutInterface,
+    GridCameraManager::getSlotPositionForSlotIndex(numSlots - 1, mCamera.get(), mLayoutInterface,
                                                   deltaAnchorPosition, lastPosition);
     mCamera->clampToScrollRange(firstPosition, lastPosition);
 }
