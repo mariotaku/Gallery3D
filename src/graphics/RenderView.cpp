@@ -247,11 +247,9 @@ bool RenderView::init(SDL_Window *window) {
     SDL_Log("BGRA textures %s", (mBgraInternalFormat != 0) ? "upload as they are" : "are swapped to RGBA first");
 
     mLoadThreadsRunning.store(true);
-#if !defined(__EMSCRIPTEN__)
     for (int i = 0; i < NUM_TEXTURE_LOAD_THREADS; ++i) {
         mLoadThreads.emplace_back([this, i]() { textureLoadThread(i); });
     }
-#endif
     return true;
 }
 
@@ -564,13 +562,6 @@ void RenderView::queueLoad(const TexturePtr &texture, bool highPriority) {
     texture->mState = Texture::STATE_LOADING;
     texture->mOwner = this;
 
-#if defined(__EMSCRIPTEN__)
-    // Browser fetch and decode complete through callbacks; no worker pools are needed.
-    ++mLoadingCount;
-    texture->startLoad(this, texture);
-    return;
-#endif
-
     {
         std::lock_guard<std::mutex> lock(mQueueMutex);
         std::deque<TexturePtr> &inputQueue = texture->isUncachedVideo() ? mLoadInputQueueVideo
@@ -621,8 +612,8 @@ void RenderView::loadTextureAsync(const TexturePtr &texture) {
 }
 
 void RenderView::finishLoad(const TexturePtr &texture, Bitmap bitmap) {
-    // Collect finished pixels from workers or browser callbacks. Only the render
-    // thread drains uploads and touches GL.
+    // Collect finished pixels from the decode threads. Only the render thread
+    // drains uploads and touches GL.
     applyBitmap(texture, std::move(bitmap));
     {
         std::lock_guard<std::mutex> lock(mQueueMutex);

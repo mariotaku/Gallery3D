@@ -9,10 +9,6 @@
 #include <SDL3/SDL_main.h>
 #endif
 
-#if defined(__EMSCRIPTEN__)
-#include <emscripten/emscripten.h>
-#endif
-
 #include <cstdlib>
 #include <algorithm>
 #include <cstring>
@@ -87,11 +83,7 @@ std::string defaultPhotoDirectory() {
 }
 
 std::string assetRoot() {
-#if defined(__EMSCRIPTEN__)
-    // Preloaded into the runtime's filesystem at this path, by the
-    // --preload-file in CMakeLists. There is no binary to sit next to.
-    return "/assets";
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
     // The apk's assets folder is itself the root: SDL's file functions read a
     // relative path through the asset manager, and that manager starts there.
     // Anything prefixed onto it would be a folder inside assets/ that does not
@@ -906,8 +898,7 @@ int main(int argc, char **argv) {
     const uint64_t startTicks = SDL_GetTicks();
     const uint64_t screenshotAfterMs = (uint64_t)screenshotFrames * 1000ull / 60ull;
     bool running = true;
-    // Browser frame callback. simulate_infinite_loop preserves main's stack,
-    // keeping references captured here alive.
+    // One frame: the pending events, then the draw.
     auto drawFrame = [&]() {
         SDL_Event sdlEvent;
         while (SDL_PollEvent(&sdlEvent)) {
@@ -1165,19 +1156,9 @@ int main(int argc, char **argv) {
         }
     };
 
-#if defined(__EMSCRIPTEN__)
-    // Zero selects requestAnimationFrame. This call does not return.
-    emscripten_set_main_loop_arg(
-        [](void *arg) {
-            auto *frame = (decltype(drawFrame) *)arg;
-            (*frame)();
-        },
-        &drawFrame, 0, 1);
-#else
     while (running) {
         drawFrame();
     }
-#endif
 
     if (accelerometer != nullptr) {
         SDL_CloseSensor(accelerometer);

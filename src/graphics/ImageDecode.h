@@ -1,5 +1,5 @@
 // Decodes encoded bytes to Bitmap pixels for cropping, blur and caching.
-// Native decoders answer inline; browser decoders require asynchronous callbacks.
+// Decoders answer through a callback, which today runs before decode() returns.
 #pragma once
 
 #include <cstddef>
@@ -16,8 +16,7 @@ namespace ImageDecode {
 using Callback = std::function<void(Bitmap)>;
 
 // Decodes `bytes`, downscaled so neither edge exceeds maxEdge (0 for no limit).
-// Takes ownership of the bytes, since the web has to keep them alive until the
-// browser is finished with them.
+// Takes ownership of the bytes.
 void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done);
 
 // Whether decode() may invoke its callback after returning.

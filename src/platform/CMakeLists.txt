@@ -4,7 +4,6 @@
 #
 #   windows/  Windows
 #   android/  Android
-#   web/      the browser, through Emscripten
 #   posix/    every platform that is not Windows
 #   desktop/  Linux and macOS: libjpeg and LittleCMS, where there is no WIC
 #   generic/  fallbacks for a platform without an implementation of its own
@@ -12,7 +11,7 @@
 # Each directory's own list says which of its files a platform takes.
 
 set(GALLERY3D_DESKTOP ON)
-if(EMSCRIPTEN OR ANDROID OR IOS)
+if(ANDROID OR IOS)
     set(GALLERY3D_DESKTOP OFF)
 endif()
 
@@ -23,9 +22,6 @@ else()
 endif()
 if(ANDROID)
     add_subdirectory(android)
-endif()
-if(EMSCRIPTEN)
-    add_subdirectory(web)
 endif()
 if(GALLERY3D_DESKTOP)
     add_subdirectory(desktop)

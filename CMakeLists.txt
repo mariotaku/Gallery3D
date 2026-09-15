@@ -4,46 +4,7 @@ project(gallery3d LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(EMSCRIPTEN)
-    # The web build has no vcpkg to ask, so the dependencies are fetched and
-    # built from source. Emscripten ships sdl3 and sdl3_ttf as ports but not
-    # sdl3_image, and mixing a port with a source build means two SDL3s in one
-    # link. Building all three keeps one.
-    include(FetchContent)
-    set(FETCHCONTENT_QUIET OFF)
-    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-    set(SDL_STATIC ON CACHE BOOL "" FORCE)
-    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_SAMPLES OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_DEPS_SHARED OFF CACHE BOOL "" FORCE)
-    # SDL_image's own stb backend decodes PNG and JPEG, which is everything in
-    # assets/. Photos decode in the browser. Vendoring would clone libpng,
-    # libjpeg, libtiff, dav1d and the rest to build decoders nothing here asks
-    # for.
-    set(SDLIMAGE_VENDORED OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_BACKEND_STB ON CACHE BOOL "" FORCE)
-    set(SDLIMAGE_JPG ON CACHE BOOL "" FORCE)
-    set(SDLIMAGE_PNG ON CACHE BOOL "" FORCE)
-    # Only what the shipped art actually needs.
-    set(SDLIMAGE_AVIF OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_TIF OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_WEBP OFF CACHE BOOL "" FORCE)
-    set(SDLTTF_SAMPLES OFF CACHE BOOL "" FORCE)
-    set(SDLTTF_VENDORED ON CACHE BOOL "" FORCE)
-    set(SDLTTF_HARFBUZZ OFF CACHE BOOL "" FORCE)
-    set(SDLTTF_PLUTOSVG OFF CACHE BOOL "" FORCE)
-    set(JSON_BuildTests OFF CACHE INTERNAL "")
-
-    FetchContent_Declare(SDL3 GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-                              GIT_TAG release-3.2.24 GIT_SHALLOW TRUE)
-    FetchContent_Declare(SDL3_image GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-                              GIT_TAG release-3.2.4 GIT_SHALLOW TRUE)
-    FetchContent_Declare(SDL3_ttf GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
-                              GIT_TAG release-3.2.2 GIT_SHALLOW TRUE)
-    FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
-                              GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
-    FetchContent_MakeAvailable(SDL3 SDL3_image SDL3_ttf nlohmann_json)
-elseif(ANDROID)
+if(ANDROID)
     # SDL's own aar archives carry prefab modules, so the same find_package the
     # desktop uses works here too. android/fetch-deps.sh puts them in app/libs.
     find_package(SDL3 CONFIG REQUIRED)
@@ -51,7 +12,7 @@ elseif(ANDROID)
     # No SDL_ttf: android.graphics.Paint draws the text, which also keeps the
     # one library in the apk that is not aligned for a 16 KB page out of it.
     # No libjpeg, because cropping a region is BitmapRegionDecoder's job here.
-    # nlohmann/json is a header, so it comes from source as it does on the web.
+    # nlohmann/json is a header, so it comes from source as it does on iOS.
     include(FetchContent)
     set(JSON_BuildTests OFF CACHE INTERNAL "")
     FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -60,12 +21,11 @@ elseif(ANDROID)
 elseif(IOS)
     # Cross-compiled from Linux with ios/xtool.toolchain.cmake, or built as an
     # Xcode project on a Mac. There is no package manager for an iPhone, so the
-    # libraries are built from source as they are for the web, and linked in
-    # statically: an app may not carry loose dylibs.
+    # libraries are built from source and linked in statically: an app may not
+    # carry loose dylibs.
     #
-    # No libjpeg: ImageIO decodes
-    # for SDL_image, and a zoomed photo stays on its screennail as it does in
-    # the browser.
+    # No libjpeg: ImageIO decodes for SDL_image, and a zoomed photo stays on its
+    # screennail.
     #
     # Objective-C is enabled here rather than left to SDL_image. The Xcode
     # generator decides a source file's type from the languages the top level
@@ -199,28 +159,7 @@ gallery3d_add_symbols(gallery3d)
 
 add_subdirectory(src)
 
-if(EMSCRIPTEN)
-    # The browser owns the frame clock and the canvas, so most of this is
-    # telling Emscripten what the app expects to find.
-    set_target_properties(gallery3d PROPERTIES OUTPUT_NAME "index" SUFFIX ".html")
-    target_link_options(gallery3d PRIVATE
-        # WebGL 2, which is where ES 3.0 lives. The renderer asks for an ES 2.0
-        # context and uses ES 3 features where it finds them, exactly as on the
-        # desktop.
-        -sMIN_WEBGL_VERSION=2
-        -sMAX_WEBGL_VERSION=2
-        # The wall's textures are the bulk of the memory and there is no
-        # knowing how many up front.
-        -sALLOW_MEMORY_GROWTH=1
-        # No threads. Decoding goes through the browser and answers in
-        # callbacks, so there is nothing here that would block a thread if it
-        # had one. That also means the page needs no COOP and COEP headers and
-        # will run from any static host.
-        -sEXIT_RUNTIME=0
-        # The art and the fonts, baked into a file the runtime mounts.
-        --preload-file "${CMAKE_SOURCE_DIR}/assets@/assets"
-        --shell-file "${CMAKE_SOURCE_DIR}/tools/web/shell.html")
-elseif(ANDROID)
+if(ANDROID)
     # Nothing to copy. Gradle packs assets/ into the apk, and SDL's file
     # functions read that through the asset manager.
 else()
@@ -232,8 +171,8 @@ else()
 endif()
 
 # Desktop only. The tests are a console binary that runs to completion, which
-# is neither the browser's shape nor a phone's.
-if(NOT EMSCRIPTEN AND NOT ANDROID AND NOT IOS)
+# is not a phone's shape.
+if(NOT ANDROID AND NOT IOS)
     enable_testing()
     add_subdirectory(tests)
 endif()

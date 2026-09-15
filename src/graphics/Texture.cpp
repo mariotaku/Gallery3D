@@ -38,7 +38,7 @@ void Texture::clear() {
 namespace {
 
 // Decode source bytes, falling back to a local path. Source and decoder
-// callbacks may complete inline or later in the browser.
+// callbacks may complete inline or later.
 void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
     if (item == nullptr) {
         done(Bitmap());

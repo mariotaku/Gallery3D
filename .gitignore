@@ -19,7 +19,6 @@ vcpkg_installed/
 
 # Crash dumps, written next to the binary.
 *.dmp
-build-web/
 build-ios/
 
 # The Java this is a port of, at the tag it was taken from:

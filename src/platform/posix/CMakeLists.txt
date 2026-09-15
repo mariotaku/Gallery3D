@@ -6,9 +6,9 @@ target_sources(gallery3d_core PRIVATE
     LocalTime.cpp
     StackTrace.h)
 
-# Walking the stack through execinfo. Android's C library has no execinfo and
-# the browser has no native stack to walk, so each brings its own.
-if(NOT ANDROID AND NOT EMSCRIPTEN)
+# Walking the stack through execinfo. Android's C library has no execinfo, so
+# it brings its own.
+if(NOT ANDROID)
     target_sources(gallery3d_core PRIVATE
         StackTrace.cpp)
 endif()

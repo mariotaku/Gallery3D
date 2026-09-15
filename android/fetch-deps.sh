@@ -6,8 +6,7 @@
 # with the same find_package call the desktop build uses, and the
 # org.libsdl.app Java classes that MainActivity extends.
 #
-# Newer than the versions CMakeLists pins for the web build, and deliberately:
-# these are the first releases built for a 16 KB page. A library that is not
+# These are the first releases built for a 16 KB page. A library that is not
 # makes the whole apk one that a device with 16 KB pages will not load, and
 # every Pixel from the 8 onwards can be put in that mode.
 #

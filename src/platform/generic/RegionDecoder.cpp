@@ -9,8 +9,8 @@ bool RegionDecoder::looksSupported(const std::string &mimeType) {
 void RegionDecoder::initAndroid() {
 }
 
-// No region decoder is linked: the browser decodes whole images only, and the
-// iOS build takes no libjpeg. A zoomed local photo stays on its screennail.
+// No region decoder is linked: the iOS build takes no libjpeg. A zoomed photo
+// stays on its screennail.
 RegionDecoderPtr RegionDecoder::open(const std::string &source) {
     (void)source;
     return nullptr;

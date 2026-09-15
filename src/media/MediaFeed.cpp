@@ -121,18 +121,10 @@ MediaFeed::~MediaFeed() {
 
 void MediaFeed::start() {
     mLoading.store(true);
-#if defined(__EMSCRIPTEN__)
-    // Browser sources complete through callbacks; workers require shared-memory response
-    // headers.
-    if (mDataSource) {
-        mDataSource->loadMediaSets(this);
-    }
-#else
     if (mLoaderThread.joinable()) {
         return;
     }
     mLoaderThread = std::thread([this]() { loaderThread(); });
-#endif
 }
 
 void MediaFeed::shutdown() {
@@ -183,13 +175,6 @@ void MediaFeed::loaderThread() {
 }
 
 void MediaFeed::postJob(std::function<void()> job) {
-#if defined(__EMSCRIPTEN__)
-    // Run callback-based jobs inline; their slow work completes asynchronously.
-    if (!mShuttingDown.load()) {
-        job();
-    }
-    return;
-#else
     if (mShuttingDown.load()) {
         return;
     }
@@ -198,7 +183,6 @@ void MediaFeed::postJob(std::function<void()> job) {
         mJobs.push_back(std::move(job));
     }
     mJobCondition.notify_one();
-#endif
 }
 
 void MediaFeed::pumpListener() {

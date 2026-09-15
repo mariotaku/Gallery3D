@@ -11,5 +11,4 @@ script outside Latin will come out blank rather than as the wrong glyph.
 
 Shipped because the app had no font of its own. It fell back to whatever the
 platform had - Segoe UI on Windows, DejaVu on Linux - so the wall looked
-different on every machine, and in a browser there is no system font to fall
-back to at all, which left every label empty.
+different on every machine.

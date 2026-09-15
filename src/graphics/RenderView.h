@@ -172,7 +172,7 @@ class RenderView {
 
   public:
     // Hands a finished load back from whichever thread produced it. Safe to
-    // call from a decode thread, a network thread, or a browser callback.
+    // call from any decode thread.
     void finishLoad(const TexturePtr &texture, Bitmap bitmap);
 
   private:

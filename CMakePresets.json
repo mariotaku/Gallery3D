@@ -25,14 +25,6 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     },
     {
-      "name": "web",
-      "displayName": "Web, with the emsdk that EMSDK names",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-web",
-      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
-    },
-    {
       "name": "ios",
       "displayName": "iOS device, as an Xcode project on macOS",
       "generator": "Xcode",
@@ -51,7 +43,6 @@
     { "name": "release", "configurePreset": "default", "configuration": "Release" },
     { "name": "linux", "configurePreset": "linux" },
     { "name": "linux-debug", "configurePreset": "linux-debug" },
-    { "name": "web", "configurePreset": "web" },
     { "name": "ios", "configurePreset": "ios", "configuration": "Release" }
   ]
 }

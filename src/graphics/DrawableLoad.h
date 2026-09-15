@@ -1,4 +1,4 @@
-// Loads the app's drawables. Desktop, web and iOS read the PNGs under
+// Loads the app's drawables. Desktop and iOS read the PNGs under
 // assets/drawable*, and App::findDrawable chooses the density bucket. Android
 // asks its own resources: the build copies the same PNGs into res/drawable-*dpi,
 // so Android chooses the bucket and scales the pixels to the display's density.

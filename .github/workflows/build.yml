@@ -92,30 +92,6 @@ jobs:
           name: gallery3d-android
           path: android/app/build/outputs/apk/release/*.apk
 
-  web:
-    name: Web
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: 6.0.9
-          actions-cache-folder: emsdk-cache
-      - name: Install Ninja
-        run: sudo apt-get install -y ninja-build
-      - name: Configure
-        run: cmake --preset web
-      - name: Build
-        run: cmake --build build-web
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gallery3d-web
-          path: |
-            build-web/index.html
-            build-web/index.js
-            build-web/index.wasm
-            build-web/index.data
-
   ios:
     name: iOS
     # A real Mac and Xcode, building the app as an ordinary Xcode project. The

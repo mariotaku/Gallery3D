@@ -15,11 +15,9 @@ if(NOT ANDROID)
         DrawableLoad.cpp)
 endif()
 
-# Bitmap decoding on the calling thread. The browser decodes on its own.
-if(NOT EMSCRIPTEN)
-    target_sources(gallery3d_core PRIVATE
-        ImageDecode.cpp)
-endif()
+# Bitmap decoding on the calling thread, everywhere.
+target_sources(gallery3d_core PRIVATE
+    ImageDecode.cpp)
 
 # No region decoder, where neither libjpeg, WIC nor a platform decoder is
 # linked.
