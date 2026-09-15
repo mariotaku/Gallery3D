@@ -241,10 +241,17 @@ void install() {
     // Disable Windows fault dialogs so unattended crashes reach the trace handler.
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
 
-    SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
-    SymInitialize(GetCurrentProcess(), nullptr, TRUE);
+    // Once only. install runs again after SDL_Init to put the filter back on
+    // top of SDL's, and a second vectored handler would report every overflow
+    // twice, as a second SymInitialize would fail.
+    static bool installedOnce = false;
+    if (!installedOnce) {
+        installedOnce = true;
+        SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
+        SymInitialize(GetCurrentProcess(), nullptr, TRUE);
+        AddVectoredExceptionHandler(1, onVectored);
+    }
     SetUnhandledExceptionFilter(onUnhandled);
-    AddVectoredExceptionHandler(1, onVectored);
     _set_invalid_parameter_handler(onInvalidParameter);
     signal(SIGABRT, onAbort);
     // Disable the CRT runtime-error dialog for unattended runs.

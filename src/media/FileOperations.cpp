@@ -1,5 +1,6 @@
 #include "media/FileOperations.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -8,9 +9,10 @@
 namespace {
 
 // Degrees to the EXIF orientation value. Only the three rotations the port
-// understands; anything else means upright.
+// understands; anything else means upright. Rounded to the nearest degree, so
+// -90 stays -90 rather than being truncated toward zero to -89.
 unsigned orientationForDegrees(float degrees) {
-    int normalized = ((int)(degrees + 0.5f) % 360 + 360) % 360;
+    const long normalized = (std::lround(degrees) % 360 + 360) % 360;
     switch (normalized) {
     case 90:
         return 6;

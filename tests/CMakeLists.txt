@@ -19,6 +19,7 @@ add_executable(gallery3d_tests
     test_density.cpp
     test_details.cpp
     test_embeddedprofile.cpp
+    test_fileoperations.cpp
     test_focusdecor.cpp
     test_foldername.cpp
     test_json.cpp
@@ -35,9 +36,11 @@ add_executable(gallery3d_tests
     test_safearea.cpp
     test_settings.cpp
     test_system_thumbnail.cpp
+    test_text.cpp
     test_thumbnailcache.cpp
     test_tiles.cpp
     test_tilt.cpp
+    test_time.cpp
     test_timebarpopup.cpp
     test_wheel.cpp
     test_widgets.cpp

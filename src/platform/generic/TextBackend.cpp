@@ -147,6 +147,9 @@ bool ready() {
 }
 
 bool measure(const std::string &text, float fontSize, bool bold, int *width, int *height) {
+    if (fontSize <= 0.0f) {
+        return false;
+    }
     std::lock_guard<std::mutex> lock(sFontMutex);
     TTF_Font *font = fontFor(fontSize, bold);
     if (!font) {
@@ -165,6 +168,9 @@ bool measure(const std::string &text, float fontSize, bool bold, int *width, int
 }
 
 Bitmap render(const std::string &text, float fontSize, bool bold) {
+    if (fontSize <= 0.0f || text.empty()) {
+        return Bitmap();
+    }
     std::lock_guard<std::mutex> lock(sFontMutex);
     TTF_Font *font = fontFor(fontSize, bold);
     if (!font) {

@@ -92,7 +92,13 @@ bool ready() {
 }
 
 bool measure(const std::string &text, float fontSize, bool bold, int *width, int *height) {
-    if (!ready()) {
+    if (fontSize <= 0.0f) {
+        return false;
+    }
+    // Held across the call, so shutdown cannot drop the class while a loader
+    // thread is inside it.
+    std::lock_guard<std::mutex> lock(sMutex);
+    if (!sReady) {
         return false;
     }
     JNIEnv *e = env();
@@ -122,7 +128,11 @@ bool measure(const std::string &text, float fontSize, bool bold, int *width, int
 }
 
 Bitmap render(const std::string &text, float fontSize, bool bold) {
-    if (!ready()) {
+    if (fontSize <= 0.0f || text.empty()) {
+        return Bitmap();
+    }
+    std::lock_guard<std::mutex> lock(sMutex);
+    if (!sReady) {
         return Bitmap();
     }
     JNIEnv *e = env();
@@ -148,15 +158,22 @@ Bitmap render(const std::string &text, float fontSize, bool bold) {
         glyphs = Bitmap((int)info.width, (int)info.height);
         if (glyphs.valid()) {
             // White text on nothing, so the alpha is the coverage the caller
-            // tints. The platform premultiplies, which this port's pixels are
-            // too, so only the stride differs and the copy goes row by row.
+            // tints. The platform premultiplies, which leaves the colour at the
+            // coverage as well, and Canvas multiplies by the coverage itself.
+            // Only the alpha is kept, under straight white, as every other
+            // backend hands its glyphs out.
             const uint8_t *source = (const uint8_t *)pixels;
             uint8_t *destination = glyphs.pixels();
-            const size_t row = (size_t)info.width * 4;
             for (unsigned line = 0; line < info.height; ++line) {
-                SDL_memcpy(destination, source, row);
+                for (unsigned x = 0; x < info.width; ++x) {
+                    uint8_t *pixel = destination + (size_t)x * 4;
+                    pixel[0] = 255;
+                    pixel[1] = 255;
+                    pixel[2] = 255;
+                    pixel[3] = source[(size_t)x * 4 + 3];
+                }
                 source += info.stride;
-                destination += row;
+                destination += (size_t)info.width * 4;
             }
         }
         AndroidBitmap_unlockPixels(e, drawn);
