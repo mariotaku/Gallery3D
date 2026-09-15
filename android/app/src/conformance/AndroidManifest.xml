@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- The context the instrumentation tests give SDL. -->
+        <activity
+            android:name=".BlankActivity"
+            android:exported="false" />
+    </application>
+
+</manifest>

@@ -66,10 +66,21 @@ const std::string &fixtureRoot() {
     return sFixtureRoot;
 }
 
-int TestRunner::run(const Options &options) {
+std::vector<std::string> TestRunner::names() {
+    std::vector<std::string> names;
+    for (const TestCase &test : registry()) {
+        names.push_back(test.name);
+    }
+    return names;
+}
+
+int TestRunner::run(const Options &options, Summary *summary) {
     sPrint = options.print;
     sFixtureRoot = options.fixtureRoot;
     sFailures = 0;
+    if (summary != nullptr) {
+        *summary = Summary();
+    }
 
     // Bitmap and Canvas read files and build surfaces through SDL, so it has to
     // be up even though nothing here opens a window.
@@ -94,7 +105,11 @@ int TestRunner::run(const Options &options) {
     int run = 0;
     int skipped = 0;
     for (const TestCase &test : registry()) {
-        if (!options.filter.empty() && std::string(test.name).find(options.filter) == std::string::npos) {
+        const std::string name(test.name);
+        const bool wanted = !options.name.empty()
+                                ? name == options.name
+                                : options.filter.empty() || name.find(options.filter) != std::string::npos;
+        if (!wanted) {
             continue;
         }
         ++run;
@@ -112,5 +127,10 @@ int TestRunner::run(const Options &options) {
           " skipped");
     Canvas::shutdownFonts();
     SDL_Quit();
+    if (summary != nullptr) {
+        summary->tests = run;
+        summary->failures = sFailures;
+        summary->skipped = skipped;
+    }
     return sFailures;
 }

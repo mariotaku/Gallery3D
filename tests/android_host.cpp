@@ -1,11 +1,15 @@
 // The Android host for the tests: the app's main library in the conformance
-// build type. SDLActivity calls main() here instead of the wall's.
+// build type. It has two ways in.
 //
-// It copies the fixtures out of the apk into internal storage, because several
-// tests open fixtures by path, runs the tests named by the intent's "filter"
-// extra, and writes every line of the report to logcat and to
-// files/test-results.txt. files/test-done, holding the number of failed checks,
-// tells scripts/android-tests.sh the run is over.
+// SDLActivity calls main() here instead of the wall's. It copies the fixtures
+// out of the apk into internal storage, because several tests open fixtures by
+// path, runs the tests named by the intent's "filter" extra, and writes every
+// line of the report to logcat and to files/test-results.txt.
+// files/test-done, holding the number of failed checks, tells
+// scripts/android-tests.sh the run is over.
+//
+// The instrumentation test ConformanceTest calls the JNI functions at the end
+// instead, and runs each test as a JUnit test of its own.
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
@@ -14,6 +18,7 @@
 
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include "core/Backtrace.h"
 #include "graphics/DrawableLoad.h"
@@ -25,6 +30,29 @@
 namespace {
 
 const char *const kLogTag = "Gallery3DTests";
+
+// As the wall does, on a thread that can look an app class up by name: the one
+// SDLActivity runs main() on, or the one the instrumentation calls in from.
+// The tests reach the platform through these.
+void initBridges() {
+    AndroidBridge::init();
+    RegionDecoder::initAndroid();
+    SubsampledDecode::init();
+    DrawableLoad::init();
+}
+
+std::string toString(JNIEnv *env, jstring value) {
+    std::string result;
+    if (value == nullptr) {
+        return result;
+    }
+    const char *chars = env->GetStringUTFChars(value, nullptr);
+    if (chars != nullptr) {
+        result = chars;
+        env->ReleaseStringUTFChars(value, chars);
+    }
+    return result;
+}
 
 // The folders a path's file sits in, made where they are missing.
 void makeParents(const std::string &path) {
@@ -118,13 +146,7 @@ int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
     Backtrace::install();
-
-    // As the wall does, on the one thread that can look an app class up by
-    // name. The tests reach the platform through these.
-    AndroidBridge::init();
-    RegionDecoder::initAndroid();
-    SubsampledDecode::init();
-    DrawableLoad::init();
+    initBridges();
 
     const char *internal = SDL_GetAndroidInternalStoragePath();
     const std::string files = internal != nullptr ? internal : ".";
@@ -164,3 +186,60 @@ int main(int argc, char **argv) {
     }
     return failures == 0 ? 0 : 1;
 }
+
+extern "C" {
+
+JNIEXPORT jobjectArray JNICALL Java_me_mariotaku_gallery3d_ConformanceTest_nativeNames(JNIEnv *env, jclass) {
+    const std::vector<std::string> names = TestRunner::names();
+    jclass stringClass = env->FindClass("java/lang/String");
+    jobjectArray array = env->NewObjectArray((jsize)names.size(), stringClass, nullptr);
+    env->DeleteLocalRef(stringClass);
+    if (array == nullptr) {
+        return nullptr;
+    }
+    for (size_t i = 0; i < names.size(); ++i) {
+        // Test names are C identifiers, so plain ASCII.
+        jstring name = env->NewStringUTF(names[i].c_str());
+        env->SetObjectArrayElement(array, (jsize)i, name);
+        env->DeleteLocalRef(name);
+    }
+    return array;
+}
+
+JNIEXPORT jboolean JNICALL Java_me_mariotaku_gallery3d_ConformanceTest_nativeSetUp(JNIEnv *env, jclass,
+                                                                                    jstring fixtureRoot) {
+    Backtrace::install();
+    initBridges();
+    return copyFixtures(toString(env, fixtureRoot)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_me_mariotaku_gallery3d_ConformanceTest_nativeRun(JNIEnv *env, jclass, jstring name,
+                                                                                   jstring fixtureRoot,
+                                                                                   jintArray counts) {
+    std::string report;
+    TestRunner::Options options;
+    options.name = toString(env, name);
+    options.assetRoot = "";
+    options.fixtureRoot = toString(env, fixtureRoot);
+    options.print = [&report](const std::string &line) {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag, "%s", line.c_str());
+        report += line;
+        report += '\n';
+    };
+    TestRunner::Summary summary;
+    const int failures = TestRunner::run(options, &summary);
+
+    if (counts != nullptr && env->GetArrayLength(counts) >= 3) {
+        const jint values[3] = {failures, summary.skipped, summary.tests};
+        env->SetIntArrayRegion(counts, 0, 3, values);
+    }
+    // Bytes rather than a String: a report can quote text with characters
+    // outside the modified UTF-8 that NewStringUTF accepts.
+    jbyteArray bytes = env->NewByteArray((jsize)report.size());
+    if (bytes != nullptr) {
+        env->SetByteArrayRegion(bytes, 0, (jsize)report.size(), (const jbyte *)report.data());
+    }
+    return bytes;
+}
+
+}  // extern "C"

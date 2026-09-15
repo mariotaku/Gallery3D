@@ -48,4 +48,10 @@ build-ios/
 #   git clone --depth 1 --filter=blob:none --sparse --branch android14-release \
 #     https://android.googlesource.com/platform/frameworks/base reference/frameworks-base
 #   git -C reference/frameworks-base sparse-checkout set libs/hwui/jni graphics/java/android/graphics
+#
+# SDL's Java classes and JNI glue, for what the native side needs from Java
+# when SDLActivity does not start it:
+#   git clone --depth 1 --filter=blob:none --sparse --branch release-3.4.16 \
+#     https://github.com/libsdl-org/SDL reference/sdl
+#   git -C reference/sdl sparse-checkout set android-project/app/src/main/java/org/libsdl/app src/core/android
 reference/
