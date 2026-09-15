@@ -1,4 +1,4 @@
-#include "platform/android/MediaStoreDataSource.h"
+#include "media/MediaStoreDataSource.h"
 
 #include <algorithm>
 #include <memory>
@@ -7,9 +7,7 @@
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
 
-#include "platform/android/AndroidBridge.h"
 #include "core/JsonValue.h"
-#include "media/LocalDataSource.h"
 #include "media/MediaFeed.h"
 #include "media/MediaItem.h"
 #include "media/MediaSet.h"
@@ -22,13 +20,14 @@ const char *const kImagesUri = "content://media/external/images/media/";
 
 // MediaStore's bucket id is a string. The wall keys its sets on a number, so
 // the string is folded into one and the pair is remembered to query with later.
+// Kept non-negative, as LocalDataSource keeps its path hashes.
 int64_t hashBucketId(const std::string &bucketId) {
     int64_t hash = 1469598103934665603LL;
     for (unsigned char character : bucketId) {
         hash ^= (int64_t)character;
         hash *= 1099511628211LL;
     }
-    return hash;
+    return hash & 0x7FFFFFFFFFFFFFFFLL;
 }
 
 // MediaStore reports orientation in degrees already, unlike EXIF's tag numbers.
@@ -65,12 +64,12 @@ void MediaStoreDataSource::loadMediaSets(MediaFeed *feed) {
     }
     // The dialog needs an answer before any query returns rows. This runs on a
     // loader thread, so waiting here does not hold up the wall.
-    if (!AndroidBridge::requestMediaPermission()) {
+    if (!mClient.requestPermission()) {
         feed->finishLoadingMediaSets();
         return;
     }
 
-    const nlohmann::json buckets = parse(AndroidBridge::queryBuckets(), "folder list");
+    const nlohmann::json buckets = parse(mClient.queryBuckets(), "folder list");
     SDL_Log("The media store has %d folders of photos", (int)buckets.size());
 
     for (const nlohmann::json &bucket : buckets) {
@@ -117,7 +116,7 @@ void MediaStoreDataSource::loadBucketItems(MediaSet &set, const std::string &buc
         return;
     }
 
-    const nlohmann::json photos = parse(AndroidBridge::queryBucket(bucketId), "photo list");
+    const nlohmann::json photos = parse(mClient.queryBucket(bucketId), "photo list");
     // A bucket is one folder, so names alone find a RAW and the JPEG or HEIF
     // beside it, which the desktop shows as one photo.
     std::vector<std::string> names;
@@ -171,17 +170,16 @@ bool MediaStoreDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *
     if (item == nullptr || item->mId < 0) {
         return false;
     }
-    return AndroidBridge::readImage(item->mId, bytes);
+    return mClient.readImage(item->mId, bytes);
 }
 
 bool MediaStoreDataSource::supportsRegions(const MediaItem *item) const {
     // Asked once a frame while a photo is fullscreen, so it opens nothing.
-    return item != nullptr && !item->mContentUri.empty() &&
-           RegionDecoder::looksSupported(item->mMimeType);
+    return item != nullptr && !item->mContentUri.empty() && RegionDecoder::looksSupported(item->mMimeType);
 }
 
-void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height,
-                                         int sampleSize, RegionCallback done) {
+void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int width, int height, int sampleSize,
+                                         RegionCallback done) {
     if (item == nullptr || !item->hasFullSize()) {
         done(Bitmap());
         return;
@@ -194,10 +192,4 @@ void MediaStoreDataSource::requestRegion(MediaItem *item, int x, int y, int widt
     }
     // The decode pool already runs this off the render thread.
     done(decoder->decodeRegion(x, y, width, height, sampleSize));
-}
-
-std::string MediaStoreDataSource::bucketIdForSet(int64_t setId) const {
-    std::lock_guard<std::mutex> lock(mBucketsMutex);
-    auto found = mBuckets.find(setId);
-    return (found != mBuckets.end()) ? found->second : std::string();
 }

@@ -11,6 +11,8 @@ add_executable(gallery3d_tests
     test_colorprofile.cpp
     decode_fixtures.cpp
     decode_fixtures.h
+    fake_media_store.cpp
+    fake_media_store.h
     freedesktop_cache.cpp
     freedesktop_cache.h
     test_datasource.cpp
@@ -26,6 +28,7 @@ add_executable(gallery3d_tests
     test_label.cpp
     test_longpress.cpp
     test_main.cpp
+    test_media_store.cpp
     test_ordering.cpp
     test_overscroll.cpp
     test_photoindex.cpp

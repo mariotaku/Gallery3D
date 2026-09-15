@@ -1,19 +1,24 @@
-// The photo library on Android, read from MediaStore.
+// The photo library as Android's media store lists it.
 //
 // Stands in for LocalDataSource, which walks a directory tree. Scoped storage
 // stops an app from doing that from Android 10 on, and MediaStore is what
 // replaces it: one bucket per folder, addressed by content id rather than path.
+// The store is reached through a MediaStoreClient, the Java bridge on Android
+// and a fake in the tests, so these rules run on every platform.
 #pragma once
 
 #include <map>
 #include <mutex>
 #include <string>
 
-#include "media/LocalDataSource.h"
 #include "graphics/RegionDecoder.h"
+#include "media/LocalDataSource.h"
+#include "media/MediaStoreClient.h"
 
 class MediaStoreDataSource : public DataSource {
   public:
+    explicit MediaStoreDataSource(MediaStoreClient &client) : mClient(client) {}
+
     void loadMediaSets(MediaFeed *feed) override;
     // Every set is filled by loadMediaSets, so this only reports that there is
     // no next page. Loading here as well would add each photo twice.
@@ -33,10 +38,9 @@ class MediaStoreDataSource : public DataSource {
     // Fills a set the feed does not have yet with the bucket's photos.
     void loadBucketItems(MediaSet &set, const std::string &bucketId);
 
+    MediaStoreClient &mClient;
     // MediaStore bucket ids are what the wall's set ids are built from, but a
     // set id is a number and a bucket id is text, so the mapping is kept.
-    std::string bucketIdForSet(int64_t setId) const;
-
     std::map<int64_t, std::string> mBuckets;
     mutable std::mutex mBucketsMutex;
     RegionDecoderCache mDecoders;

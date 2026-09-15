@@ -35,7 +35,8 @@
 #include "media/PhotoLibrary.h"
 #if defined(__ANDROID__)
 #include "platform/android/AndroidBridge.h"
-#include "platform/android/MediaStoreDataSource.h"
+#include "media/MediaStoreDataSource.h"
+#include "platform/android/AndroidMediaStoreClient.h"
 #include "graphics/RegionDecoder.h"
 #endif
 #include "hud/PopupMenu.h"
@@ -770,7 +771,8 @@ int main(int argc, char **argv) {
 #if defined(__ANDROID__)
     // The library is the media store's, not a directory's. Scoped storage
     // leaves an app nothing to walk from Android 10 on.
-    MediaStoreDataSource mediaStoreSource;
+    AndroidMediaStoreClient mediaStoreClient;
+    MediaStoreDataSource mediaStoreSource(mediaStoreClient);
     feedSource = &mediaStoreSource;
 #endif
     if (!alsoDirectory.empty()) {

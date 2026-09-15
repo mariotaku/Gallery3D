@@ -1,5 +1,6 @@
 #include "media/ConcatenatedDataSource.h"
 
+#include "media/MediaFeed.h"
 #include "media/MediaSet.h"
 
 void ConcatenatedDataSource::loadMediaSets(MediaFeed *feed) {
@@ -13,13 +14,16 @@ void ConcatenatedDataSource::loadMediaSets(MediaFeed *feed) {
 }
 
 void ConcatenatedDataSource::loadItemsForSet(MediaFeed *feed, MediaSet *parentSet) {
-    if (parentSet == nullptr) {
-        return;
-    }
     // Route to the set's owner.
-    DataSource *owner = parentSet->mDataSource;
+    DataSource *owner = (parentSet != nullptr) ? parentSet->mDataSource : nullptr;
     if (owner != nullptr && owner != this) {
         owner->loadItemsForSet(feed, parentSet);
+        return;
+    }
+    // Nobody else will load this set, so it is finished now. Otherwise the
+    // feed would keep it in flight and never ask for its items again.
+    if (feed != nullptr) {
+        feed->finishLoadingItemsForSet(parentSet);
     }
 }
 

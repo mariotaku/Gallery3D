@@ -18,6 +18,9 @@ target_sources(gallery3d_core PRIVATE
     MediaItem.h
     MediaSet.cpp
     MediaSet.h
+    MediaStoreClient.h
+    MediaStoreDataSource.cpp
+    MediaStoreDataSource.h
     PhotoIndex.cpp
     PhotoIndex.h
     PhotoLibrary.cpp

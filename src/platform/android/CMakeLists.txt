@@ -1,9 +1,9 @@
 target_sources(gallery3d_core PRIVATE
     AndroidBridge.cpp
     AndroidBridge.h
+    AndroidMediaStoreClient.cpp
+    AndroidMediaStoreClient.h
     DrawableLoad.cpp
-    MediaStoreDataSource.cpp
-    MediaStoreDataSource.h
     RegionDecoder.cpp
     StackTrace.cpp
     SubsampledDecode.cpp
