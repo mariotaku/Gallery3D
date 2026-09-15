@@ -141,7 +141,8 @@ int main(int argc, char **argv) {
     options.filter = filterExtra();
     // The apk's assets folder, which App::assetPath joins names onto.
     options.assetRoot = "";
-    options.fixtureRoot = files;
+    // Where the copy went: tests/fixtures' own layout under it.
+    options.fixtureRoot = fixtures;
     options.print = [results](const std::string &line) {
         __android_log_print(ANDROID_LOG_INFO, kLogTag, "%s", line.c_str());
         if (results != nullptr) {

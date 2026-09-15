@@ -162,7 +162,7 @@ TEST(bytes_come_back_from_a_source_that_has_no_files) {
 TEST(decoding_from_memory_matches_decoding_from_the_file) {
     // The seam has to produce the same picture either way, or a remote source
     // would render differently from a local one.
-    std::string path = std::string(GALLERY3D_ASSET_ROOT) + "/drawable/icon_home_small.png";
+    std::string path = fixtureRoot() + "/decode/opaque.png";
     Bitmap fromFile = Bitmap::load(path, 0);
     CHECK(fromFile.valid());
 

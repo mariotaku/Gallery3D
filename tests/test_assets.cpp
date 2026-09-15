@@ -2,7 +2,9 @@
 // the port actually ships.
 #include "tests.h"
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "app/App.h"
 #include "graphics/Bitmap.h"
@@ -28,6 +30,16 @@ bool endsWith(const std::string &value, const std::string &suffix) {
     return value.size() >= suffix.size() && value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+// Whether the assets carry the drawable folders App::findDrawable chooses
+// between. Android packs them as resources instead, and DrawableLoad reads
+// them there, which the DrawableLoad tests below check on every platform.
+bool drawableFoldersHere() {
+    std::vector<uint8_t> bytes;
+    return Bitmap::readFile(std::string(GALLERY3D_ASSET_ROOT) + "/drawable-mdpi/icon_home_small.png", &bytes);
+}
+
+const char *const kNoDrawableFolders = "no drawable folders in the assets here; Android keeps them as resources";
+
 struct ScopedAssetRoot {
     ScopedAssetRoot() : previous(App::ASSET_ROOT) {
         App::ASSET_ROOT = GALLERY3D_ASSET_ROOT;
@@ -52,6 +64,9 @@ const Bucket kBuckets[] = {
 
 TEST(each_bucket_density_takes_its_own_bucket) {
     ScopedAssetRoot root;
+    if (!drawableFoldersHere()) {
+        SKIP(kNoDrawableFolders);
+    }
     for (const Bucket &bucket : kBuckets) {
         ScopedDensity density(bucket.density);
         App::Drawable drawable = App::findDrawable("icon_home_small");
@@ -62,6 +77,9 @@ TEST(each_bucket_density_takes_its_own_bucket) {
 
 TEST(a_density_between_buckets_takes_the_one_above) {
     ScopedAssetRoot root;
+    if (!drawableFoldersHere()) {
+        SKIP(kNoDrawableFolders);
+    }
     {
         ScopedDensity density(1.75f);
         CHECK(endsWith(App::findDrawable("icon_home_small").path, "drawable-xhdpi/icon_home_small.png"));
@@ -75,6 +93,9 @@ TEST(a_density_between_buckets_takes_the_one_above) {
 
 TEST(chrome_is_never_enlarged_up_to_the_top_bucket) {
     ScopedAssetRoot root;
+    if (!drawableFoldersHere()) {
+        SKIP(kNoDrawableFolders);
+    }
     for (int hundredths = 100; hundredths <= 400; hundredths += 5) {
         ScopedDensity density((float)hundredths / 100.0f);
         CHECK(App::drawableBucketDensity() >= App::UI_DENSITY - 0.001f);
@@ -84,6 +105,9 @@ TEST(chrome_is_never_enlarged_up_to_the_top_bucket) {
 
 TEST(chrome_art_is_the_size_its_code_draws_it_at) {
     ScopedAssetRoot root;
+    if (!drawableFoldersHere()) {
+        SKIP(kNoDrawableFolders);
+    }
     // The sizes the path bar, menu bar and popup draw these into. At a bucket's
     // density they have to match to the pixel, or the art is resampled and
     // goes soft.
@@ -111,6 +135,9 @@ TEST(chrome_art_is_the_size_its_code_draws_it_at) {
 
 TEST(art_with_no_bucket_falls_back_to_the_plain_folder) {
     ScopedAssetRoot root;
+    if (!drawableFoldersHere()) {
+        SKIP(kNoDrawableFolders);
+    }
     ScopedDensity density(2.625f);
     // The wall's own textures ship only in the unqualified folder.
     App::Drawable drawable = App::findDrawable("stack_frame");
@@ -120,6 +147,9 @@ TEST(art_with_no_bucket_falls_back_to_the_plain_folder) {
 
 TEST(unscaled_textures_stay_on_the_plain_folder) {
     ScopedAssetRoot root;
+    if (!drawableFoldersHere()) {
+        SKIP(kNoDrawableFolders);
+    }
     ScopedDensity density(2.625f);
     // Their callers were written against those exact pixel sizes, so the
     // bucket must not be upgraded underneath them.
