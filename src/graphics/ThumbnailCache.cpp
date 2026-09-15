@@ -134,37 +134,3 @@ Bitmap ThumbnailCache::loadUpright(const std::string &root, const std::string &p
     return Bitmap();
 }
 
-Bitmap ThumbnailCache::turnedBack(const Bitmap &upright, float degrees) {
-    // Counterclockwise quarter turns, which undo the clockwise ones.
-    const int quarters = (((int)std::lround(degrees / 90.0f)) % 4 + 4) % 4;
-    if (quarters == 0 || !upright.valid()) {
-        return upright;
-    }
-    const int width = upright.width();
-    const int height = upright.height();
-    const int turnedWidth = (quarters == 2) ? width : height;
-    const int turnedHeight = (quarters == 2) ? height : width;
-    Bitmap turned(turnedWidth, turnedHeight, upright.order());
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int toX;
-            int toY;
-            if (quarters == 1) {
-                toX = y;
-                toY = width - 1 - x;
-            } else if (quarters == 2) {
-                toX = width - 1 - x;
-                toY = height - 1 - y;
-            } else {
-                toX = height - 1 - y;
-                toY = x;
-            }
-            std::memcpy(turned.pixels() + ((size_t)toY * (size_t)turnedWidth + (size_t)toX) * 4,
-                        upright.pixels() + ((size_t)y * (size_t)width + (size_t)x) * 4, 4);
-        }
-    }
-    if (upright.knownOpaque()) {
-        turned.markOpaque();
-    }
-    return turned;
-}

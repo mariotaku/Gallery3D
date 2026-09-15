@@ -2,16 +2,12 @@
 // when a cached thumbnail stands in for a decode.
 #include "tests.h"
 
-#include <SDL3/SDL.h>
-
-#include <cstdint>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
-#include <vector>
 
 #include "core/Md5.h"
+#include "freedesktop_cache.h"
 #include "graphics/Bitmap.h"
 #include "graphics/ThumbnailCache.h"
 
@@ -42,43 +38,12 @@ TEST(a_file_uri_escapes_what_glib_escapes) {
 
 namespace {
 
-uint32_t crc32Of(const uint8_t *data, size_t size) {
-    uint32_t crc = 0xFFFFFFFFu;
-    for (size_t i = 0; i < size; ++i) {
-        crc ^= data[i];
-        for (int bit = 0; bit < 8; ++bit) {
-            crc = (crc & 1u) ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
-        }
-    }
-    return crc ^ 0xFFFFFFFFu;
-}
-
-void pushBigEndian(std::vector<uint8_t> &bytes, uint32_t value) {
-    for (int shift = 24; shift >= 0; shift -= 8) {
-        bytes.push_back((uint8_t)(value >> shift));
-    }
-}
-
-// The PNG with a tEXt chunk of key and value after its header chunk.
-std::vector<uint8_t> withText(std::vector<uint8_t> png, const std::string &key, const std::string &value) {
-    std::vector<uint8_t> chunk;
-    const std::string body = key + std::string(1, '\0') + value;
-    pushBigEndian(chunk, (uint32_t)body.size());
-    const size_t typeAt = chunk.size();
-    chunk.insert(chunk.end(), {'t', 'E', 'X', 't'});
-    chunk.insert(chunk.end(), body.begin(), body.end());
-    pushBigEndian(chunk, crc32Of(&chunk[typeAt], chunk.size() - typeAt));
-    // After the signature and the header chunk, 8 and 25 bytes.
-    png.insert(png.begin() + 33, chunk.begin(), chunk.end());
-    return png;
-}
-
-// A picture red in one quarter, top left or top right, and blue elsewhere.
-Bitmap quartered(int width, int height, bool redAtRight) {
+// A picture red in its top left quarter and blue elsewhere.
+Bitmap quartered(int width, int height) {
     Bitmap bitmap(width, height);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            const bool red = y < height / 2 && (redAtRight ? x >= width / 2 : x < width / 2);
+            const bool red = y < height / 2 && x < width / 2;
             uint8_t *pixel = bitmap.pixels() + ((size_t)y * (size_t)width + (size_t)x) * 4;
             pixel[bitmap.redOffset()] = red ? 255 : 0;
             pixel[1] = 0;
@@ -108,31 +73,15 @@ struct Cache {
         fs::create_directories(root, error);
         photo = (fs::path(root) / "photo.jpg").string();
         std::ofstream(photo, std::ios::binary) << "not really a photo";
-        SDL_PathInfo info;
-        if (SDL_GetPathInfo(photo.c_str(), &info)) {
-            modified = (long long)(info.modify_time / SDL_NS_PER_SECOND);
-        }
+        modified = FreedesktopCache::modifiedSeconds(photo);
     }
     ~Cache() {
         std::error_code error;
         fs::remove_all(root, error);
     }
 
-    // Files thumbnail in the size folder, as a thumbnailer would, dated mtime.
     bool put(const std::string &folder, const Bitmap &thumbnail, long long mtime) const {
-        const std::string encoded = (fs::path(root) / "encoded.png").string();
-        std::vector<uint8_t> png;
-        if (!thumbnail.savePng(encoded) || !Bitmap::readFile(encoded, &png)) {
-            return false;
-        }
-        png = withText(png, "Thumb::URI", ThumbnailCache::uriFor(photo));
-        png = withText(png, "Thumb::MTime", std::to_string(mtime));
-        const fs::path directory = fs::path(root) / folder;
-        std::error_code error;
-        fs::create_directories(directory, error);
-        std::ofstream out(directory / (Md5::hex(ThumbnailCache::uriFor(photo)) + ".png"), std::ios::binary);
-        out.write((const char *)png.data(), (std::streamsize)png.size());
-        return (bool)out;
+        return FreedesktopCache::put(root, photo, folder, thumbnail, mtime);
     }
 
     std::string root;
@@ -142,10 +91,11 @@ struct Cache {
 
 }  // namespace
 
-TEST(a_cached_thumbnail_is_scaled_to_the_edge_asked_for) {
+TEST(a_cached_thumbnail_is_reduced_for_the_edge_asked_for) {
     Cache cache;
-    CHECK(cache.put("x-large", quartered(480, 320, false), cache.modified));
-    // Nothing in large, so the lookup goes on to x-large.
+    CHECK(cache.put("x-large", quartered(480, 320), cache.modified));
+    // Nothing in large, so the lookup goes on to x-large, and halving 480
+    // still reaches 240.
     const Bitmap thumbnail = ThumbnailCache::loadUpright(cache.root, cache.photo, 240);
     CHECK(thumbnail.valid());
     CHECK(thumbnail.knownOpaque());
@@ -160,13 +110,13 @@ TEST(a_cached_thumbnail_is_scaled_to_the_edge_asked_for) {
 
 TEST(a_cached_thumbnail_is_never_enlarged) {
     Cache cache;
-    CHECK(cache.put("x-large", quartered(480, 320, false), cache.modified));
+    CHECK(cache.put("x-large", quartered(480, 320), cache.modified));
     CHECK(!ThumbnailCache::loadUpright(cache.root, cache.photo, 512).valid());
 }
 
 TEST(a_thumbnail_of_a_photo_changed_since_is_not_used) {
     Cache cache;
-    CHECK(cache.put("x-large", quartered(480, 320, false), cache.modified - 1));
+    CHECK(cache.put("x-large", quartered(480, 320), cache.modified - 1));
     CHECK(!ThumbnailCache::loadUpright(cache.root, cache.photo, 240).valid());
 }
 
@@ -174,33 +124,4 @@ TEST(a_photo_with_no_thumbnail_has_none) {
     Cache cache;
     CHECK(!ThumbnailCache::loadUpright(cache.root, cache.photo, 240).valid());
     CHECK(!ThumbnailCache::loadUpright(cache.root, cache.root + "/missing.jpg", 240).valid());
-}
-
-TEST(an_upright_thumbnail_turns_back_to_the_stored_pixels) {
-    // Stored landscape with red top left, and tagged to show a quarter turn
-    // clockwise: upright it is portrait with red top right.
-    const Bitmap stored = ThumbnailCache::turnedBack(quartered(320, 480, true), 90.0f);
-    CHECK_EQ(stored.width(), 480);
-    CHECK_EQ(stored.height(), 320);
-    CHECK(isRed(stored, 120, 80));
-    CHECK(isBlue(stored, 360, 80));
-    CHECK(isBlue(stored, 120, 240));
-
-    // Half a turn: red top left comes back bottom right, and so on round.
-    const Bitmap half = ThumbnailCache::turnedBack(quartered(480, 320, false), 180.0f);
-    CHECK_EQ(half.width(), 480);
-    CHECK(isRed(half, 360, 240));
-    CHECK(isBlue(half, 120, 80));
-
-    // Three quarters: shown turned clockwise by 270, upright red is bottom
-    // left of a portrait, which is the stored top left.
-    Bitmap bottomLeft(320, 480);
-    const Bitmap source = quartered(320, 480, false);
-    for (int y = 0; y < 480; ++y) {
-        std::memcpy(bottomLeft.pixels() + (size_t)y * 320 * 4, source.pixels() + (size_t)(479 - y) * 320 * 4, 320 * 4);
-    }
-    const Bitmap threeQuarters = ThumbnailCache::turnedBack(bottomLeft, 270.0f);
-    CHECK_EQ(threeQuarters.width(), 480);
-    CHECK(isRed(threeQuarters, 120, 80));
-    CHECK(isBlue(threeQuarters, 360, 240));
 }

@@ -23,8 +23,4 @@ std::string uriFor(const std::string &path);
 // changed after its thumbnail was made.
 Bitmap loadUpright(const std::string &root, const std::string &path, int maxEdge);
 
-// An upright picture turned back to how its pixels are stored, for a photo
-// whose EXIF tag asks for a clockwise turn of degrees.
-Bitmap turnedBack(const Bitmap &upright, float degrees);
-
 }  // namespace ThumbnailCache

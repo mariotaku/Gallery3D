@@ -38,48 +38,11 @@ struct GdiBitmap {
     HBITMAP handle = nullptr;
 };
 
-// What takes a picture shown upright for an EXIF orientation back to how its
-// pixels are stored: a clockwise turn, then a horizontal flip. The shell hands
-// its thumbnails out upright.
-struct Undo {
-    WICBitmapTransformOptions turn = WICBitmapTransformRotate0;
-    bool flip = false;
-};
-
-Undo undoing(ULONG orientation) {
-    switch (orientation) {
-    case 2:
-        return {WICBitmapTransformRotate0, true};
-    case 3:
-        return {WICBitmapTransformRotate180, false};
-    case 4:
-        return {WICBitmapTransformRotate180, true};
-    case 5:
-        return {WICBitmapTransformRotate90, true};
-    case 6:
-        return {WICBitmapTransformRotate270, false};
-    case 7:
-        return {WICBitmapTransformRotate270, true};
-    case 8:
-        return {WICBitmapTransformRotate90, false};
-    default:
-        return {};
-    }
-}
-
-// The source with one transform applied, or null when WIC cannot apply it.
-Wic::Ptr<IWICBitmapSource> transformed(IWICImagingFactory *imaging, IWICBitmapSource *source,
-                                       WICBitmapTransformOptions options) {
-    Wic::Ptr<IWICBitmapFlipRotator> rotator;
-    Wic::Ptr<IWICBitmapSource> result;
-    if (FAILED(imaging->CreateBitmapFlipRotator(rotator.put())) || FAILED(rotator->Initialize(source, options)) ||
-        FAILED(rotator->QueryInterface(IID_PPV_ARGS(result.put())))) {
-        result.reset();
-    }
-    return result;
-}
-
 }  // namespace
+
+bool SystemThumbnail::supported() {
+    return true;
+}
 
 Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
     // The factory comes first: asking for it starts COM on the thread, which
@@ -94,8 +57,8 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
         return Bitmap();
     }
 
-    // The cache keeps a few sizes and hands back the next one up, which Fant
-    // brings down below. Making a thumbnail reads the file, so one kept online
+    // The cache keeps a few sizes and hands back the next one up, which is
+    // reduced below. Making a thumbnail reads the file, so one kept online
     // only gets what the cache has or nothing.
     SIIGBF flags = SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK;
     if (PhotoLibrary::isOnlineOnly(path)) {
@@ -104,30 +67,15 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
     GdiBitmap upright;
     Wic::Ptr<IWICBitmap> copied;
     Wic::Ptr<IWICBitmapSource> source;
+    UINT width = 0;
+    UINT height = 0;
     if (FAILED(images->GetImage(SIZE{maxEdge, maxEdge}, flags, &upright.handle)) || upright.handle == nullptr ||
         FAILED(imaging->CreateBitmapFromHBITMAP(upright.handle, nullptr, WICBitmapUsePremultipliedAlpha,
                                                 copied.put())) ||
-        FAILED(copied->QueryInterface(IID_PPV_ARGS(source.put())))) {
+        FAILED(copied->QueryInterface(IID_PPV_ARGS(source.put()))) || FAILED(source->GetSize(&width, &height)) ||
+        width == 0 || height == 0 || std::max(width, height) < (UINT)maxEdge) {
         return Bitmap();
     }
-
-    // A format with no orientation tag fails to answer, which is upright.
-    ULONG orientation = 1;
-    item->GetUInt32(PKEY_Photo_Orientation, &orientation);
-    const Undo undo = undoing(orientation);
-    if (undo.turn != WICBitmapTransformRotate0) {
-        source = transformed(imaging, source.get(), undo.turn);
-    }
-    if (source && undo.flip) {
-        source = transformed(imaging, source.get(), WICBitmapTransformFlipHorizontal);
-    }
-    UINT width = 0;
-    UINT height = 0;
-    if (!source || FAILED(source->GetSize(&width, &height)) || width == 0 || height == 0 ||
-        std::max(width, height) < (UINT)maxEdge) {
-        return Bitmap();
-    }
-
     Bitmap bitmap = Wic::copy(source.get(), nullptr);
     if (!bitmap.valid()) {
         return Bitmap();
@@ -153,7 +101,14 @@ Bitmap SystemThumbnail::load(const std::string &path, int maxEdge) {
     if (!anyAlpha || opaque) {
         bitmap.markOpaque();
     }
+
+    // A format with no orientation tag fails to answer, which is upright.
+    ULONG orientation = 1;
+    item->GetUInt32(PKEY_Photo_Orientation, &orientation);
     // Reduced by the sample maxEdge gives, picking pixels as a decode of a
-    // format with no reduction of its own does.
-    return bitmap.sampledFromWhole(Sampling::Picked, Bitmap::sampleSizeFor(bitmap.width(), bitmap.height(), maxEdge));
+    // format with no reduction of its own does, then turned back to how the
+    // photo's pixels are stored, since the shell hands thumbnails out upright.
+    return bitmap
+        .sampledFromWhole(Sampling::Picked, Bitmap::sampleSizeFor(bitmap.width(), bitmap.height(), maxEdge))
+        .toStoredOrientation((int)orientation);
 }

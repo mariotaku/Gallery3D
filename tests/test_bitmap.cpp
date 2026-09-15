@@ -297,6 +297,52 @@ TEST(picking_keeps_the_pixel_half_a_sample_into_each) {
     CHECK_EQ((int)pixelAt(halves, 3, 0)[0], 70);
 }
 
+TEST(an_upright_picture_turns_back_to_its_stored_pixels_for_every_orientation) {
+    // Stored as "abc" over "def". The EXIF specification's pictures of each
+    // orientation, as they are shown.
+    const char *stored[2] = {"abc", "def"};
+    struct Shown {
+        int orientation;
+        int width;
+        int height;
+        const char *rows[3];
+    };
+    const Shown shown[] = {
+        {1, 3, 2, {"abc", "def"}},       {2, 3, 2, {"cba", "fed"}},       {3, 3, 2, {"fed", "cba"}},
+        {4, 3, 2, {"def", "abc"}},       {5, 2, 3, {"ad", "be", "cf"}},   {6, 2, 3, {"da", "eb", "fc"}},
+        {7, 2, 3, {"fc", "eb", "da"}},   {8, 2, 3, {"cf", "be", "ad"}},
+    };
+    for (const Shown &picture : shown) {
+        Bitmap upright(picture.width, picture.height);
+        for (int y = 0; y < picture.height; ++y) {
+            for (int x = 0; x < picture.width; ++x) {
+                std::fill(upright.pixels() + ((size_t)y * (size_t)picture.width + (size_t)x) * 4,
+                          upright.pixels() + ((size_t)y * (size_t)picture.width + (size_t)x) * 4 + 4,
+                          (uint8_t)picture.rows[y][x]);
+            }
+        }
+        upright.markOpaque();
+        const Bitmap back = upright.toStoredOrientation(picture.orientation);
+        CHECK_EQ(back.width(), 3);
+        CHECK_EQ(back.height(), 2);
+        CHECK(back.knownOpaque());
+        if (back.width() != 3 || back.height() != 2) {
+            continue;
+        }
+        for (int y = 0; y < 2; ++y) {
+            for (int x = 0; x < 3; ++x) {
+                CHECK_DETAIL(pixelAt(back, x, y)[0] == (uint8_t)stored[y][x],
+                             "orientation " + std::to_string(picture.orientation) + " at " + std::to_string(x) +
+                                 "," + std::to_string(y));
+            }
+        }
+    }
+    // An orientation outside 1 to 8 leaves the picture alone.
+    const Bitmap plain = solid(3, 2, 1, 2, 3, 255);
+    CHECK_EQ(plain.toStoredOrientation(0).width(), 3);
+    CHECK_EQ(plain.toStoredOrientation(9).width(), 3);
+}
+
 TEST(next_power_of_two_is_what_the_padding_relies_on) {
     CHECK_EQ(Shared::nextPowerOf2(1), 1);
     CHECK_EQ(Shared::nextPowerOf2(2), 2);

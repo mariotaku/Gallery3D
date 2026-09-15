@@ -375,6 +375,61 @@ Bitmap Bitmap::picked(int newWidth, int newHeight) const {
     return result;
 }
 
+Bitmap Bitmap::toStoredOrientation(int orientation) const {
+    if (!valid() || orientation < 2 || orientation > 8) {
+        return *this;
+    }
+    // 5 to 8 turn the picture a quarter, so the stored one is the other way
+    // round.
+    const bool quarter = orientation >= 5;
+    const int storedWidth = quarter ? mHeight : mWidth;
+    const int storedHeight = quarter ? mWidth : mHeight;
+    const int w = storedWidth;
+    const int h = storedHeight;
+    Bitmap stored(storedWidth, storedHeight, mOrder);
+    stored.mOpaque = mOpaque;
+    for (int sy = 0; sy < h; ++sy) {
+        for (int sx = 0; sx < w; ++sx) {
+            // Where the stored pixel shows once the orientation is applied.
+            int ux = sx;
+            int uy = sy;
+            switch (orientation) {
+            case 2:  // mirrored left to right
+                ux = w - 1 - sx;
+                break;
+            case 3:  // half a turn
+                ux = w - 1 - sx;
+                uy = h - 1 - sy;
+                break;
+            case 4:  // mirrored top to bottom
+                uy = h - 1 - sy;
+                break;
+            case 5:  // mirrored across the diagonal from the top left
+                ux = sy;
+                uy = sx;
+                break;
+            case 6:  // a quarter turn clockwise
+                ux = h - 1 - sy;
+                uy = sx;
+                break;
+            case 7:  // mirrored across the other diagonal
+                ux = h - 1 - sy;
+                uy = w - 1 - sx;
+                break;
+            case 8:  // a quarter turn anticlockwise
+                ux = sy;
+                uy = w - 1 - sx;
+                break;
+            default:
+                break;
+            }
+            std::memcpy(stored.pixels() + ((size_t)sy * (size_t)w + (size_t)sx) * 4,
+                        mPixels.data() + ((size_t)uy * (size_t)mWidth + (size_t)ux) * 4, 4);
+        }
+    }
+    return stored;
+}
+
 Bitmap Bitmap::sampledFromWhole(Sampling sampling, int sampleSize) const {
     if (!valid() || sampleSize <= 1) {
         return *this;

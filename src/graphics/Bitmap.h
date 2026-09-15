@@ -143,6 +143,12 @@ class Bitmap {
     // A rectangle of the pixels. Invalid unless the rectangle lies inside.
     Bitmap cropped(int x, int y, int width, int height) const;
 
+    // A picture shown upright for an EXIF orientation, 1 to 8, turned and
+    // flipped back to how its pixels are stored. A thumbnail store hands its
+    // thumbnails out upright, and a decode hands pixels out as stored. Any
+    // other orientation leaves the picture as it is.
+    Bitmap toStoredOrientation(int orientation) const;
+
     // Scales to cover the box and centre-crops it.
     Bitmap coverCropped(int newWidth, int newHeight) const;
 

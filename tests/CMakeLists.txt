@@ -11,6 +11,8 @@ add_executable(gallery3d_tests
     test_colorprofile.cpp
     decode_fixtures.cpp
     decode_fixtures.h
+    freedesktop_cache.cpp
+    freedesktop_cache.h
     test_datasource.cpp
     test_decode.cpp
     test_decode_region.cpp
@@ -32,7 +34,7 @@ add_executable(gallery3d_tests
     test_runner.h
     test_safearea.cpp
     test_settings.cpp
-    test_systemthumbnail.cpp
+    test_system_thumbnail.cpp
     test_thumbnailcache.cpp
     test_tiles.cpp
     test_tilt.cpp
