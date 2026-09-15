@@ -47,9 +47,12 @@ void DocumentTreeDataSource::loadMediaSets(MediaFeed *feed) {
     if (feed == nullptr) {
         return;
     }
+    const uint64_t started = SDL_GetTicks();
     const nlohmann::json folders = parse(mClient.listFolders(mTreeUri), "folder list");
-    SDL_Log("The folder tree has %d folders of photos", (int)folders.size());
+    SDL_Log("The folder tree has %d folders of photos, listed in %u ms", (int)folders.size(),
+            (unsigned)(SDL_GetTicks() - started));
 
+    int photos = 0;
     for (const nlohmann::json &folder : folders) {
         const std::string folderUri = stringOr(folder, "id", "");
         if (folderUri.empty()) {
@@ -67,8 +70,10 @@ void DocumentTreeDataSource::loadMediaSets(MediaFeed *feed) {
         if (set->getNumItems() == 0) {
             continue;
         }
+        photos += set->getNumItems();
         feed->addMediaSet(std::move(set));
     }
+    SDL_Log("Read %d photos from the folder tree in %u ms", photos, (unsigned)(SDL_GetTicks() - started));
     feed->finishLoadingMediaSets();
 }
 

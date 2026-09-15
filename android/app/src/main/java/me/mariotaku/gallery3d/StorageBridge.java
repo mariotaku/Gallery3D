@@ -12,6 +12,7 @@ import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
@@ -22,7 +23,13 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -45,6 +52,14 @@ public final class StorageBridge {
     static final int PICK_FOLDER_REQUEST = 0x6A11;
 
     private static final String EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents";
+
+    /** Reads photos' EXIF while a folder is listed. Daemon threads, so they never keep the app up. */
+    private static final ExecutorService EXIF_READERS = Executors.newFixedThreadPool(
+            Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors())), runnable -> {
+                Thread thread = new Thread(runnable, "ExifReader");
+                thread.setDaemon(true);
+                return thread;
+            });
     private static final String PREFERENCES = "storage";
     private static final String CHOSEN_SOURCE = "source";
 
@@ -236,6 +251,9 @@ public final class StorageBridge {
         }
         Uri folder = Uri.parse(folderText);
         JSONArray photos = new JSONArray();
+        List<JSONObject> rows = new ArrayList<>();
+        List<Uri> uris = new ArrayList<>();
+        List<String> mimes = new ArrayList<>();
         try {
             Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(folder,
                     DocumentsContract.getDocumentId(folder));
@@ -262,9 +280,14 @@ public final class StorageBridge {
                     photo.put("name", name);
                     photo.put("mime", mime);
                     photo.put("dateModified", cursor.isNull(3) ? 0 : cursor.getLong(3));
-                    readExif(resolver, uri, mime, photo);
-                    photos.put(photo);
+                    rows.add(photo);
+                    uris.add(uri);
+                    mimes.add(mime);
                 }
+            }
+            readExifAll(resolver, rows, uris, mimes);
+            for (JSONObject photo : rows) {
+                photos.put(photo);
             }
         } catch (JSONException | RuntimeException error) {
             Log.w(TAG, "Could not list the photos in " + folderText, error);
@@ -348,28 +371,77 @@ public final class StorageBridge {
         return "";
     }
 
+    /**
+     * Fills each row's EXIF fields. Opening and reading every photo is most of
+     * the time a folder takes to list, and the reads do not depend on each
+     * other, so a few run at once.
+     */
+    private static void readExifAll(ContentResolver resolver, List<JSONObject> rows, List<Uri> uris,
+            List<String> mimes) throws JSONException {
+        List<Future<?>> pending = new ArrayList<>(rows.size());
+        for (int i = 0; i < rows.size(); ++i) {
+            final int index = i;
+            pending.add(EXIF_READERS.submit(() -> {
+                readExif(resolver, uris.get(index), mimes.get(index), rows.get(index));
+                return null;
+            }));
+        }
+        for (int i = 0; i < pending.size(); ++i) {
+            try {
+                pending.get(i).get();
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (ExecutionException error) {
+                Log.i(TAG, "No EXIF for " + uris.get(i) + ": " + error.getCause());
+                // The row still needs the fields the native side reads.
+                JSONObject row = rows.get(i);
+                if (!row.has("orientation")) {
+                    row.put("orientation", 0);
+                    row.put("dateTaken", 0);
+                    row.put("width", 0);
+                    row.put("height", 0);
+                }
+            }
+        }
+    }
+
     private static void readExif(ContentResolver resolver, Uri uri, String mime, JSONObject photo)
             throws JSONException {
         int orientation = 0;
         long taken = 0;
         int width = 0;
         int height = 0;
-        // What ExifInterface reads without a file path. RAW files have EXIF too,
-        // but a RAW beside its JPEG is not shown, and reading a whole RAW over a
-        // cloud provider to find out is slow.
-        if (mime.equals("image/jpeg") || mime.equals("image/heic") || mime.equals("image/heif")
-                || mime.equals("image/webp") || mime.equals("image/png")) {
-            try (InputStream input = resolver.openInputStream(uri)) {
-                if (input != null) {
-                    ExifInterface exif = new ExifInterface(input);
-                    orientation = degreesFor(exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
-                            ExifInterface.ORIENTATION_NORMAL));
-                    taken = dateFor(exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
-                    width = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0);
-                    height = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0);
+        // RAW files have EXIF too, but a RAW beside its JPEG is not shown, and
+        // reading a whole RAW over a cloud provider to find out is slow.
+        final boolean jpeg = mime.equals("image/jpeg");
+        if (jpeg || mime.equals("image/heic") || mime.equals("image/heif") || mime.equals("image/webp")) {
+            ExifInterface exif = null;
+            // A file descriptor lets ExifInterface seek to the metadata. From a
+            // stream it copies a HEIF or WebP whole into memory first.
+            try (ParcelFileDescriptor file = resolver.openFileDescriptor(uri, "r")) {
+                if (file != null) {
+                    exif = new ExifInterface(file.getFileDescriptor());
                 }
             } catch (Exception error) {
-                Log.i(TAG, "No EXIF in " + uri + ": " + error);
+                // A cloud provider can answer with a pipe, which cannot seek.
+                // Only a JPEG is worth reading from the start then.
+                if (jpeg) {
+                    try (InputStream input = resolver.openInputStream(uri)) {
+                        if (input != null) {
+                            exif = new ExifInterface(input);
+                        }
+                    } catch (Exception streamError) {
+                        Log.i(TAG, "No EXIF in " + uri + ": " + streamError);
+                    }
+                }
+            }
+            if (exif != null) {
+                orientation = degreesFor(exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL));
+                taken = dateFor(exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+                width = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0);
+                height = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0);
             }
         }
         photo.put("orientation", orientation);
