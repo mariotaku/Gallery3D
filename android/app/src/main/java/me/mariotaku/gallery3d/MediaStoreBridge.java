@@ -6,10 +6,13 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.storage.StorageManager;
+import android.os.storage.StorageVolume;
 import android.provider.MediaStore;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -59,6 +62,24 @@ public final class MediaStoreBridge {
         return String.valueOf(path.toLowerCase().hashCode());
     }
 
+    /**
+     * What to call a folder MediaStore gives no name: the root of a storage
+     * volume. The system's own label for that volume, such as "Internal shared
+     * storage" or "SD card", in the device's language.
+     */
+    private static String volumeLabel(String path) {
+        Context context = MainActivity.getContext();
+        if (context != null && path != null) {
+            StorageManager storage = context.getSystemService(StorageManager.class);
+            StorageVolume volume = storage != null ? storage.getStorageVolume(new File(path)) : null;
+            String description = volume != null ? volume.getDescription(context) : null;
+            if (description != null) {
+                return description;
+            }
+        }
+        return "Internal storage";
+    }
+
     public static String queryBuckets() {
         ContentResolver resolver = resolver();
         if (resolver == null) {
@@ -68,6 +89,9 @@ public final class MediaStoreBridge {
             MediaStore.Images.Media.BUCKET_ID,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.DATE_TAKEN,
+            // Deprecated for opening a file, but still the path, which is what
+            // finds the volume of a folder MediaStore gives no name.
+            MediaStore.Images.Media.DATA,
         };
         // Counting with a GROUP BY is not available through the public api on
         // every version, so the rows are walked and tallied here instead.
@@ -82,6 +106,7 @@ public final class MediaStoreBridge {
             int bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_ID);
             int nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
             int takenColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN);
+            int dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
             while (cursor.moveToNext()) {
                 String bucket = cursor.getString(bucketColumn);
                 if (bucket == null) {
@@ -93,7 +118,7 @@ public final class MediaStoreBridge {
                 if (tally == null) {
                     // count, newest date taken
                     counts.put(bucket, new long[] {1, taken});
-                    names.put(bucket, name != null ? name : bucket);
+                    names.put(bucket, name != null ? name : volumeLabel(cursor.getString(dataColumn)));
                 } else {
                     tally[0]++;
                     if (taken > tally[1]) {
