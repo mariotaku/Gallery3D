@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 
 #include "graphics/RegionDecoder.h"
 #include "media/DocumentTreeClient.h"
@@ -30,10 +30,20 @@ class DocumentTreeDataSource : public DataSource {
 
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
 
-    // Reads the photo's EXIF, once, and hands its rotation, date and size to
-    // the render thread as late details. The listing leaves it out, since
+    // Finds the photo's rotation, date and size, once, and hands them to the
+    // render thread as late details. The listing leaves them out, since
     // opening every photo in a large tree before the wall shows takes seconds.
-    void prepareItem(MediaItem *item) override;
+    //
+    // A rotation the provider reports with its thumbnails is taken over the
+    // EXIF's, and spares opening the photo, which a cloud provider downloads:
+    // a thumbnail load learns it in readThumbnail, and a cached thumbnail from
+    // a small thumbnail asked for here. The EXIF is read for the rest, and for
+    // the whole photo's size.
+    void prepareItem(MediaItem *item, ItemLoad load) override;
+
+    // The provider's thumbnail, near maxEdge rather than at it, in the
+    // orientation the photo is stored in. False when the provider makes none.
+    bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) override;
 
     // BitmapRegionDecoder reads the same document uri.
     bool supportsRegions(const MediaItem *item) const override;
@@ -41,11 +51,30 @@ class DocumentTreeDataSource : public DataSource {
                        RegionCallback done) override;
 
   private:
+    // What is known of one photo past its listing.
+    struct Known {
+        bool exifRead = false;
+        // The rotation came from the provider, and the EXIF leaves it be.
+        bool providerRotation = false;
+        float rotation = 0.0f;
+        int64_t dateTakenMs = 0;
+        int width = 0;
+        int height = 0;
+    };
+
+    Known knownFor(int64_t id);
+    // Reads the EXIF unless it has been read, and returns what is known.
+    Known readExifOnce(MediaItem *item);
+    void takeProviderRotation(MediaItem *item, int degrees);
+    // Called holding mKnownMutex, so fills from two loader threads do not
+    // interleave.
+    static void publish(MediaItem *item, const Known &known);
+
     DocumentTreeClient &mClient;
     const std::string mTreeUri;
     RegionDecoderCache mDecoders;
-    // Items whose EXIF has been asked for. The thumbnail and the screennail of
-    // one photo load on different threads.
-    std::unordered_set<int64_t> mPrepared;
-    std::mutex mPreparedMutex;
+    // By item id. The thumbnail and the screennail of one photo load on
+    // different threads.
+    std::unordered_map<int64_t, Known> mKnown;
+    std::mutex mKnownMutex;
 };

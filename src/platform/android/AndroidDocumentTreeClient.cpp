@@ -10,6 +10,11 @@ std::string AndroidDocumentTreeClient::readExif(const std::string &uri, const st
     return AndroidBridge::readExif(uri, mime);
 }
 
+bool AndroidDocumentTreeClient::readThumbnail(const std::string &uri, int maxEdge, Bitmap *bitmap,
+                                              int *orientation) {
+    return AndroidBridge::readThumbnail(uri, maxEdge, bitmap, orientation);
+}
+
 bool AndroidDocumentTreeClient::readDocument(const std::string &uri, std::vector<uint8_t> *bytes) {
     return AndroidBridge::readDocument(uri, bytes);
 }

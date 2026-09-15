@@ -8,6 +8,9 @@
 // - Set and item ids are stable and not negative.
 // - Items carry what the tree says about them, the EXIF only once prepared,
 //   and bytes come back whole.
+// - A provider thumbnail comes back as the photo is stored. The rotation the
+//   provider reports with it is taken over the EXIF's, which is then not read
+//   until the whole photo is shown.
 // - A tree that cannot be read still finishes loading, with no albums.
 #include "tests.h"
 
@@ -231,14 +234,20 @@ TEST(document_tree_items_carry_what_the_tree_says) {
         CHECK_EQ(tree.exifReads.load(), 0);
         CHECK_EQ(photo->mRotation, 0.0f);
 
-        source.prepareItem(photo);
-        source.prepareItem(photo);
+        source.prepareItem(photo, DataSource::ItemLoad::Thumbnail);
+        source.prepareItem(photo, DataSource::ItemLoad::Whole);
         CHECK_EQ(tree.exifReads.load(), 1);
         CHECK(photo->takeLateDetails());
         CHECK(!photo->takeLateDetails());
         CHECK_EQ(photo->mRotation, 90.0f);
         CHECK_EQ(photo->mFullWidth, 320);
         CHECK_EQ(photo->mDateTakenInMs, 1757937600000LL);
+
+        // The provider makes no thumbnails of it, so none is asked for.
+        CHECK(photo->mThumbnailUri.empty());
+        Bitmap thumbnail;
+        CHECK(!source.readThumbnail(photo, 256, &thumbnail));
+        CHECK_EQ(tree.thumbnailReads.load(), 0);
     }
     // No date of its own, so the modified time stands in.
     MediaItem *undated = itemCaptioned(setNamed(feed, "Trip"), "scan.png");
@@ -246,6 +255,96 @@ TEST(document_tree_items_carry_what_the_tree_says) {
     if (undated != nullptr) {
         CHECK_EQ(undated->mDateTakenInMs, 1600000000000LL);
         CHECK_EQ(undated->mDateModifiedInSec, 1600000000LL);
+    }
+}
+
+TEST(a_provider_thumbnail_with_a_rotation_spares_the_exif) {
+    FakeDocumentTree tree;
+    fillTree(tree);
+    // Stored 4 by 2. The EXIF says 90 degrees, the provider 270.
+    tree.documents[0].thumbnail = Bitmap(4, 2);
+    tree.documents[0].thumbnailOrientation = 270;
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+
+    MediaItem *photo = itemCaptioned(setNamed(feed, "Pictures"), "IMG_1.jpg");
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        CHECK(photo->mThumbnailUri == photo->mContentUri);
+        source.prepareItem(photo, DataSource::ItemLoad::Thumbnail);
+        Bitmap thumbnail;
+        CHECK(source.readThumbnail(photo, 256, &thumbnail));
+        CHECK_EQ(tree.lastThumbnailEdge.load(), 256);
+        CHECK_EQ(thumbnail.width(), 4);
+        CHECK_EQ(thumbnail.height(), 2);
+        CHECK_EQ(tree.exifReads.load(), 0);
+        CHECK(photo->takeLateDetails());
+        CHECK_EQ(photo->mRotation, 270.0f);
+        CHECK(!photo->hasFullSize());
+
+        // The fullscreen view needs the size, which only the EXIF has.
+        source.prepareItem(photo, DataSource::ItemLoad::Whole);
+        CHECK_EQ(tree.exifReads.load(), 1);
+        CHECK(photo->takeLateDetails());
+        CHECK_EQ(photo->mRotation, 270.0f);
+        CHECK_EQ(photo->mFullWidth, 320);
+    }
+}
+
+TEST(an_upright_provider_thumbnail_is_turned_back_by_the_exif) {
+    FakeDocumentTree tree;
+    fillTree(tree);
+    // Upright 2 by 4, with a red top left corner, and no rotation reported.
+    Bitmap upright(2, 4);
+    upright.pixels()[0] = 255;
+    upright.pixels()[3] = 255;
+    tree.documents[0].thumbnail = std::move(upright);
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+
+    MediaItem *photo = itemCaptioned(setNamed(feed, "Pictures"), "IMG_1.jpg");
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        source.prepareItem(photo, DataSource::ItemLoad::Thumbnail);
+        CHECK_EQ(tree.exifReads.load(), 0);
+        Bitmap thumbnail;
+        CHECK(source.readThumbnail(photo, 256, &thumbnail));
+        CHECK_EQ(tree.exifReads.load(), 1);
+        CHECK_EQ(thumbnail.width(), 4);
+        CHECK_EQ(thumbnail.height(), 2);
+        // Stored so that a quarter turn clockwise puts the corner top left.
+        if (thumbnail.width() == 4 && thumbnail.height() == 2) {
+            CHECK_EQ((int)thumbnail.pixels()[4 * 4], 255);
+        }
+        CHECK(photo->takeLateDetails());
+        CHECK_EQ(photo->mRotation, 90.0f);
+    }
+}
+
+TEST(a_cached_thumbnail_learns_the_rotation_from_a_small_provider_thumbnail) {
+    FakeDocumentTree tree;
+    fillTree(tree);
+    tree.documents[0].thumbnail = Bitmap(4, 2);
+    tree.documents[0].thumbnailOrientation = 180;
+    DocumentTreeDataSource source(tree, kTree);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+
+    MediaItem *photo = itemCaptioned(setNamed(feed, "Pictures"), "IMG_1.jpg");
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        source.prepareItem(photo, DataSource::ItemLoad::CachedThumbnail);
+        source.prepareItem(photo, DataSource::ItemLoad::CachedThumbnail);
+        CHECK_EQ(tree.thumbnailReads.load(), 1);
+        CHECK(tree.lastThumbnailEdge.load() > 0 && tree.lastThumbnailEdge.load() < 256);
+        CHECK_EQ(tree.exifReads.load(), 0);
+        CHECK(photo->takeLateDetails());
+        CHECK_EQ(photo->mRotation, 180.0f);
     }
 }
 

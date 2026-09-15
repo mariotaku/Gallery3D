@@ -66,12 +66,23 @@ class DataSource {
         return false;
     }
 
+    // What loads right after prepareItem.
+    enum class ItemLoad {
+        // A thumbnail from the disk cache, which reads nothing of the item.
+        CachedThumbnail,
+        // readThumbnail, or a decode of the item's bytes when that has none.
+        Thumbnail,
+        // The item's bytes, for the fullscreen view.
+        Whole,
+    };
+
     // Called on a texture loader thread before any of the item's pixels load.
     // A source that lists items without what only the file knows, such as the
-    // EXIF orientation, reads it here and hands it over through the item's
-    // late details. Blocks.
-    virtual void prepareItem(MediaItem *item) {
+    // EXIF orientation, reads it here, or in the readThumbnail that follows,
+    // and hands it over through the item's late details. Blocks.
+    virtual void prepareItem(MediaItem *item, ItemLoad load) {
         (void)item;
+        (void)load;
     }
 
     // A thumbnail the source already keeps for the item, scaled so its long

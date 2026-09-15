@@ -9,14 +9,19 @@ import android.content.SharedPreferences;
 import android.content.UriPermission;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
+import android.content.res.AssetFileDescriptor;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.ColorSpace;
+import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
@@ -63,7 +68,16 @@ public final class StorageBridge {
         DocumentsContract.Document.COLUMN_DISPLAY_NAME,
         DocumentsContract.Document.COLUMN_MIME_TYPE,
         DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+        DocumentsContract.Document.COLUMN_FLAGS,
     };
+
+    /**
+     * ContentResolver.EXTRA_SIZE, the size a thumbnail is wanted at, named
+     * here because the constant is from API 29. Releases before it read
+     * "thumbnail_size", so both are given.
+     */
+    private static final String EXTRA_SIZE = "android.content.extra.SIZE";
+    private static final String EXTRA_THUMBNAIL_SIZE = "thumbnail_size";
 
     private static final String PREFERENCES = "storage";
     private static final String CHOSEN_SOURCE = "source";
@@ -237,7 +251,9 @@ public final class StorageBridge {
                         child.put("name", name);
                         folders.put(child);
                     } else if (mime.startsWith("image/")) {
-                        photos.put(photoRow(uri, name, mime, cursor.isNull(3) ? 0 : cursor.getLong(3)));
+                        final int flags = cursor.isNull(4) ? 0 : cursor.getInt(4);
+                        photos.put(photoRow(uri, name, mime, cursor.isNull(3) ? 0 : cursor.getLong(3),
+                                (flags & DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL) != 0));
                     }
                 }
             }
@@ -257,20 +273,77 @@ public final class StorageBridge {
             return null;
         }
         try (InputStream input = resolver.openInputStream(Uri.parse(uri))) {
-            if (input == null) {
-                return null;
-            }
-            ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
-            byte[] buffer = new byte[1 << 16];
-            int read;
-            while ((read = input.read(buffer)) > 0) {
-                out.write(buffer, 0, read);
-            }
-            return out.toByteArray();
+            return input != null ? readAll(input) : null;
         } catch (Exception error) {
             Log.w(TAG, "Could not read " + uri, error);
             return null;
         }
+    }
+
+    /**
+     * The provider's thumbnail of one document, near size pixels on its long
+     * edge, with its pixels as the provider hands them out, not turned
+     * upright. orientation[0] is the rotation in degrees the provider reports
+     * with it (DocumentsContract.EXTRA_ORIENTATION), or -1 when it reports
+     * none. Null when the provider gives no thumbnail.
+     */
+    public static Bitmap readThumbnail(String uri, int size, int[] orientation) {
+        orientation[0] = -1;
+        ContentResolver resolver = resolver();
+        if (resolver == null || uri == null || size <= 0) {
+            return null;
+        }
+        Bundle options = new Bundle();
+        options.putParcelable(EXTRA_SIZE, new Point(size, size));
+        options.putParcelable(EXTRA_THUMBNAIL_SIZE, new Point(size, size));
+        try (AssetFileDescriptor file = resolver.openTypedAssetFile(Uri.parse(uri), "image/*", options, null)) {
+            if (file == null) {
+                return null;
+            }
+            Bundle extras = file.getExtras();
+            final int reported = extras != null && extras.containsKey(DocumentsContract.EXTRA_ORIENTATION)
+                    ? extras.getInt(DocumentsContract.EXTRA_ORIENTATION) : -1;
+            byte[] encoded;
+            try (InputStream input = file.createInputStream()) {
+                encoded = readAll(input);
+            }
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(encoded, 0, encoded.length, bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                return null;
+            }
+            BitmapFactory.Options decode = new BitmapFactory.Options();
+            // A provider can hand out the whole photo for a thumbnail.
+            int sample = 1;
+            while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= size) {
+                sample *= 2;
+            }
+            decode.inSampleSize = sample;
+            decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            decode.inPremultiplied = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                decode.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
+            }
+            Bitmap thumbnail = BitmapFactory.decodeByteArray(encoded, 0, encoded.length, decode);
+            if (thumbnail != null) {
+                orientation[0] = reported;
+            }
+            return thumbnail;
+        } catch (Exception error) {
+            Log.i(TAG, "No thumbnail for " + uri + ": " + error);
+            return null;
+        }
+    }
+
+    private static byte[] readAll(InputStream input) throws java.io.IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
+        byte[] buffer = new byte[1 << 16];
+        int read;
+        while ((read = input.read(buffer)) > 0) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 
     private static native void nativeFolderPicked(String tree);
@@ -313,12 +386,14 @@ public final class StorageBridge {
         return cursor;
     }
 
-    private static JSONObject photoRow(Uri uri, String name, String mime, long modified) throws JSONException {
+    private static JSONObject photoRow(Uri uri, String name, String mime, long modified, boolean thumbnail)
+            throws JSONException {
         JSONObject photo = new JSONObject();
         photo.put("uri", uri.toString());
         photo.put("name", name);
         photo.put("mime", mime);
         photo.put("dateModified", modified);
+        photo.put("thumbnail", thumbnail);
         return photo;
     }
 

@@ -7,6 +7,18 @@
             android:name=".BlankActivity"
             android:exported="false" />
 
+        <!-- The dial for the fake cloud's network. -->
+        <activity
+            android:name=".FakeCloudNetworkActivity"
+            android:exported="true"
+            android:label="Fake cloud network"
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <!-- A large cloud drive for the folder tree walk tests. The app reads
              its own provider, so it needs no grant. -->
         <provider

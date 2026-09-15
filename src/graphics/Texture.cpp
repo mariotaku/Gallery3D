@@ -189,12 +189,14 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     }
     // Before the pixels, so what the source finds out, such as the rotation,
     // is on the item by the time they are drawn.
-    if (MediaSet *set = mItem->mParentMediaSet) {
-        if (set->mDataSource != nullptr) {
-            set->mDataSource->prepareItem(mItem);
+    DataSource *source = (mItem->mParentMediaSet != nullptr) ? mItem->mParentMediaSet->mDataSource : nullptr;
+    auto prepare = [this, source](DataSource::ItemLoad load) {
+        if (source != nullptr) {
+            source->prepareItem(mItem, load);
         }
-    }
+    };
     if (!mConfig) {
+        prepare(DataSource::ItemLoad::Whole);
         // Size fullscreen screennails to the window.
         decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE,
                    [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
@@ -216,9 +218,11 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     // Accept cached images up to the requested size; small originals are never enlarged.
     if (cached.valid() && cached.width() <= side &&
         cached.height() == cached.width() * mConfig->thumbnailHeight / mConfig->thumbnailWidth) {
+        prepare(DataSource::ItemLoad::CachedThumbnail);
         view->finishLoad(self, std::move(cached));
         return;
     }
+    prepare(DataSource::ItemLoad::Thumbnail);
 
     // Crop and cache after decoding; capture continuation inputs by value for asynchronous
     // completion.

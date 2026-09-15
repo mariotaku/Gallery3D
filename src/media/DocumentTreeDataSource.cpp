@@ -10,6 +10,7 @@
 
 #include "core/JsonValue.h"
 #include "core/StableId.h"
+#include "graphics/Bitmap.h"
 #include "media/MediaFeed.h"
 #include "media/MediaItem.h"
 #include "media/MediaSet.h"
@@ -39,6 +40,25 @@ float rotationFor(int64_t degrees) {
     }
 }
 
+// The EXIF orientation, 1 to 8, of a picture shown upright after this
+// clockwise rotation.
+int exifOrientationFor(float rotation) {
+    if (rotation == 90.0f) {
+        return 6;
+    }
+    if (rotation == 180.0f) {
+        return 3;
+    }
+    if (rotation == 270.0f) {
+        return 8;
+    }
+    return 1;
+}
+
+// The edge of a thumbnail asked for only for the rotation the provider
+// reports with it.
+const int kRotationProbeEdge = 96;
+
 // Fills a set with the photos one folder listed.
 void fillItems(MediaSet &set, const nlohmann::json &photos) {
     // One folder, so names alone find a RAW and the JPEG or HEIF beside it.
@@ -60,10 +80,14 @@ void fillItems(MediaSet &set, const nlohmann::json &photos) {
         }
         auto item = std::make_unique<MediaItem>();
         item->mId = stableIdFor(uri);
-        // No file path, as with the media store: the three uris name the same
-        // document and every read goes back through it.
+        // No file path, as with the media store: the uris name the same
+        // document and every read goes back through it. The thumbnail uri is
+        // there only when the provider makes thumbnails of the photo.
         item->mContentUri = uri;
-        item->mThumbnailUri = uri;
+        const auto thumbnail = photo.find("thumbnail");
+        if (thumbnail != photo.end() && thumbnail->is_boolean() && thumbnail->get<bool>()) {
+            item->mThumbnailUri = uri;
+        }
         item->mScreennailUri = uri;
         item->mMimeType = stringOr(photo, "mime", "image/jpeg");
         item->mCaption = name;
@@ -167,25 +191,103 @@ bool DocumentTreeDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t>
     return mClient.readDocument(item->mContentUri, bytes);
 }
 
-void DocumentTreeDataSource::prepareItem(MediaItem *item) {
+void DocumentTreeDataSource::prepareItem(MediaItem *item, ItemLoad load) {
     if (item == nullptr || item->mContentUri.empty()) {
         return;
     }
-    {
-        std::lock_guard<std::mutex> lock(mPreparedMutex);
-        if (!mPrepared.insert(item->mId).second) {
+    const bool thumbnails = !item->mThumbnailUri.empty();
+    if (thumbnails && load == ItemLoad::Thumbnail) {
+        // readThumbnail follows and learns the rotation with the thumbnail.
+        return;
+    }
+    const Known known = knownFor(item->mId);
+    if (known.exifRead) {
+        return;
+    }
+    if (thumbnails && load == ItemLoad::CachedThumbnail) {
+        if (known.providerRotation) {
+            return;
+        }
+        Bitmap probe;
+        int orientation = -1;
+        if (mClient.readThumbnail(item->mThumbnailUri, kRotationProbeEdge, &probe, &orientation) &&
+            orientation >= 0) {
+            takeProviderRotation(item, orientation);
             return;
         }
     }
+    readExifOnce(item);
+}
+
+bool DocumentTreeDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) {
+    if (item == nullptr || bitmap == nullptr || item->mThumbnailUri.empty()) {
+        return false;
+    }
+    Bitmap thumbnail;
+    int orientation = -1;
+    if (!mClient.readThumbnail(item->mThumbnailUri, maxEdge, &thumbnail, &orientation) || !thumbnail.valid()) {
+        // The decode of the photo's bytes that follows needs the rotation too.
+        readExifOnce(item);
+        return false;
+    }
+    if (orientation >= 0) {
+        // Not turned upright, the same as the photo's stored pixels.
+        takeProviderRotation(item, orientation);
+        *bitmap = std::move(thumbnail);
+        return true;
+    }
+    // Upright, so turned back by the EXIF's rotation.
+    const Known known = readExifOnce(item);
+    *bitmap = thumbnail.toStoredOrientation(exifOrientationFor(known.rotation));
+    return true;
+}
+
+DocumentTreeDataSource::Known DocumentTreeDataSource::knownFor(int64_t id) {
+    std::lock_guard<std::mutex> lock(mKnownMutex);
+    const auto found = mKnown.find(id);
+    return found != mKnown.end() ? found->second : Known();
+}
+
+DocumentTreeDataSource::Known DocumentTreeDataSource::readExifOnce(MediaItem *item) {
+    const Known before = knownFor(item->mId);
+    if (before.exifRead) {
+        return before;
+    }
     const nlohmann::json exif = parseObject(mClient.readExif(item->mContentUri, item->mMimeType));
-    if (!exif.is_object()) {
+    std::lock_guard<std::mutex> lock(mKnownMutex);
+    Known &known = mKnown[item->mId];
+    if (!known.exifRead) {
+        known.exifRead = true;
+        if (exif.is_object()) {
+            if (!known.providerRotation) {
+                known.rotation = rotationFor(intOr(exif, "orientation", 0));
+            }
+            known.dateTakenMs = intOr(exif, "dateTaken", 0);
+            known.width = (int)intOr(exif, "width", 0);
+            known.height = (int)intOr(exif, "height", 0);
+        }
+        publish(item, known);
+    }
+    return known;
+}
+
+void DocumentTreeDataSource::takeProviderRotation(MediaItem *item, int degrees) {
+    const float rotation = rotationFor(degrees);
+    std::lock_guard<std::mutex> lock(mKnownMutex);
+    Known &known = mKnown[item->mId];
+    if (known.providerRotation && known.rotation == rotation) {
         return;
     }
-    MediaItem::LateDetails &details = item->mLateDetails;
-    details.rotation = rotationFor(intOr(exif, "orientation", 0));
-    details.dateTakenMs = intOr(exif, "dateTaken", 0);
-    details.width = (int)intOr(exif, "width", 0);
-    details.height = (int)intOr(exif, "height", 0);
+    known.providerRotation = true;
+    known.rotation = rotation;
+    publish(item, known);
+}
+
+void DocumentTreeDataSource::publish(MediaItem *item, const Known &known) {
+    item->mLateDetails.rotation.store(known.rotation);
+    item->mLateDetails.dateTakenMs.store(known.dateTakenMs);
+    item->mLateDetails.width.store(known.width);
+    item->mLateDetails.height.store(known.height);
     item->mLateDetailsPending.store(true);
 }
 

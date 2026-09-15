@@ -358,6 +358,49 @@ std::string AndroidBridge::treeName(const std::string &tree) {
     return callStorage("treeName", &tree);
 }
 
+namespace {
+
+// Copies an android.graphics.Bitmap in ARGB_8888 out, then recycles it and
+// drops the local reference. Invalid for any other config.
+Bitmap takeBitmap(JNIEnv *env, jobject image) {
+    Bitmap copy;
+    AndroidBitmapInfo info {};
+    void *pixels = nullptr;
+    if (AndroidBitmap_getInfo(env, image, &info) == ANDROID_BITMAP_RESULT_SUCCESS &&
+        info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 &&
+        AndroidBitmap_lockPixels(env, image, &pixels) == ANDROID_BITMAP_RESULT_SUCCESS) {
+        copy = Bitmap((int)info.width, (int)info.height);
+        if (copy.valid()) {
+            // RGBA_8888 is premultiplied and in this port's byte order, so only
+            // the stride differs.
+            const uint8_t *source = (const uint8_t *)pixels;
+            uint8_t *destination = copy.pixels();
+            const size_t rowBytes = (size_t)info.width * 4;
+            for (unsigned line = 0; line < info.height; ++line) {
+                SDL_memcpy(destination, source, rowBytes);
+                source += info.stride;
+                destination += rowBytes;
+            }
+            copy.markOpaqueUnlessTransparent();
+        }
+        AndroidBitmap_unlockPixels(env, image);
+    }
+
+    jclass bitmapClass = env->GetObjectClass(image);
+    jmethodID recycle = bitmapClass != nullptr ? env->GetMethodID(bitmapClass, "recycle", "()V") : nullptr;
+    if (recycle != nullptr) {
+        env->CallVoidMethod(image, recycle);
+    }
+    failed(env, "recycle");
+    if (bitmapClass != nullptr) {
+        env->DeleteLocalRef(bitmapClass);
+    }
+    env->DeleteLocalRef(image);
+    return copy;
+}
+
+}  // namespace
+
 Bitmap AndroidBridge::appIcon(const std::string &packageName, int size) {
     ScopedEnv env;
     if (!env || gStorage == nullptr || packageName.empty() || size <= 0) {
@@ -374,41 +417,42 @@ Bitmap AndroidBridge::appIcon(const std::string &packageName, int size) {
     if (failed(env.get(), "appIcon") || image == nullptr) {
         return Bitmap();
     }
+    return takeBitmap(env.get(), image);
+}
 
-    Bitmap icon;
-    AndroidBitmapInfo info {};
-    void *pixels = nullptr;
-    if (AndroidBitmap_getInfo(env.get(), image, &info) == ANDROID_BITMAP_RESULT_SUCCESS &&
-        info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 &&
-        AndroidBitmap_lockPixels(env.get(), image, &pixels) == ANDROID_BITMAP_RESULT_SUCCESS) {
-        icon = Bitmap((int)info.width, (int)info.height);
-        if (icon.valid()) {
-            // RGBA_8888 is premultiplied and in this port's byte order, so only
-            // the stride differs.
-            const uint8_t *source = (const uint8_t *)pixels;
-            uint8_t *destination = icon.pixels();
-            const size_t rowBytes = (size_t)info.width * 4;
-            for (unsigned line = 0; line < info.height; ++line) {
-                SDL_memcpy(destination, source, rowBytes);
-                source += info.stride;
-                destination += rowBytes;
-            }
-            icon.markOpaqueUnlessTransparent();
+bool AndroidBridge::readThumbnail(const std::string &uri, int maxEdge, Bitmap *bitmap, int *orientation) {
+    if (bitmap == nullptr || orientation == nullptr) {
+        return false;
+    }
+    *orientation = -1;
+    ScopedEnv env;
+    if (!env || gStorage == nullptr || maxEdge <= 0) {
+        return false;
+    }
+    jmethodID method = env->GetStaticMethodID(gStorage, "readThumbnail",
+                                              "(Ljava/lang/String;I[I)Landroid/graphics/Bitmap;");
+    if (method == nullptr || failed(env.get(), "readThumbnail")) {
+        return false;
+    }
+    jintArray reported = env->NewIntArray(1);
+    if (reported == nullptr || failed(env.get(), "readThumbnail")) {
+        return false;
+    }
+    jstring text = env->NewStringUTF(uri.c_str());
+    jobject image = env->CallStaticObjectMethod(gStorage, method, text, (jint)maxEdge, reported);
+    env->DeleteLocalRef(text);
+    bool ok = false;
+    if (!failed(env.get(), "readThumbnail") && image != nullptr) {
+        *bitmap = takeBitmap(env.get(), image);
+        ok = bitmap->valid();
+        if (ok) {
+            jint value = -1;
+            env->GetIntArrayRegion(reported, 0, 1, &value);
+            *orientation = value;
         }
-        AndroidBitmap_unlockPixels(env.get(), image);
     }
-
-    jclass bitmapClass = env->GetObjectClass(image);
-    jmethodID recycle = bitmapClass != nullptr ? env->GetMethodID(bitmapClass, "recycle", "()V") : nullptr;
-    if (recycle != nullptr) {
-        env->CallVoidMethod(image, recycle);
-    }
-    failed(env.get(), "recycle");
-    if (bitmapClass != nullptr) {
-        env->DeleteLocalRef(bitmapClass);
-    }
-    env->DeleteLocalRef(image);
-    return icon;
+    env->DeleteLocalRef(reported);
+    return ok;
 }
 
 std::string AndroidBridge::listFolder(const std::string &folder) {

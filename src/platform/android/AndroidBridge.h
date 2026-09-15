@@ -68,10 +68,11 @@ std::string treeName(const std::string &tree);
 // app is not installed.
 Bitmap appIcon(const std::string &packageName, int size);
 
-// StorageBridge.listFolder, readExif and readDocument, for
+// StorageBridge.listFolder, readExif, readThumbnail and readDocument, for
 // AndroidDocumentTreeClient.
 std::string listFolder(const std::string &folder);
 std::string readExif(const std::string &uri, const std::string &mime);
+bool readThumbnail(const std::string &uri, int maxEdge, Bitmap *bitmap, int *orientation);
 bool readDocument(const std::string &uri, std::vector<uint8_t> *bytes);
 
 }  // namespace AndroidBridge

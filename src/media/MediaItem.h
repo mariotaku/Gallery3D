@@ -57,14 +57,15 @@ class MediaItem {
     MediaSet *mParentMediaSet = nullptr;
 
     // What a source finds out only when the photo is about to be shown, such
-    // as a folder tree's EXIF. A loader thread fills mLateDetails once and then
-    // sets mLateDetailsPending. The render thread applies them with
-    // takeLateDetails.
+    // as a folder tree's EXIF. A loader thread fills all of mLateDetails and
+    // then sets mLateDetailsPending, and can do so again with more. The render
+    // thread applies them with takeLateDetails. A take that overlaps a second
+    // fill can read part of it, and the take after that reads all of it.
     struct LateDetails {
-        float rotation = 0.0f;
-        int64_t dateTakenMs = 0;
-        int width = 0;
-        int height = 0;
+        std::atomic<float> rotation{0.0f};
+        std::atomic<int64_t> dateTakenMs{0};
+        std::atomic<int> width{0};
+        std::atomic<int> height{0};
     };
     LateDetails mLateDetails;
     std::atomic<bool> mLateDetailsPending{false};
@@ -74,13 +75,16 @@ class MediaItem {
         if (!mLateDetailsPending.exchange(false)) {
             return false;
         }
-        mRotation = mLateDetails.rotation;
-        if (mLateDetails.dateTakenMs != 0) {
-            mDateTakenInMs = mLateDetails.dateTakenMs;
+        mRotation = mLateDetails.rotation.load();
+        const int64_t dateTakenMs = mLateDetails.dateTakenMs.load();
+        if (dateTakenMs != 0) {
+            mDateTakenInMs = dateTakenMs;
         }
-        if (mLateDetails.width > 0 && mLateDetails.height > 0) {
-            mFullWidth = mLateDetails.width;
-            mFullHeight = mLateDetails.height;
+        const int width = mLateDetails.width.load();
+        const int height = mLateDetails.height.load();
+        if (width > 0 && height > 0) {
+            mFullWidth = width;
+            mFullHeight = height;
         }
         return true;
     }

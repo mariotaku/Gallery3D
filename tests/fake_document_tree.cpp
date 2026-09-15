@@ -36,7 +36,8 @@ std::string FakeDocumentTree::listFolder(const std::string &requested) {
             answer["photos"].push_back({{"uri", document.uri},
                                         {"name", document.name},
                                         {"mime", document.mime},
-                                        {"dateModified", document.dateModified}});
+                                        {"dateModified", document.dateModified},
+                                        {"thumbnail", document.thumbnail.valid()}});
         }
     }
     return answer.dump();
@@ -55,6 +56,20 @@ std::string FakeDocumentTree::readExif(const std::string &uri, const std::string
         }
     }
     return std::string();
+}
+
+bool FakeDocumentTree::readThumbnail(const std::string &uri, int maxEdge, Bitmap *bitmap, int *orientation) {
+    ++thumbnailReads;
+    lastThumbnailEdge = maxEdge;
+    *orientation = -1;
+    for (const FakeDocument &document : documents) {
+        if (document.uri == uri && document.thumbnail.valid()) {
+            *bitmap = document.thumbnail.cropped(0, 0, document.thumbnail.width(), document.thumbnail.height());
+            *orientation = document.thumbnailOrientation;
+            return true;
+        }
+    }
+    return false;
 }
 
 bool FakeDocumentTree::readDocument(const std::string &uri, std::vector<uint8_t> *bytes) {
