@@ -72,7 +72,10 @@ class GridDrawManager {
                          const TexturePtr &previousTexture, float mixRatio);
 
     // Overlays tiles on the screennail's quad; skips items that cannot be tiled.
-    void drawFocusTiles(RenderView *view, DisplayItem *displayItem, GridQuad *quad);
+    // Zoomed, the tiles carry the detail. At rest they are drawn only when
+    // screennail came back with a shorter edge than the picture draws at.
+    void drawFocusTiles(RenderView *view, DisplayItem *displayItem, GridQuad *quad, const TexturePtr &screennail,
+                        bool zoomed);
 
     // Draws the checkerboard at the quad's current shape, with cells a fixed
     // size on screen, then puts the quad back.

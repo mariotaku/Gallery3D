@@ -586,8 +586,8 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
         }
 
         // Overlay tiles only after the thumbnail-to-screennail fade settles the quad's size.
-        if (i == 0 && zoomValue != 1.0f && selectedMixRatio == 1.0f && !slideshowMode) {
-            drawFocusTiles(view, displayItem, quad);
+        if (i == 0 && selectedMixRatio == 1.0f && !slideshowMode) {
+            drawFocusTiles(view, displayItem, quad, fsTexture, zoomValue != 1.0f);
         }
 
         if (selectedMixRatio != 0.0f && selectedMixRatio != 1.0f && fsTexture) {
@@ -627,7 +627,8 @@ void GridDrawManager::drawFocusItems(RenderView *view, float zoomValue, bool sli
     }
 }
 
-void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem, GridQuad *quad) {
+void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem, GridQuad *quad,
+                                     const TexturePtr &screennail, bool zoomed) {
     TiledImage *tiled = displayItem->getTiledImage();
     if (tiled == nullptr || quad == nullptr) {
         return;
@@ -674,6 +675,17 @@ void GridDrawManager::drawFocusTiles(RenderView *view, DisplayItem *displayItem,
 
     // Whole-picture width in screen pixels determines tile detail.
     const float drawnWidth = (quadWidth / viewSpan) * (float)camera->mWidth;
+    // At rest the screennail usually has a texel for every pixel it draws, and
+    // tiles would fetch what is already on screen. It falls short when its
+    // power of two sample landed below the window, so the edge it came back at
+    // decides rather than the edge it asked for.
+    if (!zoomed) {
+        const bool shortOfScreen =
+            screennail != nullptr && screennail->isLoaded() && (float)screennail->getWidth() < drawnWidth;
+        if (!shortOfScreen) {
+            return;
+        }
+    }
     tiled->update(view, left, top, right, bottom, drawnWidth);
 
     const std::vector<TiledImage::Placed> &tiles = tiled->placedTiles();
