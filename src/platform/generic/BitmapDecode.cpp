@@ -69,26 +69,26 @@ Bitmap fromSurface(SDL_Surface *surface, const void *bytes, size_t size) {
 
 // Reduces a whole decoded image by the sample maxEdge gives, the way Android's
 // decoder reduces the format.
-Bitmap sampledToMaxEdge(Bitmap decoded, Sampling sampling, int maxEdge) {
+Bitmap sampledToMaxEdge(Bitmap decoded, Sampling sampling, int maxEdge, SampleFit fit) {
     if (!decoded.valid()) {
         return decoded;
     }
-    return decoded.sampledFromWhole(sampling, Bitmap::sampleSizeFor(decoded.width(), decoded.height(), maxEdge));
+    return decoded.sampledFromWhole(sampling, Bitmap::sampleSizeFor(decoded.width(), decoded.height(), maxEdge, fit));
 }
 
 }  // namespace
 
-Bitmap Bitmap::load(const std::string &path, int maxEdge) {
+Bitmap Bitmap::load(const std::string &path, int maxEdge, SampleFit fit) {
     // Through the bytes, so a JPEG asked for smaller than it is reduces inside
     // libjpeg rather than decoding whole and scaling after.
     std::vector<uint8_t> bytes;
     if (!readFile(path, &bytes)) {
         return Bitmap();
     }
-    return loadFromMemory(bytes.data(), bytes.size(), maxEdge);
+    return loadFromMemory(bytes.data(), bytes.size(), maxEdge, fit);
 }
 
-Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
+Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge, SampleFit fit) {
     // libjpeg pads a JPEG that ends early with grey and only warns.
     if (bytes == nullptr || size == 0 || endsEarly(bytes, size)) {
         return Bitmap();
@@ -100,11 +100,12 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     if (maxEdge > 0) {
         const ExifInfo exif = readExif(bytes, size);
         if (exif.thumbnailLength > 0 && exif.pixelWidth > 0 && exif.pixelHeight > 0 &&
-            sampleSizeFor(exif.pixelWidth, exif.pixelHeight, maxEdge) > 1) {
+            sampleSizeFor(exif.pixelWidth, exif.pixelHeight, maxEdge, fit) > 1) {
             const Bitmap whole = loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, 0);
             if (whole.valid() && std::max(whole.width(), whole.height()) >= maxEdge &&
                 sameShape(whole.width(), whole.height(), exif.pixelWidth, exif.pixelHeight)) {
-                return loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, maxEdge);
+                return loadFromMemory((const uint8_t *)bytes + exif.thumbnailOffset, exif.thumbnailLength, maxEdge,
+                                      fit);
             }
         }
     }
@@ -113,7 +114,7 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
     // image only to throw most of it away, and on the desktop it converts a
     // JPEG's colour profile at any size. It works out the sample itself, since
     // it alone knows the original's size.
-    Bitmap decoded = SubsampledDecode::decode(bytes, size, maxEdge);
+    Bitmap decoded = SubsampledDecode::decode(bytes, size, maxEdge, fit);
     if (decoded.valid()) {
         return decoded;
     }
@@ -122,7 +123,8 @@ Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
         return Bitmap();
     }
     // IMG_Load_IO closes the stream for us, including on failure.
-    return sampledToMaxEdge(fromSurface(IMG_Load_IO(stream, true), bytes, size), samplingOf(bytes, size), maxEdge);
+    return sampledToMaxEdge(fromSurface(IMG_Load_IO(stream, true), bytes, size), samplingOf(bytes, size), maxEdge,
+                            fit);
 }
 
 PixelOrder Bitmap::decodeOrder() {

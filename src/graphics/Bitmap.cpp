@@ -297,10 +297,16 @@ int jpegSampled(int dimension, int sampleSize) {
 
 }  // namespace
 
-int Bitmap::sampleSizeFor(int width, int height, int maxEdge) {
+int Bitmap::sampleSizeFor(int width, int height, int maxEdge, SampleFit fit) {
     const int longEdge = std::max(width, height);
     int sampleSize = 1;
     if (maxEdge <= 0 || longEdge <= 0) {
+        return sampleSize;
+    }
+    if (fit == SampleFit::Under) {
+        while (sampleSize < (1 << 30) && longEdge / sampleSize > maxEdge) {
+            sampleSize *= 2;
+        }
         return sampleSize;
     }
     while (sampleSize < (1 << 30) && longEdge / (sampleSize * 2) >= maxEdge) {

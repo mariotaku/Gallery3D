@@ -23,11 +23,11 @@ namespace SubsampledDecode {
 // anywhere else.
 void init();
 
-// Decodes reduced by Bitmap::sampleSizeFor of the original's size and maxEdge,
-// or whole when maxEdge is 0. Returns an invalid Bitmap when this build cannot decode
+// Decodes reduced by Bitmap::sampleSizeFor of the original's size, maxEdge and
+// fit, or whole when maxEdge is 0. Returns an invalid Bitmap when this build cannot decode
 // the format or the size this way, which leaves the caller its whole-image
 // path. The desktop's libjpeg also converts the JPEG's colour profile to sRGB,
 // and Android's BitmapFactory any format's.
-Bitmap decode(const void *bytes, size_t size, int maxEdge);
+Bitmap decode(const void *bytes, size_t size, int maxEdge, SampleFit fit = SampleFit::Reaching);
 
 }  // namespace SubsampledDecode

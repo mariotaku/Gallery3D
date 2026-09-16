@@ -52,7 +52,7 @@ int inverseOrientation(int orientation) {
 
 // Decode source bytes, falling back to a local path. Source and decoder
 // callbacks may complete inline or later.
-void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
+void decodeItem(MediaItem *item, int maxEdge, SampleFit fit, ImageDecode::Callback done) {
     if (item == nullptr) {
         done(Bitmap());
         return;
@@ -61,8 +61,8 @@ void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
     DataSource *source = (set != nullptr) ? set->mDataSource : nullptr;
     const std::string path = item->mFilePath;
 
-    auto decodeBytes = [maxEdge, done](std::vector<uint8_t> bytes) {
-        ImageDecode::decode(std::move(bytes), maxEdge, done);
+    auto decodeBytes = [maxEdge, fit, done](std::vector<uint8_t> bytes) {
+        ImageDecode::decode(std::move(bytes), maxEdge, fit, done);
     };
 
     if (source == nullptr) {
@@ -75,12 +75,12 @@ void decodeItem(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
         return;
     }
 
-    source->requestItemBytes(item, [source, item, path, maxEdge, decodeBytes, done](bool ok,
-                                                                                    std::vector<uint8_t> bytes) {
+    source->requestItemBytes(item, [source, item, path, maxEdge, fit, decodeBytes, done](bool ok,
+                                                                                         std::vector<uint8_t> bytes) {
         if (ok && !bytes.empty()) {
             const int orientation = source->orientationToApply(item, bytes);
             if (orientation > 1) {
-                ImageDecode::decode(std::move(bytes), maxEdge, [orientation, done](Bitmap bitmap) {
+                ImageDecode::decode(std::move(bytes), maxEdge, fit, [orientation, done](Bitmap bitmap) {
                     done(bitmap.toStoredOrientation(inverseOrientation(orientation)));
                 });
                 return;
@@ -108,7 +108,7 @@ void decodeThumbnail(MediaItem *item, int maxEdge, ImageDecode::Callback done) {
         done(std::move(thumbnail));
         return;
     }
-    decodeItem(item, maxEdge, std::move(done));
+    decodeItem(item, maxEdge, SampleFit::Reaching, std::move(done));
 }
 
 // Cache by local path, falling back to the remote content URI.
@@ -161,7 +161,8 @@ void FileTexture::startLoad(RenderView *view, const TexturePtr &self) {
         view->finishLoad(self, Bitmap::load(mPath, mMaxEdge));
         return;
     }
-    decodeItem(mItem, mMaxEdge, [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
+    decodeItem(mItem, mMaxEdge, SampleFit::Reaching,
+               [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
 }
 
 Bitmap RegionTexture::load(RenderView *view) {
@@ -228,8 +229,10 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     };
     if (!mConfig) {
         prepare(DataSource::ItemLoad::Whole);
-        // Size fullscreen screennails to the window.
-        decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE,
+        // Size fullscreen screennails to the window, and never past it: a photo
+        // twice the window edge costs four times the memory, and zoom reads the
+        // detail from RegionDecoder tiles rather than from this texture.
+        decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE, SampleFit::Under,
                    [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
         return;
     }

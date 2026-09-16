@@ -239,6 +239,24 @@ TEST(the_sample_is_the_largest_power_of_two_that_still_reaches_max_edge) {
     CHECK_EQ(Bitmap::sampleSizeFor(300, 200, -1), 1);
 }
 
+TEST(an_under_sample_is_the_smallest_power_of_two_that_lands_at_or_below_max_edge) {
+    // Where a halving divides to maxEdge exactly, both fits agree.
+    CHECK_EQ(Bitmap::sampleSizeFor(1600, 1200, 200, SampleFit::Under), 8);
+    // Where it does not, Under takes the next halving down rather than the size
+    // above maxEdge. 1600 for a maxEdge of 201 is 200 rather than 400.
+    CHECK_EQ(Bitmap::sampleSizeFor(1600, 1200, 201, SampleFit::Under), 8);
+    CHECK_EQ(Bitmap::sampleSizeFor(1600, 1200, 900, SampleFit::Under), 2);
+    // A 3504 pixel photo on a 2048 window: Reaching decodes it whole.
+    CHECK_EQ(Bitmap::sampleSizeFor(3504, 2336, 2048), 1);
+    CHECK_EQ(Bitmap::sampleSizeFor(3504, 2336, 2048, SampleFit::Under), 2);
+    CHECK_EQ(Bitmap::sampleSizeFor(1000, 1, 10, SampleFit::Under), 128);
+    // A picture that does not reach maxEdge, or no maxEdge, is not reduced.
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, 512, SampleFit::Under), 1);
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, 300, SampleFit::Under), 1);
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, 0, SampleFit::Under), 1);
+    CHECK_EQ(Bitmap::sampleSizeFor(300, 200, -1, SampleFit::Under), 1);
+}
+
 TEST(a_sampled_size_is_what_android_decodes_the_format_at) {
     // JPEG: libjpeg rounds up at a half, a quarter and an eighth, and Skia
     // picks from an eighth past that, rounding down.

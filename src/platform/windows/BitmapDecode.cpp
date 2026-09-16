@@ -55,17 +55,17 @@ Bitmap wholeOf(IWICBitmapSource *source, IWICColorContext *profile) {
 
 // An image stored beside the frame, decoded for maxEdge as a picture of its
 // own. Both a thumbnail and a RAW preview are JPEGs.
-Bitmap embeddedFor(IWICBitmapSource *image, IWICColorContext *profile, int maxEdge) {
+Bitmap embeddedFor(IWICBitmapSource *image, IWICColorContext *profile, int maxEdge, SampleFit fit) {
     UINT width = 0;
     UINT height = 0;
     image->GetSize(&width, &height);
     return wholeOf(image, profile).sampledFromWhole(Sampling::Jpeg,
-                                                    Bitmap::sampleSizeFor((int)width, (int)height, maxEdge));
+                                                    Bitmap::sampleSizeFor((int)width, (int)height, maxEdge, fit));
 }
 
 // Decodes the first frame reduced by the sample maxEdge gives, the way Android's
 // decoder reduces the format.
-Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
+Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge, SampleFit fit) {
     IWICImagingFactory *imaging = Wic::factory();
     Wic::Ptr<IWICBitmapFrameDecode> frame;
     if (imaging == nullptr || decoder == nullptr || FAILED(decoder->GetFrame(0, frame.put()))) {
@@ -79,7 +79,7 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
     // What the pixels' colours mean. Every picture leaves here in sRGB, which
     // is what the wall draws in.
     const Wic::Ptr<IWICColorContext> profile = Wic::colorProfileOf(frame.get());
-    const int sampleSize = Bitmap::sampleSizeFor((int)width, (int)height, maxEdge);
+    const int sampleSize = Bitmap::sampleSizeFor((int)width, (int)height, maxEdge, fit);
 
     // An embedded thumbnail whose long edge reaches maxEdge costs a tenth of
     // reducing a HEIF, and every platform answers from it the same way. A
@@ -90,7 +90,7 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
         HRESULT fetched = frame->GetThumbnail(thumbnail.put());
         thumbnail = embeddedReaching(fetched, std::move(thumbnail), maxEdge, width, height);
         if (thumbnail) {
-            return embeddedFor(thumbnail.get(), profile.get(), maxEdge);
+            return embeddedFor(thumbnail.get(), profile.get(), maxEdge, fit);
         }
         Wic::Ptr<IWICBitmapSourceTransform> transform;
         if (FAILED(frame->QueryInterface(IID_PPV_ARGS(transform.put())))) {
@@ -98,7 +98,7 @@ Bitmap decode(IWICBitmapDecoder *decoder, int maxEdge) {
             fetched = decoder->GetPreview(preview.put());
             preview = embeddedReaching(fetched, std::move(preview), maxEdge, width, height);
             if (preview) {
-                return embeddedFor(preview.get(), profile.get(), maxEdge);
+                return embeddedFor(preview.get(), profile.get(), maxEdge, fit);
             }
         }
     }
@@ -173,22 +173,22 @@ std::unordered_set<std::string> installedExtensions() {
 
 }  // namespace
 
-Bitmap Bitmap::load(const std::string &path, int maxEdge) {
+Bitmap Bitmap::load(const std::string &path, int maxEdge, SampleFit fit) {
     std::vector<uint8_t> bytes;
     if (!readFile(path, &bytes)) {
         return Bitmap();
     }
-    return loadFromMemory(bytes.data(), bytes.size(), maxEdge);
+    return loadFromMemory(bytes.data(), bytes.size(), maxEdge, fit);
 }
 
-Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge) {
+Bitmap Bitmap::loadFromMemory(const void *bytes, size_t size, int maxEdge, SampleFit fit) {
     // WIC hands out what it could read of a PNG or JPEG that ends early, with
     // the rest left empty or grey.
     if (endsEarly(bytes, size)) {
         return Bitmap();
     }
     Wic::Ptr<IWICBitmapDecoder> decoder = Wic::decoderFor(bytes, size);
-    return decoder ? decode(decoder.get(), maxEdge) : Bitmap();
+    return decoder ? decode(decoder.get(), maxEdge, fit) : Bitmap();
 }
 
 PixelOrder Bitmap::decodeOrder() {

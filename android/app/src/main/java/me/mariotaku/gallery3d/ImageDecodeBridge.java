@@ -25,8 +25,11 @@ public final class ImageDecodeBridge {
      * Decodes reduced by the sample Bitmap::sampleSizeFor gives, at whatever
      * size the platform decoder hands back for it. The other platforms follow
      * this decoder's sizes, so nothing is scaled after.
+     *
+     * under is SampleFit::Under: the long edge lands at or below maxEdge rather
+     * than at or above it.
      */
-    public static Bitmap decodeSampled(byte[] encoded, int maxEdge) {
+    public static Bitmap decodeSampled(byte[] encoded, int maxEdge, boolean under) {
         // A maxEdge of 0 or below decodes whole, still through the platform, so
         // the colours are converted the same way at every size.
         if (encoded == null || encoded.length == 0) {
@@ -42,12 +45,19 @@ public final class ImageDecodeBridge {
             }
 
             BitmapFactory.Options options = new BitmapFactory.Options();
-            // Powers of two only: anything else is rounded down to one. The
-            // sample stops before a halving would fall short of maxEdge, as
-            // Bitmap::sampleSizeFor does.
+            // Powers of two only: anything else is rounded down to one. Both
+            // loops are Bitmap::sampleSizeFor: under halves until the long edge
+            // is at or below maxEdge, and the other stops before a halving
+            // would fall short of it.
             int sample = 1;
-            while (maxEdge > 0 && longest / (sample * 2) >= maxEdge) {
-                sample *= 2;
+            if (maxEdge > 0 && under) {
+                while (longest / sample > maxEdge) {
+                    sample *= 2;
+                }
+            } else {
+                while (maxEdge > 0 && longest / (sample * 2) >= maxEdge) {
+                    sample *= 2;
+                }
             }
             options.inSampleSize = sample;
             options.inPreferredConfig = Bitmap.Config.ARGB_8888;

@@ -15,9 +15,9 @@ namespace ImageDecode {
 // another one.
 using Callback = std::function<void(Bitmap)>;
 
-// Decodes `bytes`, downscaled so neither edge exceeds maxEdge (0 for no limit).
-// Takes ownership of the bytes.
-void decode(std::vector<uint8_t> bytes, int maxEdge, Callback done);
+// Decodes `bytes`, downscaled to maxEdge (0 for no limit) on the side of it
+// that fit names. Takes ownership of the bytes.
+void decode(std::vector<uint8_t> bytes, int maxEdge, SampleFit fit, Callback done);
 
 // Whether decode() may invoke its callback after returning.
 bool isAsynchronous();

@@ -11,7 +11,9 @@
 // - maxEdge picks a power of two sample, the largest whose reduced long edge
 //   still reaches maxEdge, and the picture comes back at the size and with
 //   the pixels Android's decoder gives for that sample (Sampling in Bitmap.h).
-//   maxEdge 0 or below keeps the size.
+//   maxEdge 0 or below keeps the size. SampleFit::Under instead picks the
+//   smallest sample landing at or below maxEdge; the fixtures here use the
+//   default fit, and tests/test_bitmap.cpp checks the other.
 // - A reduced decode may answer from an embedded thumbnail in the picture's
 //   shape whose long edge reaches maxEdge, decoded for maxEdge in turn.
 // - A file that is cut short or is not an image does not decode.

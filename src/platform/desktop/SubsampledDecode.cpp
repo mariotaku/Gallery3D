@@ -41,7 +41,7 @@ void SubsampledDecode::init() {
     // libjpeg needs nothing found at runtime.
 }
 
-Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
+Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge, SampleFit fit) {
     // Only a JPEG goes to libjpeg. Anything else would fail there too, but
     // only after it logged an error for a file that was never its to read.
     const unsigned char *start = (const unsigned char *)bytes;
@@ -81,7 +81,7 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
             // sample. A sample past eight is picked from the eighth below.
             originalWidth = (int)cinfo.image_width;
             originalHeight = (int)cinfo.image_height;
-            const int sampleSize = Bitmap::sampleSizeFor(originalWidth, originalHeight, maxEdge);
+            const int sampleSize = Bitmap::sampleSizeFor(originalWidth, originalHeight, maxEdge, fit);
             cinfo.scale_num = 1;
             cinfo.scale_denom = (unsigned)std::min(sampleSize, 8);
             // libjpeg-turbo's RGBA, with alpha at 255, so each row is written
@@ -129,7 +129,8 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
         // No profile, but EXIF says Adobe RGB, which WIC honours as well.
         ColorProfile::adobeRgbToSrgb(decoded.pixels(), count);
     }
-    const Bitmap::Size sampled = Bitmap::sampledSize(Sampling::Jpeg, originalWidth, originalHeight,
-                                                     Bitmap::sampleSizeFor(originalWidth, originalHeight, maxEdge));
+    const Bitmap::Size sampled =
+        Bitmap::sampledSize(Sampling::Jpeg, originalWidth, originalHeight,
+                            Bitmap::sampleSizeFor(originalWidth, originalHeight, maxEdge, fit));
     return decoded.picked(sampled.width, sampled.height);
 }

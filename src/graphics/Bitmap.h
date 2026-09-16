@@ -29,6 +29,20 @@ enum class Sampling : uint8_t {
     Picked,
 };
 
+// Which side of maxEdge a reduced decode lands on. A power of two sample seldom
+// divides the long edge to maxEdge exactly, so one of the two neighbouring
+// sizes has to be taken.
+enum class SampleFit : uint8_t {
+    // The largest sample whose long edge still reaches maxEdge. The picture is
+    // never smaller than asked for, so a thumbnail drawn at that size is never
+    // upscaled. Its long edge can be up to twice maxEdge.
+    Reaching,
+    // The smallest sample whose long edge is at or under maxEdge. The picture
+    // never costs more than maxEdge squared, and can be up to half as wide as
+    // asked for.
+    Under,
+};
+
 class Bitmap {
   public:
     Bitmap() = default;
@@ -92,13 +106,14 @@ class Bitmap {
     static PixelOrder decodeOrder();
 
     // Decodes a file. Returns an invalid bitmap when the file cannot be read.
-    // The size is sampledSize for sampleSizeFor(width, height, maxEdge). The decoder is the
+    // The size is sampledSize for sampleSizeFor(width, height, maxEdge, fit). The decoder is the
     // platform's: WIC on Windows, SDL_image elsewhere. tests/test_decode.cpp
     // states the whole contract and checks it against shared fixtures.
-    static Bitmap load(const std::string &path, int maxEdge);
+    static Bitmap load(const std::string &path, int maxEdge, SampleFit fit = SampleFit::Reaching);
 
     // Decodes encoded bytes without an intermediate file.
-    static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge);
+    static Bitmap loadFromMemory(const void *bytes, size_t size, int maxEdge,
+                                 SampleFit fit = SampleFit::Reaching);
 
     // Whether encoded bytes are a PNG or a JPEG that is cut short: a PNG with
     // no IEND chunk near its end, or a JPEG with no end-of-image marker after
@@ -171,10 +186,10 @@ class Bitmap {
         int height;
     };
 
-    // The power of two a decode for maxEdge reduces by: the largest whose
-    // reduced long edge, rounded down, still reaches maxEdge. 1 for a maxEdge
-    // of 0 or below, or a picture that does not reach it.
-    static int sampleSizeFor(int width, int height, int maxEdge);
+    // The power of two a decode for maxEdge reduces by, on the side of maxEdge
+    // that fit names, measuring the reduced long edge rounded down. 1 for a
+    // maxEdge of 0 or below, or a picture that does not reach it.
+    static int sampleSizeFor(int width, int height, int maxEdge, SampleFit fit = SampleFit::Reaching);
 
     // The size a whole decode reduced by sampleSize gives, for the format's
     // Sampling. A sample of 1 keeps the size.

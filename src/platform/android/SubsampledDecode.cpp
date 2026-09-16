@@ -50,7 +50,7 @@ void SubsampledDecode::init() {
     }
     gBridge = (jclass)env->NewGlobalRef(local);
     env->DeleteLocalRef(local);
-    gDecode = env->GetStaticMethodID(gBridge, "decodeSampled", "([BI)Landroid/graphics/Bitmap;");
+    gDecode = env->GetStaticMethodID(gBridge, "decodeSampled", "([BIZ)Landroid/graphics/Bitmap;");
     gRecycle = env->GetStaticMethodID(gBridge, "recycle", "(Landroid/graphics/Bitmap;)V");
     jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
     if (bitmapClass != nullptr) {
@@ -64,7 +64,7 @@ void SubsampledDecode::init() {
     }
 }
 
-Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
+Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge, SampleFit fit) {
     // A maxEdge of 0 or below is the whole picture, which goes through the
     // platform too, so it is colour converted as a reduced decode is.
     if (bytes == nullptr || size == 0) {
@@ -80,7 +80,8 @@ Bitmap SubsampledDecode::decode(const void *bytes, size_t size, int maxEdge) {
         return Bitmap();
     }
     env->SetByteArrayRegion(encoded, 0, (jsize)size, (const jbyte *)bytes);
-    jobject image = env->CallStaticObjectMethod(gBridge, gDecode, encoded, (jint)maxEdge);
+    jobject image = env->CallStaticObjectMethod(gBridge, gDecode, encoded, (jint)maxEdge,
+                                                fit == SampleFit::Under ? JNI_TRUE : JNI_FALSE);
     env->DeleteLocalRef(encoded);
     if (threw(env, "decodeSampled") || image == nullptr) {
         return Bitmap();
