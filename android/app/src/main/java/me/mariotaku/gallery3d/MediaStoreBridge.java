@@ -50,6 +50,14 @@ public final class MediaStoreBridge {
     private static final String EXTRA_SIZE = "android.content.extra.SIZE";
     private static final String EXTRA_THUMBNAIL_SIZE = "thumbnail_size";
 
+    /**
+     * The newest release the thumbnails below were measured on. Which formats
+     * the store turns is a decoder's behaviour rather than a documented rule,
+     * and it has changed once already, so a later release reads its photos
+     * rather than its thumbnails until someone measures it.
+     */
+    private static final int LAST_MEASURED_SDK = 36;
+
     private MediaStoreBridge() {
     }
 
@@ -266,7 +274,8 @@ public final class MediaStoreBridge {
      * the picture upright, and that decoder leaves a camera RAW alone. Nothing
      * in the answer says which happened: the extras carry no orientation, and
      * ContentResolver.loadThumbnail turns the picture only for a provider that
-     * reports one. The caller goes by the photo's mime type instead.
+     * reports one. The caller goes by the photo's mime type instead, which
+     * holds for the releases named below.
      */
     public static Bitmap readThumbnail(long id, int size) {
         ContentResolver resolver = resolver();
@@ -274,7 +283,7 @@ public final class MediaStoreBridge {
             return null;
         }
         Uri uri = ContentUris.withAppendedId(IMAGES, id);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && Build.VERSION.SDK_INT <= LAST_MEASURED_SDK) {
             Bundle options = new Bundle();
             options.putParcelable(EXTRA_SIZE, new Point(size, size));
             options.putParcelable(EXTRA_THUMBNAIL_SIZE, new Point(size, size));
@@ -301,20 +310,12 @@ public final class MediaStoreBridge {
                 return null;
             }
         }
-        try {
-            // MICRO_KIND is 96x96 and MINI_KIND 512x384. Asking for the larger
-            // one below its size would hand back a picture to enlarge.
-            final int kind = size <= 96 ? MediaStore.Images.Thumbnails.MICRO_KIND
-                    : MediaStore.Images.Thumbnails.MINI_KIND;
-            Bitmap thumbnail = MediaStore.Images.Thumbnails.getThumbnail(resolver, id, kind, null);
-            if (thumbnail != null) {
-                describeOnce("the thumbnail table, as stored");
-            }
-            return thumbnail;
-        } catch (Exception error) {
-            Log.i(TAG, "No thumbnail for " + id + ": " + error);
-            return null;
-        }
+        // Below Android 10 the thumbnails live in a table with rules of its
+        // own, and above the release measured the store may turn formats it
+        // leaves alone today. The wall decodes the photo in both cases, whose
+        // pixels are always the stored ones.
+        describeOnce("not read on api " + Build.VERSION.SDK_INT + ", the photo is decoded instead");
+        return null;
     }
 
     /** Decodes reduced to no more than edge pixels on the long side. */
