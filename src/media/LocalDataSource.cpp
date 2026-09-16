@@ -57,6 +57,32 @@ bool LocalDataSource::isSupportedImage(const std::string &path) {
     return Bitmap::decodesExtension(extension);
 }
 
+// The camera RAW extensions, with their dots, named once for the pairing rule
+// and the mime test below.
+static const std::unordered_set<std::string> &rawExtensions() {
+    static const std::unordered_set<std::string> extensions = {
+        ".3fr", ".ari", ".arw", ".bay", ".cr2", ".cr3", ".crw", ".dcr", ".dng", ".erf",
+        ".fff", ".iiq", ".k25", ".kdc", ".mef", ".mos", ".mrw", ".nef", ".nrw", ".orf",
+        ".ori", ".pef", ".raf", ".raw", ".rw2", ".rwl", ".sr2", ".srf", ".srw", ".x3f",
+    };
+    return extensions;
+}
+
+bool LocalDataSource::isRawMimeType(const std::string &mimeType) {
+    // A media store names a RAW after the camera maker, image/x-adobe-dng,
+    // while a path names it after the extension, image/dng.
+    const std::string lower = toLower(mimeType);
+    const size_t slash = lower.find('/');
+    if (slash == std::string::npos) {
+        return false;
+    }
+    std::string subtype = lower.substr(slash + 1);
+    if (subtype.rfind("x-", 0) == 0) {
+        subtype = subtype.substr(subtype.find_last_of('-') + 1);
+    }
+    return rawExtensions().count("." + subtype) != 0;
+}
+
 std::string LocalDataSource::mimeTypeForPath(const std::string &path) {
     size_t dot = path.find_last_of('.');
     std::string extension = (dot == std::string::npos) ? "" : toLower(path.substr(dot));
@@ -76,11 +102,7 @@ std::string LocalDataSource::mimeTypeForPath(const std::string &path) {
 }
 
 std::vector<std::string> LocalDataSource::withoutRawDuplicates(std::vector<std::string> files) {
-    static const std::unordered_set<std::string> raws = {
-        ".3fr", ".ari", ".arw", ".bay", ".cr2", ".cr3", ".crw", ".dcr", ".dng", ".erf",
-        ".fff", ".iiq", ".k25", ".kdc", ".mef", ".mos", ".mrw", ".nef", ".nrw", ".orf",
-        ".ori", ".pef", ".raf", ".raw", ".rw2", ".rwl", ".sr2", ".srf", ".srw", ".x3f",
-    };
+    const std::unordered_set<std::string> &raws = rawExtensions();
     static const std::unordered_set<std::string> developed = {".jpg", ".jpeg", ".jpe", ".jfif",
                                                               ".heic", ".heif", ".hif"};
     // The path without its extension, in lower case: Windows names

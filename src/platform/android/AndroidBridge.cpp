@@ -422,36 +422,24 @@ Bitmap AndroidBridge::appIcon(const std::string &packageName, int size) {
 
 // Reads through MediaStoreBridge rather than StorageBridge, but takes the same
 // path back: a Java bitmap, copied out and recycled by takeBitmap.
-bool AndroidBridge::readMediaThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright) {
-    if (bitmap == nullptr || upright == nullptr) {
+bool AndroidBridge::readMediaThumbnail(int64_t id, int maxEdge, Bitmap *bitmap) {
+    if (bitmap == nullptr) {
         return false;
     }
-    *upright = false;
     ScopedEnv env;
     if (!env || gBridge == nullptr || maxEdge <= 0) {
         return false;
     }
-    jmethodID method = env->GetStaticMethodID(gBridge, "readThumbnail", "(JI[I)Landroid/graphics/Bitmap;");
+    jmethodID method = env->GetStaticMethodID(gBridge, "readThumbnail", "(JI)Landroid/graphics/Bitmap;");
     if (method == nullptr || failed(env.get(), "readThumbnail")) {
         return false;
     }
-    jintArray reported = env->NewIntArray(1);
-    if (reported == nullptr || failed(env.get(), "readThumbnail")) {
+    jobject image = env->CallStaticObjectMethod(gBridge, method, (jlong)id, (jint)maxEdge);
+    if (failed(env.get(), "readThumbnail") || image == nullptr) {
         return false;
     }
-    jobject image = env->CallStaticObjectMethod(gBridge, method, (jlong)id, (jint)maxEdge, reported);
-    bool ok = false;
-    if (!failed(env.get(), "readThumbnail") && image != nullptr) {
-        *bitmap = takeBitmap(env.get(), image);
-        ok = bitmap->valid();
-        if (ok) {
-            jint value = 0;
-            env->GetIntArrayRegion(reported, 0, 1, &value);
-            *upright = value != 0;
-        }
-    }
-    env->DeleteLocalRef(reported);
-    return ok;
+    *bitmap = takeBitmap(env.get(), image);
+    return bitmap->valid();
 }
 
 bool AndroidBridge::readThumbnail(const std::string &uri, int maxEdge, Bitmap *bitmap, int *orientation) {

@@ -43,9 +43,9 @@ std::string queryBucket(const std::string &bucketId);
 // than a file path.
 bool readImage(int64_t id, std::vector<uint8_t> *bytes);
 
-// MediaStoreBridge.readThumbnail: the store's own thumbnail for a photo.
-// upright says whether the platform turned it by the photo's rotation.
-bool readMediaThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright);
+// MediaStoreBridge.readThumbnail: the store's own thumbnail for a photo, as
+// the platform hands it over.
+bool readMediaThumbnail(int64_t id, int maxEdge, Bitmap *bitmap);
 
 // JSON from StorageBridge.sources: what the home pill offers, each with kind
 // (library, volume, tree or picker), id and name.

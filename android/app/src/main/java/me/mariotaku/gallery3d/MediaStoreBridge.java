@@ -3,16 +3,21 @@ package me.mariotaku.gallery3d;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ColorSpace;
+import android.graphics.Point;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.util.Log;
-import android.util.Size;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -37,7 +42,25 @@ public final class MediaStoreBridge {
 
     private static final Uri IMAGES = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
 
+    /**
+     * ContentResolver.EXTRA_SIZE, the size a thumbnail is wanted at, named here
+     * to keep the minimum sdk. Some providers read the older "thumbnail_size",
+     * so both are given.
+     */
+    private static final String EXTRA_SIZE = "android.content.extra.SIZE";
+    private static final String EXTRA_THUMBNAIL_SIZE = "thumbnail_size";
+
     private MediaStoreBridge() {
+    }
+
+    // Which api the store's thumbnails come from, said once a run.
+    private static boolean sThumbnailPathSaid;
+
+    private static void describeOnce(String what) {
+        if (!sThumbnailPathSaid) {
+            sThumbnailPathSaid = true;
+            Log.i(TAG, "Media store thumbnails: " + what);
+        }
     }
 
     private static ContentResolver resolver() {
@@ -239,34 +262,92 @@ public final class MediaStoreBridge {
      * The store's thumbnail for one photo, no larger than size on its long
      * edge. Null when the store has none.
      *
-     * upright[0] is 1 when the platform has already turned the thumbnail by the
-     * photo's rotation. ContentResolver.loadThumbnail does that from Android
-     * 10; the thumbnail table it replaced hands out the pixels as stored.
+     * The store makes a thumbnail with a decoder that reads the EXIF and turns
+     * the picture upright, and that decoder leaves a camera RAW alone. Nothing
+     * in the answer says which happened: the extras carry no orientation, and
+     * ContentResolver.loadThumbnail turns the picture only for a provider that
+     * reports one. The caller goes by the photo's mime type instead.
      */
-    public static Bitmap readThumbnail(long id, int size, int[] upright) {
-        upright[0] = 0;
+    public static Bitmap readThumbnail(long id, int size) {
         ContentResolver resolver = resolver();
         if (resolver == null || size <= 0) {
             return null;
         }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Uri uri = ContentUris.withAppendedId(IMAGES, id);
-                Bitmap thumbnail = resolver.loadThumbnail(uri, new Size(size, size), null);
+        Uri uri = ContentUris.withAppendedId(IMAGES, id);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            Bundle options = new Bundle();
+            options.putParcelable(EXTRA_SIZE, new Point(size, size));
+            options.putParcelable(EXTRA_THUMBNAIL_SIZE, new Point(size, size));
+            try (AssetFileDescriptor file = resolver.openTypedAssetFile(uri, "image/*", options, null)) {
+                if (file == null) {
+                    return null;
+                }
+                Bundle extras = file.getExtras();
+                final int reported = extras != null && extras.containsKey(DocumentsContract.EXTRA_ORIENTATION)
+                        ? extras.getInt(DocumentsContract.EXTRA_ORIENTATION) : -1;
+                byte[] encoded;
+                try (InputStream input = file.createInputStream()) {
+                    encoded = readAll(input);
+                }
+                Bitmap thumbnail = decodeTo(encoded, size);
                 if (thumbnail != null) {
-                    upright[0] = 1;
+                    describeOnce("openTypedAssetFile, " + thumbnail.getWidth() + "x" + thumbnail.getHeight()
+                            + " for " + size + ", provider orientation "
+                            + (reported >= 0 ? String.valueOf(reported) : "none") + ", as stored");
                 }
                 return thumbnail;
+            } catch (Exception error) {
+                Log.i(TAG, "No thumbnail for " + id + ": " + error);
+                return null;
             }
+        }
+        try {
             // MICRO_KIND is 96x96 and MINI_KIND 512x384. Asking for the larger
             // one below its size would hand back a picture to enlarge.
             final int kind = size <= 96 ? MediaStore.Images.Thumbnails.MICRO_KIND
                     : MediaStore.Images.Thumbnails.MINI_KIND;
-            return MediaStore.Images.Thumbnails.getThumbnail(resolver, id, kind, null);
+            Bitmap thumbnail = MediaStore.Images.Thumbnails.getThumbnail(resolver, id, kind, null);
+            if (thumbnail != null) {
+                describeOnce("the thumbnail table, as stored");
+            }
+            return thumbnail;
         } catch (Exception error) {
             Log.i(TAG, "No thumbnail for " + id + ": " + error);
             return null;
         }
+    }
+
+    /** Decodes reduced to no more than edge pixels on the long side. */
+    private static Bitmap decodeTo(byte[] encoded, int edge) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(encoded, 0, encoded.length, bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            return null;
+        }
+        BitmapFactory.Options decode = new BitmapFactory.Options();
+        // A provider can hand out a picture larger than the size asked for.
+        int sample = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= edge) {
+            sample *= 2;
+        }
+        decode.inSampleSize = sample;
+        decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        decode.inPremultiplied = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            decode.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
+        }
+        return BitmapFactory.decodeByteArray(encoded, 0, encoded.length, decode);
+    }
+
+    private static byte[] readAll(InputStream input) throws java.io.IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
+        byte[] buffer = new byte[1 << 16];
+        int read;
+        while ((read = input.read(buffer)) > 0) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 
     /** Whether reading the library needs a permission the user has not given. */

@@ -150,10 +150,10 @@ std::string rowsOf(const Bitmap &bitmap) {
 
 // The first camera photo, with a thumbnail the store hands out.
 MediaItem *photoWithThumbnail(FakeMediaStore &store, MediaFeed &feed, MediaStoreDataSource &source, int orientation,
-                              const std::vector<std::string> &thumbnail, bool upright) {
+                              const std::string &mime, const std::vector<std::string> &thumbnail) {
     store.photos[0].orientation = orientation;
+    store.photos[0].mime = mime;
     store.photos[0].thumbnail = lettered(thumbnail);
-    store.photos[0].thumbnailUpright = upright;
     source.loadMediaSets(&feed);
     feed.pumpListener();
     return itemCaptioned(setNamed(feed, "Camera"), "IMG_1.jpg");
@@ -161,35 +161,64 @@ MediaItem *photoWithThumbnail(FakeMediaStore &store, MediaFeed &feed, MediaStore
 
 }  // namespace
 
-TEST(a_store_thumbnail_the_platform_turned_upright_comes_back_as_stored) {
-    FakeMediaStore store;
-    fillLibrary(store);
-    MediaStoreDataSource source(store);
-    MediaFeed feed(&source, nullptr);
-    // Stored "abc" over "def", which the 180 degree turn shows as "fed" over "cba".
-    MediaItem *photo = photoWithThumbnail(store, feed, source, 180, {"fed", "cba"}, true);
-    CHECK(photo != nullptr);
-    if (photo != nullptr) {
-        CHECK_EQ(photo->mRotation, 180.0f);
+TEST(a_store_thumbnail_the_decoder_turned_upright_comes_back_as_stored) {
+    struct Turn {
+        int rotation;
+        std::vector<std::string> upright;
+    };
+    // The one stored picture, "abc" over "def", as each rotation shows it.
+    const Turn turns[] = {{0, {"abc", "def"}},
+                          {90, {"da", "eb", "fc"}},
+                          {180, {"fed", "cba"}},
+                          {270, {"cf", "be", "ad"}}};
+    for (const Turn &turn : turns) {
+        FakeMediaStore store;
+        fillLibrary(store);
+        MediaStoreDataSource source(store);
+        MediaFeed feed(&source, nullptr);
+        MediaItem *photo = photoWithThumbnail(store, feed, source, turn.rotation, "image/jpeg", turn.upright);
+        CHECK(photo != nullptr);
+        if (photo == nullptr) {
+            continue;
+        }
+        CHECK_EQ(photo->mRotation, (float)turn.rotation);
         Bitmap thumbnail;
         CHECK(source.readThumbnail(photo, 256, &thumbnail));
         CHECK_EQ(store.lastThumbnailEdge.load(), 256);
-        CHECK_DETAIL(rowsOf(thumbnail) == "abc/def", rowsOf(thumbnail));
+        CHECK_DETAIL(rowsOf(thumbnail) == "abc/def",
+                     std::to_string(turn.rotation) + " degrees gave " + rowsOf(thumbnail));
     }
 }
 
-TEST(a_store_thumbnail_as_stored_is_handed_over_unturned) {
-    FakeMediaStore store;
-    fillLibrary(store);
-    MediaStoreDataSource source(store);
-    MediaFeed feed(&source, nullptr);
-    MediaItem *photo = photoWithThumbnail(store, feed, source, 180, {"abc", "def"}, false);
-    CHECK(photo != nullptr);
-    if (photo != nullptr) {
+TEST(a_raw_thumbnail_is_handed_over_as_the_photo_is_stored) {
+    // The decoder that makes the store's thumbnails turns every format but a
+    // camera RAW, whose thumbnail arrives the way the photo is stored.
+    for (const char *mime : {"image/x-adobe-dng", "image/dng", "image/x-sony-arw"}) {
+        FakeMediaStore store;
+        fillLibrary(store);
+        MediaStoreDataSource source(store);
+        MediaFeed feed(&source, nullptr);
+        MediaItem *photo = photoWithThumbnail(store, feed, source, 180, mime, {"abc", "def"});
+        CHECK(photo != nullptr);
+        if (photo == nullptr) {
+            continue;
+        }
         Bitmap thumbnail;
         CHECK(source.readThumbnail(photo, 256, &thumbnail));
-        CHECK_DETAIL(rowsOf(thumbnail) == "abc/def", rowsOf(thumbnail));
+        CHECK_DETAIL(rowsOf(thumbnail) == "abc/def", std::string(mime) + " gave " + rowsOf(thumbnail));
     }
+}
+
+TEST(a_raw_is_told_from_a_picture_by_either_spelling_of_its_mime_type) {
+    CHECK(LocalDataSource::isRawMimeType("image/x-adobe-dng"));
+    CHECK(LocalDataSource::isRawMimeType("image/dng"));
+    CHECK(LocalDataSource::isRawMimeType("image/x-sony-arw"));
+    CHECK(LocalDataSource::isRawMimeType("image/ARW"));
+    CHECK(LocalDataSource::isRawMimeType("image/x-canon-cr2"));
+    CHECK(!LocalDataSource::isRawMimeType("image/jpeg"));
+    CHECK(!LocalDataSource::isRawMimeType("image/heif"));
+    CHECK(!LocalDataSource::isRawMimeType("image/png"));
+    CHECK(!LocalDataSource::isRawMimeType(""));
 }
 
 TEST(a_photo_the_store_keeps_no_thumbnail_for_falls_back_to_its_bytes) {

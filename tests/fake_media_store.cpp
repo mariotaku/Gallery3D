@@ -61,17 +61,15 @@ std::string FakeMediaStore::queryBucket(const std::string &bucketId) {
     return rows.dump();
 }
 
-bool FakeMediaStore::readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright) {
+bool FakeMediaStore::readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap) {
     ++thumbnailReads;
     lastThumbnailEdge = maxEdge;
-    if (bitmap == nullptr || upright == nullptr || maxEdge <= 0) {
+    if (bitmap == nullptr || maxEdge <= 0) {
         return false;
     }
-    *upright = false;
     for (const FakePhoto &photo : photos) {
         if (photo.id == id && photo.thumbnail.valid()) {
             *bitmap = photo.thumbnail.cropped(0, 0, photo.thumbnail.width(), photo.thumbnail.height());
-            *upright = photo.thumbnailUpright;
             return true;
         }
     }

@@ -29,8 +29,6 @@ struct FakePhoto {
     // What readThumbnail hands back. Invalid for a photo the store keeps no
     // thumbnail for.
     Bitmap thumbnail;
-    // Whether that thumbnail arrives turned upright, as loadThumbnail's does.
-    bool thumbnailUpright = false;
 };
 
 class FakeMediaStore : public MediaStoreClient {
@@ -39,7 +37,7 @@ class FakeMediaStore : public MediaStoreClient {
     std::string queryBuckets() override;
     std::string queryBucket(const std::string &bucketId) override;
     bool readImage(int64_t id, std::vector<uint8_t> *bytes) override;
-    bool readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright) override;
+    bool readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap) override;
 
     std::vector<FakePhoto> photos;
     // What the user answers the permission request with.

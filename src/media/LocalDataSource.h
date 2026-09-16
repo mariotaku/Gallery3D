@@ -163,6 +163,10 @@ class LocalDataSource : public DataSource {
     static bool isSupportedImage(const std::string &path);
     static std::string mimeTypeForPath(const std::string &path);
 
+    // Whether this names a camera RAW, by either spelling: image/x-adobe-dng
+    // as a media store reports it, or image/dng as a path gives it.
+    static bool isRawMimeType(const std::string &mimeType);
+
     // The files without each camera RAW that has a JPEG or HEIF of the same
     // name beside it. A camera set to save both writes the pair, and the pair
     // is one photo. The order is kept.

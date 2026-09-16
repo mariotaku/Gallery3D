@@ -9,5 +9,5 @@ class AndroidMediaStoreClient : public MediaStoreClient {
     std::string queryBuckets() override;
     std::string queryBucket(const std::string &bucketId) override;
     bool readImage(int64_t id, std::vector<uint8_t> *bytes) override;
-    bool readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright) override;
+    bool readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap) override;
 };

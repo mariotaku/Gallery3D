@@ -177,16 +177,18 @@ bool MediaStoreDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap *b
         return false;
     }
     Bitmap thumbnail;
-    bool upright = false;
-    if (!mClient.readThumbnail(item->mId, maxEdge, &thumbnail, &upright) || !thumbnail.valid()) {
+    if (!mClient.readThumbnail(item->mId, maxEdge, &thumbnail) || !thumbnail.valid()) {
         return false;
     }
-    if (!upright) {
+    // The store makes a thumbnail through a decoder that reads the EXIF and
+    // turns the picture upright. That decoder leaves a camera RAW alone, so a
+    // RAW's thumbnail arrives as the photo is stored, and nothing about the
+    // thumbnail says which of the two it is.
+    if (LocalDataSource::isRawMimeType(item->mMimeType)) {
         *bitmap = std::move(thumbnail);
         return true;
     }
-    // Turned back to the pixels as stored, which is what the wall's rotation
-    // is applied to.
+    // Turned back to the stored pixels the wall's own rotation is applied to.
     *bitmap = thumbnail.toStoredOrientation(exifOrientationFor(item->mRotation));
     return bitmap->valid();
 }
