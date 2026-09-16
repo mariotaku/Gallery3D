@@ -30,6 +30,16 @@ int thumbnailTextureEdge(int thumbnailWidth, float density, int maxEdge);
 // the larger of the two, which covers any shape up to two to one.
 int thumbnailDecodeEdge(int width, int height, int photoWidth, int photoHeight);
 
+// The long edge to decode a fullscreen screennail at: the length the photo's
+// own long edge covers on screen once fitted inside the safe area, held under
+// ceiling. Sized from what is drawn rather than from the window's long edge,
+// so a picture that fits by height does not decode for a width it never uses.
+// rotationDegrees turns the photo before it is fitted, since a quarter turn
+// swaps which of its edges runs across the screen. Answers ceiling without the
+// photo's size or a viewport, which is what the window alone can say.
+int screennailDecodeEdge(int fullWidth, int fullHeight, float rotationDegrees, int viewWidth, int viewHeight,
+                         int ceiling);
+
 class Texture {
   public:
     enum State {

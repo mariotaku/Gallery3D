@@ -26,6 +26,17 @@ struct DensityGuard {
     float ui;
 };
 
+// The same for the insets, which the screennail's size is measured inside.
+struct SafeAreaGuard {
+    SafeAreaGuard() : safe(App::SAFE_AREA) {
+        App::SAFE_AREA = App::SafeAreaInsets();
+    }
+    ~SafeAreaGuard() {
+        App::SAFE_AREA = safe;
+    }
+    App::SafeAreaInsets safe;
+};
+
 }  // namespace
 
 TEST(the_cell_grows_with_the_wall_density) {
@@ -161,6 +172,46 @@ TEST(a_thumbnail_decodes_just_large_enough_to_cover_its_crop) {
     CHECK_EQ(thumbnailDecodeEdge(512, 384, 0, 0), 1024);
     // A photo smaller than the crop is asked for at the crop's size.
     CHECK_EQ(thumbnailDecodeEdge(512, 384, 100, 75), 512);
+}
+
+TEST(a_screennail_is_measured_by_what_the_photo_covers_on_screen) {
+    SafeAreaGuard guard;
+    // Fitting by width and by height at once: the photo's long edge lands on
+    // the window's width.
+    CHECK_EQ(screennailDecodeEdge(3000, 2000, 0.0f, 1500, 1000, 4000), 1500);
+    // A photo taller than the window fits by height, so its long edge covers
+    // the height and never the full width.
+    CHECK_EQ(screennailDecodeEdge(2000, 3000, 0.0f, 1500, 1000, 4000), 1000);
+    // A quarter turn swaps which edge runs across the screen, so a landscape
+    // photo shown upright is measured as the portrait one above.
+    CHECK_EQ(screennailDecodeEdge(3000, 2000, 90.0f, 1500, 1000, 4000), 1000);
+    CHECK_EQ(screennailDecodeEdge(3000, 2000, 270.0f, 1500, 1000, 4000), 1000);
+    // The ceiling still holds the texture down on a large window.
+    CHECK_EQ(screennailDecodeEdge(8000, 4000, 0.0f, 4000, 2000, 2048), 2048);
+    // The insets come off the box first: the photo is fitted inside the safe
+    // area, not the window.
+    App::SAFE_AREA.top = 100.0f;
+    App::SAFE_AREA.bottom = 100.0f;
+    CHECK_EQ(screennailDecodeEdge(2000, 3000, 0.0f, 1500, 1000, 4000), 800);
+    App::SAFE_AREA = App::SafeAreaInsets();
+    // Without the photo's size or a viewport the window is all there is to go on.
+    CHECK_EQ(screennailDecodeEdge(0, 0, 0.0f, 1500, 1000, 1900), 1900);
+    CHECK_EQ(screennailDecodeEdge(3000, 2000, 0.0f, 0, 0, 1900), 1900);
+}
+
+TEST(a_screennail_decodes_to_cover_the_screen_without_decoding_whole) {
+    SafeAreaGuard guard;
+    // The point of measuring the drawn size: a 3000 pixel photo drawn 1500
+    // wide halves once and covers it exactly, rather than decoding whole
+    // because a halving would fall short of the window's own long edge.
+    const int edge = screennailDecodeEdge(3000, 2000, 0.0f, 1500, 1000, 2048);
+    CHECK_EQ(edge, 1500);
+    CHECK_EQ(Bitmap::sampleSizeFor(3000, 2000, edge), 2);
+    // A photo barely above the window keeps every pixel, which is what it is
+    // drawn at. Halving it would leave the picture upscaled.
+    const int barelyAbove = screennailDecodeEdge(1920, 1080, 0.0f, 1900, 1050, 1900);
+    CHECK_EQ(barelyAbove, 1867);
+    CHECK_EQ(Bitmap::sampleSizeFor(1920, 1080, barelyAbove), 1);
 }
 
 TEST(the_kept_slots_are_the_visible_ones_and_the_nearest_that_fit) {

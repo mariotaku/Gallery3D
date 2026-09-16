@@ -208,6 +208,27 @@ int thumbnailDecodeEdge(int width, int height, int photoWidth, int photoHeight) 
     return std::min(fallback, std::max(edge, std::max(width, height)));
 }
 
+int screennailDecodeEdge(int fullWidth, int fullHeight, float rotationDegrees, int viewWidth, int viewHeight,
+                         int ceiling) {
+    if (fullWidth <= 0 || fullHeight <= 0 || viewWidth <= 0 || viewHeight <= 0 || ceiling <= 0) {
+        return ceiling;
+    }
+    // The box the picture is fitted into, as GridDrawManager::drawFocusItems
+    // fits it: the window less the insets, so a cutout or a system bar never
+    // lands on the photo.
+    const App::SafeAreaInsets &safe = App::SAFE_AREA;
+    const float safeWidth = std::max(1.0f, (float)viewWidth - safe.left - safe.right);
+    const float safeHeight = std::max(1.0f, (float)viewHeight - safe.top - safe.bottom);
+    const bool portrait = ((((int)rotationDegrees) / 90) % 2) != 0;
+    const float acrossX = (float)(portrait ? fullHeight : fullWidth);
+    const float acrossY = (float)(portrait ? fullWidth : fullHeight);
+    // One scale fits both axes, and a quarter turn only swaps them, so the
+    // photo's long edge is still the longer of the two on screen.
+    const float scale = std::min(safeWidth / acrossX, safeHeight / acrossY);
+    const int drawn = (int)std::ceil((float)std::max(fullWidth, fullHeight) * scale - 1e-3f);
+    return std::max(1, std::min(ceiling, drawn));
+}
+
 Bitmap MediaItemTexture::load(RenderView *view) {
     // startLoad handles asynchronous decoding; load is required by the base class.
     (void)view;
@@ -229,10 +250,15 @@ void MediaItemTexture::startLoad(RenderView *view, const TexturePtr &self) {
     };
     if (!mConfig) {
         prepare(DataSource::ItemLoad::Whole);
-        // Size fullscreen screennails to the window, and never past it: a photo
-        // twice the window edge costs four times the memory, and zoom reads the
-        // detail from RegionDecoder tiles rather than from this texture.
-        decodeItem(mItem, App::SCREEN_NAIL_MAX_EDGE, SampleFit::Under,
+        // Size the screennail to what the photo covers on screen rather than to
+        // the window's long edge: one that fits by height never uses the width,
+        // and decoding for it costs memory the picture cannot show. Reaching
+        // holds the texture at or above that length, so the photo is never
+        // drawn upscaled, and drawFocusTiles fills in where it still lands
+        // short, such as after a turn this size was not worked out for.
+        const int edge = screennailDecodeEdge(mItem->mFullWidth, mItem->mFullHeight, mItem->mRotation,
+                                              view->getWidth(), view->getHeight(), App::SCREEN_NAIL_MAX_EDGE);
+        decodeItem(mItem, edge, SampleFit::Reaching,
                    [view, self](Bitmap bitmap) { view->finishLoad(self, std::move(bitmap)); });
         return;
     }
