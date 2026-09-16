@@ -28,6 +28,11 @@ class MediaStoreDataSource : public DataSource {
     // app may open, so the decoders never see one.
     bool readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) override;
 
+    // The store's own thumbnail, turned back to the photo's stored orientation
+    // when the platform hands it over upright. Every texture then holds stored
+    // pixels, which is what the card's rotation is applied to.
+    bool readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) override;
+
     // Zoomed photos are cropped by BitmapRegionDecoder, which reads the same
     // content uri.
     bool supportsRegions(const MediaItem *item) const override;

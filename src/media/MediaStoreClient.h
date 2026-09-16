@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+class Bitmap;
+
 class MediaStoreClient {
   public:
     virtual ~MediaStoreClient() = default;
@@ -26,4 +28,16 @@ class MediaStoreClient {
 
     // The encoded bytes of one photo. False when it cannot be read.
     virtual bool readImage(int64_t id, std::vector<uint8_t> *bytes) = 0;
+
+    // The thumbnail the platform keeps for one photo, no larger than maxEdge.
+    // upright says whether it arrives turned by the photo's rotation, which
+    // ContentResolver.loadThumbnail does and the older thumbnail table does
+    // not. False when the platform has no thumbnail to give.
+    virtual bool readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright) {
+        (void)id;
+        (void)maxEdge;
+        (void)bitmap;
+        (void)upright;
+        return false;
+    }
 };

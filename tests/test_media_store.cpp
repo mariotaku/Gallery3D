@@ -119,7 +119,95 @@ MediaItem *itemCaptioned(MediaSet *set, const std::string &caption) {
     return nullptr;
 }
 
+// A picture spelled out, one letter a pixel.
+Bitmap lettered(const std::vector<std::string> &rows) {
+    const int height = (int)rows.size();
+    const int width = height > 0 ? (int)rows[0].size() : 0;
+    Bitmap made(width, height);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            uint8_t *pixel = made.pixels() + ((size_t)y * (size_t)width + (size_t)x) * 4;
+            std::fill(pixel, pixel + 4, (uint8_t)rows[(size_t)y][(size_t)x]);
+        }
+    }
+    made.markOpaque();
+    return made;
+}
+
+// The rows of a lettered picture, separated by slashes.
+std::string rowsOf(const Bitmap &bitmap) {
+    std::string rows;
+    for (int y = 0; y < bitmap.height(); ++y) {
+        if (y > 0) {
+            rows += '/';
+        }
+        for (int x = 0; x < bitmap.width(); ++x) {
+            rows += (char)bitmap.pixels()[((size_t)y * (size_t)bitmap.width() + (size_t)x) * 4];
+        }
+    }
+    return rows;
+}
+
+// The first camera photo, with a thumbnail the store hands out.
+MediaItem *photoWithThumbnail(FakeMediaStore &store, MediaFeed &feed, MediaStoreDataSource &source, int orientation,
+                              const std::vector<std::string> &thumbnail, bool upright) {
+    store.photos[0].orientation = orientation;
+    store.photos[0].thumbnail = lettered(thumbnail);
+    store.photos[0].thumbnailUpright = upright;
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+    return itemCaptioned(setNamed(feed, "Camera"), "IMG_1.jpg");
+}
+
 }  // namespace
+
+TEST(a_store_thumbnail_the_platform_turned_upright_comes_back_as_stored) {
+    FakeMediaStore store;
+    fillLibrary(store);
+    MediaStoreDataSource source(store);
+    MediaFeed feed(&source, nullptr);
+    // Stored "abc" over "def", which the 180 degree turn shows as "fed" over "cba".
+    MediaItem *photo = photoWithThumbnail(store, feed, source, 180, {"fed", "cba"}, true);
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        CHECK_EQ(photo->mRotation, 180.0f);
+        Bitmap thumbnail;
+        CHECK(source.readThumbnail(photo, 256, &thumbnail));
+        CHECK_EQ(store.lastThumbnailEdge.load(), 256);
+        CHECK_DETAIL(rowsOf(thumbnail) == "abc/def", rowsOf(thumbnail));
+    }
+}
+
+TEST(a_store_thumbnail_as_stored_is_handed_over_unturned) {
+    FakeMediaStore store;
+    fillLibrary(store);
+    MediaStoreDataSource source(store);
+    MediaFeed feed(&source, nullptr);
+    MediaItem *photo = photoWithThumbnail(store, feed, source, 180, {"abc", "def"}, false);
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        Bitmap thumbnail;
+        CHECK(source.readThumbnail(photo, 256, &thumbnail));
+        CHECK_DETAIL(rowsOf(thumbnail) == "abc/def", rowsOf(thumbnail));
+    }
+}
+
+TEST(a_photo_the_store_keeps_no_thumbnail_for_falls_back_to_its_bytes) {
+    FakeMediaStore store;
+    fillLibrary(store);
+    MediaStoreDataSource source(store);
+    MediaFeed feed(&source, nullptr);
+    source.loadMediaSets(&feed);
+    feed.pumpListener();
+
+    MediaItem *photo = itemCaptioned(setNamed(feed, "Camera"), "IMG_1.jpg");
+    CHECK(photo != nullptr);
+    if (photo != nullptr) {
+        Bitmap thumbnail;
+        CHECK(!source.readThumbnail(photo, 256, &thumbnail));
+        CHECK_EQ(store.thumbnailReads.load(), 1);
+    }
+}
 
 TEST(a_refused_library_queries_nothing_and_still_finishes_loading) {
     FakeMediaStore store;

@@ -60,4 +60,8 @@ build-ios/
 #   git clone --depth 1 --filter=blob:none --sparse --branch android14-release \
 #     https://android.googlesource.com/platform/packages/apps/DocumentsUI reference/documentsui
 #   git -C reference/documentsui sparse-checkout set src/com/android/documentsui
+#
+# Picasso, for how it orients a MediaStore image:
+#   git clone --depth 1 --branch fix-media-exif-orientation \
+#     https://github.com/usuiat/picasso.git reference/picasso
 reference/

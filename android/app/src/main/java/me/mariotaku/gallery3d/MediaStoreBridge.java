@@ -1,8 +1,10 @@
 package me.mariotaku.gallery3d;
 
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -10,6 +12,7 @@ import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.util.Size;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -228,6 +231,40 @@ public final class MediaStoreBridge {
             return out.toByteArray();
         } catch (Exception error) {
             Log.w(TAG, "Could not read image " + id, error);
+            return null;
+        }
+    }
+
+    /**
+     * The store's thumbnail for one photo, no larger than size on its long
+     * edge. Null when the store has none.
+     *
+     * upright[0] is 1 when the platform has already turned the thumbnail by the
+     * photo's rotation. ContentResolver.loadThumbnail does that from Android
+     * 10; the thumbnail table it replaced hands out the pixels as stored.
+     */
+    public static Bitmap readThumbnail(long id, int size, int[] upright) {
+        upright[0] = 0;
+        ContentResolver resolver = resolver();
+        if (resolver == null || size <= 0) {
+            return null;
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Uri uri = ContentUris.withAppendedId(IMAGES, id);
+                Bitmap thumbnail = resolver.loadThumbnail(uri, new Size(size, size), null);
+                if (thumbnail != null) {
+                    upright[0] = 1;
+                }
+                return thumbnail;
+            }
+            // MICRO_KIND is 96x96 and MINI_KIND 512x384. Asking for the larger
+            // one below its size would hand back a picture to enlarge.
+            final int kind = size <= 96 ? MediaStore.Images.Thumbnails.MICRO_KIND
+                    : MediaStore.Images.Thumbnails.MINI_KIND;
+            return MediaStore.Images.Thumbnails.getThumbnail(resolver, id, kind, null);
+        } catch (Exception error) {
+            Log.i(TAG, "No thumbnail for " + id + ": " + error);
             return null;
         }
     }

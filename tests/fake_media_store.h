@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "graphics/Bitmap.h"
 #include "media/MediaStoreClient.h"
 
 struct FakePhoto {
@@ -25,6 +26,11 @@ struct FakePhoto {
     int height = 0;
     // The file readImage hands back. Empty for a photo that cannot be read.
     std::string file;
+    // What readThumbnail hands back. Invalid for a photo the store keeps no
+    // thumbnail for.
+    Bitmap thumbnail;
+    // Whether that thumbnail arrives turned upright, as loadThumbnail's does.
+    bool thumbnailUpright = false;
 };
 
 class FakeMediaStore : public MediaStoreClient {
@@ -33,6 +39,7 @@ class FakeMediaStore : public MediaStoreClient {
     std::string queryBuckets() override;
     std::string queryBucket(const std::string &bucketId) override;
     bool readImage(int64_t id, std::vector<uint8_t> *bytes) override;
+    bool readThumbnail(int64_t id, int maxEdge, Bitmap *bitmap, bool *upright) override;
 
     std::vector<FakePhoto> photos;
     // What the user answers the permission request with.
@@ -41,4 +48,6 @@ class FakeMediaStore : public MediaStoreClient {
     std::atomic<int> permissionRequests{0};
     std::atomic<int> folderQueries{0};
     std::atomic<int> photoQueries{0};
+    std::atomic<int> thumbnailReads{0};
+    std::atomic<int> lastThumbnailEdge{0};
 };

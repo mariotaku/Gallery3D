@@ -33,6 +33,21 @@ float rotationFor(int orientation) {
     }
 }
 
+// The EXIF orientation, 1 to 8, of a picture shown upright after this
+// clockwise rotation.
+int exifOrientationFor(float rotation) {
+    if (rotation == 90.0f) {
+        return 6;
+    }
+    if (rotation == 180.0f) {
+        return 3;
+    }
+    if (rotation == 270.0f) {
+        return 8;
+    }
+    return 1;
+}
+
 nlohmann::json parse(const std::string &text, const char *what) {
     if (text.empty()) {
         return nlohmann::json::array();
@@ -155,6 +170,25 @@ void MediaStoreDataSource::loadBucketItems(MediaSet &set, const std::string &buc
     set.sortItemsByDate();
     set.updateNumExpectedItems();
     set.generateTitle(true);
+}
+
+bool MediaStoreDataSource::readThumbnail(MediaItem *item, int maxEdge, Bitmap *bitmap) {
+    if (item == nullptr || item->mId < 0 || bitmap == nullptr || maxEdge <= 0) {
+        return false;
+    }
+    Bitmap thumbnail;
+    bool upright = false;
+    if (!mClient.readThumbnail(item->mId, maxEdge, &thumbnail, &upright) || !thumbnail.valid()) {
+        return false;
+    }
+    if (!upright) {
+        *bitmap = std::move(thumbnail);
+        return true;
+    }
+    // Turned back to the pixels as stored, which is what the wall's rotation
+    // is applied to.
+    *bitmap = thumbnail.toStoredOrientation(exifOrientationFor(item->mRotation));
+    return bitmap->valid();
 }
 
 bool MediaStoreDataSource::readItemBytes(MediaItem *item, std::vector<uint8_t> *bytes) {
