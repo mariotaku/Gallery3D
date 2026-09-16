@@ -174,7 +174,8 @@ void GridQuad::set(int i, int j, float x, float y, float z, float u, float v, bo
     if (matrix != nullptr) {
         // Rotates the texture coordinates about the quad centre and shrinks
         // them just enough that a rotated thumbnail still fills the frame.
-        int orientation = orientationId * 2;
+        // One entry per degree: draw takes the angle itself as the index.
+        int orientation = orientationId;
         matrix->glLoadIdentity();
         matrix->glTranslatef(0.5f, 0.5f, 0.0f);
         float itheta = (float)orientation * (kPi / 180.0f);
