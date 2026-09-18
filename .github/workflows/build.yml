@@ -16,17 +16,20 @@ jobs:
   linux:
     name: Linux
     runs-on: ubuntu-24.04
-    # Ubuntu 24.04 packages no SDL3. Debian 13 packages all three libraries.
+    # vcpkg supplies the native dependencies; Debian supplies only the build tools.
     container: debian:trixie
     steps:
       - name: Install dependencies
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates git build-essential cmake ninja-build pkg-config \
-            libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-            libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
+            ca-certificates curl git zip unzip tar build-essential cmake ninja-build
       - uses: actions/checkout@v4
+      - name: Bootstrap vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git /opt/vcpkg
+          /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=/opt/vcpkg" >> "$GITHUB_ENV"
       - name: Configure
         run: cmake --preset linux
       - name: Build
@@ -46,10 +49,13 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates git build-essential cmake ninja-build pkg-config \
-            libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-            libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
+            ca-certificates curl git zip unzip tar build-essential cmake ninja-build
       - uses: actions/checkout@v4
+      - name: Bootstrap vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git /opt/vcpkg
+          /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=/opt/vcpkg" >> "$GITHUB_ENV"
       - name: Configure
         run: cmake --preset linux-sanitize
       - name: Build
@@ -68,12 +74,12 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Install dependencies
-        run: brew install ninja pkgconf sdl3 sdl3_image sdl3_ttf jpeg-turbo little-cms2 nlohmann-json
+        run: brew install ninja
       - uses: actions/checkout@v4
+      - name: Use runner's vcpkg
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
       - name: Configure
-        # Homebrew keeps jpeg-turbo apart from the system's libjpeg, so CMake
-        # is told where it is.
-        run: cmake --preset linux -DCMAKE_PREFIX_PATH="$(brew --prefix jpeg-turbo)"
+        run: cmake --preset linux
       - name: Build
         run: cmake --build build
       - name: Test
@@ -116,6 +122,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Use runner's vcpkg
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -142,6 +150,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Use runner's vcpkg
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -191,6 +201,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Use runner's vcpkg
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
       - name: Configure
         run: cmake --preset ios
       - name: Build

@@ -14,6 +14,11 @@
 
 namespace {
 
+// GL_EXT_texture_filter_anisotropic is detected before these tokens are used.
+// GLAD's vcpkg GLES 2 profile deliberately omits all optional extensions.
+constexpr GLenum kTextureMaxAnisotropy = 0x84FE;
+constexpr GLenum kMaxTextureMaxAnisotropy = 0x84FF;
+
 // Fills the part of the bound power of two texture past the bitmap uploaded in
 // its corner. A texture that builds mipmaps repeats its edge pixels there,
 // since a reduced level averages across the boundary. Any other is left
@@ -253,7 +258,7 @@ bool RenderView::init(SDL_Window *window) {
     const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
     if (extensions != nullptr && SDL_strstr(extensions, "GL_EXT_texture_filter_anisotropic") != nullptr) {
         GLfloat maxAnisotropy = 1.0f;
-        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
+        glGetFloatv(kMaxTextureMaxAnisotropy, &maxAnisotropy);
         // Cap anisotropy at four.
         mMaxAnisotropy = (maxAnisotropy < 4.0f) ? maxAnisotropy : 4.0f;
     }
@@ -718,7 +723,7 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     }
     if (mipmapped) {
         glGenerateMipmap(GL_TEXTURE_2D);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, mMaxAnisotropy);
+        glTexParameterf(GL_TEXTURE_2D, kTextureMaxAnisotropy, mMaxAnisotropy);
     }
     GLenum error = glGetError();
 

@@ -122,7 +122,9 @@ iOS on every push, runs the tests on Linux and Windows, and keeps each
 build as an artifact. iOS builds there as an unsigned Xcode project on a
 macOS runner. The commands below are the ones it runs.
 
-Windows takes its dependencies from vcpkg, with `VCPKG_ROOT` set:
+All native builds use vcpkg for GLAD. Set `VCPKG_ROOT` to a bootstrapped vcpkg
+checkout before configuring. Windows takes its remaining dependencies from the
+same manifest:
 
 ```sh
 cmake --preset default
@@ -130,20 +132,18 @@ cmake --build build --config Release
 ctest --test-dir build -C Release
 ```
 
-Linux takes them from the distro, so it needs one that packages SDL3 —
-Debian 13 or newer, or an equivalent:
+On Linux, vcpkg builds the C/C++ dependencies; install only the compiler,
+CMake and Ninja first:
 
 ```sh
-sudo apt install build-essential cmake ninja-build pkg-config \
-    libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-    libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
+sudo apt install build-essential cmake ninja-build
 cmake --preset linux
 cmake --build build
 ctest --test-dir build
 ```
 
-Android builds the same CMakeLists through Gradle. It needs the SDK, an NDK and
-a JDK, then:
+Android builds the same CMakeLists through Gradle. It needs the SDK, an NDK, a
+JDK and `VCPKG_ROOT`, then:
 
 ```sh
 sh android/fetch-deps.sh
@@ -158,11 +158,12 @@ debug key so it installs without a keystore, which has to change before the apk
 goes anywhere.
 
 `fetch-deps.sh` downloads SDL's official Android archives, which are not on
-Maven Central. They carry prefab modules, so `find_package(SDL3 CONFIG)` finds
-them the same way it finds vcpkg's copy. minSdk is 24 and the build is
-arm64-v8a.
+Maven Central. They carry prefab modules for `find_package(SDL3 CONFIG)`;
+vcpkg builds GLAD independently for the arm64-v8a and x86_64 Android triplets.
+minSdk is 24.
 
-On a Mac with Xcode, iOS is an ordinary Xcode project, unsigned:
+On a Mac with Xcode, iOS is an ordinary Xcode project, unsigned. It also needs
+`VCPKG_ROOT` so vcpkg can build GLAD for `arm64-ios`:
 
 ```sh
 cmake --preset ios
@@ -188,13 +189,14 @@ bash tools/ios/build.sh           # build gallery3d.app
 bash tools/ios/build.sh install   # build, sign and install on the phone
 ```
 
-SDL, SDL_image and SDL_ttf are built from source and linked statically. The
+SDL, SDL_image and SDL_ttf are built from source and linked statically. GLAD
+comes from vcpkg, so the Linux/WSL cross-build also needs `VCPKG_ROOT`. The
 build tree is `~/.cache/gallery3d/build-ios` unless `BUILD_DIR` says
 otherwise, because building on the Windows drive from WSL is many times slower.
 Photos are read from the app's Documents folder, which the Files app shows.
 A zoomed photo stays on its screennail there.
 
-The vcpkg manifest supplies SDL3 and nlohmann-json. Windows needs no
+The vcpkg manifest supplies GLAD and the desktop dependencies. Windows needs no
 SDL_image, SDL_ttf or libjpeg: WIC decodes every image, including HEIF and
 camera RAW once their extensions are installed from the Microsoft Store, and
 DirectWrite draws the text. Assets are copied next to the binary. Tests run without a window.

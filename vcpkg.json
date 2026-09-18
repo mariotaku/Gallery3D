@@ -2,8 +2,38 @@
   "name": "gallery3d-sdl",
   "version": "0.1.0",
   "dependencies": [
-    "sdl3",
-    "nlohmann-json",
-    "zlib"
+    {
+      "name": "sdl3",
+      "platform": "!(android | ios)"
+    },
+    {
+      "name": "nlohmann-json",
+      "platform": "!(android | ios)"
+    },
+    {
+      "name": "zlib",
+      "platform": "!(android | ios)"
+    },
+    {
+      "name": "sdl3-image",
+      "features": ["jpeg", "png"],
+      "platform": "!(windows | android | ios)"
+    },
+    {
+      "name": "sdl3-ttf",
+      "platform": "!(windows | android | ios)"
+    },
+    {
+      "name": "libjpeg-turbo",
+      "platform": "!(windows | android | ios)"
+    },
+    {
+      "name": "lcms",
+      "platform": "!(windows | android | ios)"
+    },
+    {
+      "name": "glad",
+      "features": ["gles2-api-20"]
+    }
   ]
 }

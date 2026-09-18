@@ -21,9 +21,10 @@ swiftly_env="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
 if [ -f "$swiftly_env" ]; then
     . "$swiftly_env"
 fi
+export GALLERY3D_IOS_TOOLCHAIN="$root/ios/xtool.toolchain.cmake"
 
 cmake -S "$root" -B "$build" -G Ninja \
-    -DCMAKE_TOOLCHAIN_FILE="$root/ios/xtool.toolchain.cmake" \
+    -DCMAKE_TOOLCHAIN_FILE="$root/ios/vcpkg-xtool.toolchain.cmake" \
     -DCMAKE_BUILD_TYPE="$config"
 cmake --build "$build"
 

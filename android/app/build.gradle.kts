@@ -121,7 +121,11 @@ android {
                 // GALLERY3D_TESTS off unless the conformance build type turns
                 // it on, so a CMake cache left by that build cannot carry it
                 // into the app's.
-                arguments += listOf("-DANDROID_STL=c++_shared", "-DGALLERY3D_TESTS=OFF")
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    "-DGALLERY3D_TESTS=OFF",
+                    "-DCMAKE_TOOLCHAIN_FILE=${rootProject.projectDir.resolve("vcpkg-android.toolchain.cmake").absolutePath}"
+                )
             }
         }
         ndk {
