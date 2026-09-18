@@ -79,16 +79,19 @@ else()
         # the rest, which SDL_image cannot do. SDL_image already links this, so
         # asking for the headers adds no library.
         find_package(JPEG REQUIRED)
-        # LittleCMS converts the colour profile a JPEG embeds to sRGB.
-        find_package(lcms CONFIG REQUIRED)
+        # LittleCMS converts the colour profile a JPEG embeds to sRGB. Distro
+        # packages ship a pkg-config file for it and no CMake package.
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2)
     endif()
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
-# Inflates the colour profile a PNG embeds. The NDK and iOS SDK carry it;
-# vcpkg builds it for the desktop targets.
+# Inflates the colour profile a PNG embeds. The NDK and the iOS SDK carry it,
+# vcpkg builds it on Windows and the distros package it.
 find_package(ZLIB REQUIRED)
 # GLAD is generated and built by the vcpkg port for the active target. It
-# supplies GLES 2 declarations and loads from SDL's current context.
+# supplies GLES 2 declarations and loads from SDL's current context. It is the
+# one package vcpkg supplies on every platform.
 find_package(glad CONFIG REQUIRED)
 
 # The same warning level on every compiler, so a warning that appears on one

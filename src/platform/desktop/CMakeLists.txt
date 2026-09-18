@@ -10,5 +10,5 @@ if(NOT WIN32)
         RegionDecoder.cpp
         SubsampledDecode.cpp
         SystemThumbnail.cpp)
-    target_link_libraries(gallery3d_core PUBLIC JPEG::JPEG lcms::lcms)
+    target_link_libraries(gallery3d_core PUBLIC JPEG::JPEG PkgConfig::LCMS2)
 endif()

@@ -132,11 +132,13 @@ cmake --build build --config Release
 ctest --test-dir build -C Release
 ```
 
-On Linux, vcpkg builds the C/C++ dependencies; install only the compiler,
-CMake and Ninja first:
+Linux takes everything but GLAD from the distro, so it needs one that packages
+SDL3 — Debian 13 or newer, or an equivalent. vcpkg generates GLAD with python3:
 
 ```sh
-sudo apt install build-essential cmake ninja-build
+sudo apt install build-essential cmake ninja-build pkg-config python3 \
+    libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
+    libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
 cmake --preset linux
 cmake --build build
 ctest --test-dir build
@@ -196,10 +198,11 @@ otherwise, because building on the Windows drive from WSL is many times slower.
 Photos are read from the app's Documents folder, which the Files app shows.
 A zoomed photo stays on its screennail there.
 
-The vcpkg manifest supplies GLAD and the desktop dependencies. Windows needs no
-SDL_image, SDL_ttf or libjpeg: WIC decodes every image, including HEIF and
-camera RAW once their extensions are installed from the Microsoft Store, and
-DirectWrite draws the text. Assets are copied next to the binary. Tests run without a window.
+The vcpkg manifest supplies GLAD everywhere, and SDL3, nlohmann-json and zlib
+on Windows. Windows needs no SDL_image, SDL_ttf or libjpeg: WIC decodes every
+image, including HEIF and camera RAW once their extensions are installed from
+the Microsoft Store, and DirectWrite draws the text. Assets are copied next to
+the binary. Tests run without a window.
 To build and run the Debug tests directly:
 
 ```sh

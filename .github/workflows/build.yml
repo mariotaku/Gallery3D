@@ -16,14 +16,19 @@ jobs:
   linux:
     name: Linux
     runs-on: ubuntu-24.04
-    # vcpkg supplies the native dependencies; Debian supplies only the build tools.
+    # Ubuntu 24.04 packages no SDL3. Debian 13 packages all three libraries.
     container: debian:trixie
     steps:
       - name: Install dependencies
+        # vcpkg generates GLAD, which it does with python3. curl, zip, unzip and
+        # tar are what vcpkg's own bootstrap needs.
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates curl git zip unzip tar build-essential cmake ninja-build
+            ca-certificates curl git zip unzip tar python3 \
+            build-essential cmake ninja-build pkg-config \
+            libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
+            libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
       - uses: actions/checkout@v4
       - name: Bootstrap vcpkg
         run: |
@@ -49,7 +54,10 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates curl git zip unzip tar build-essential cmake ninja-build
+            ca-certificates curl git zip unzip tar python3 \
+            build-essential cmake ninja-build pkg-config \
+            libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
+            libjpeg-dev liblcms2-dev nlohmann-json3-dev zlib1g-dev
       - uses: actions/checkout@v4
       - name: Bootstrap vcpkg
         run: |
@@ -74,12 +82,14 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Install dependencies
-        run: brew install ninja
+        run: brew install ninja pkgconf sdl3 sdl3_image sdl3_ttf jpeg-turbo little-cms2 nlohmann-json
       - uses: actions/checkout@v4
       - name: Use runner's vcpkg
         run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
       - name: Configure
-        run: cmake --preset linux
+        # Homebrew keeps jpeg-turbo apart from the system's libjpeg, so CMake
+        # is told where it is.
+        run: cmake --preset linux -DCMAKE_PREFIX_PATH="$(brew --prefix jpeg-turbo)"
       - name: Build
         run: cmake --build build
       - name: Test

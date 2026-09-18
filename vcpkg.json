@@ -4,32 +4,15 @@
   "dependencies": [
     {
       "name": "sdl3",
-      "platform": "!(android | ios)"
+      "platform": "windows"
     },
     {
       "name": "nlohmann-json",
-      "platform": "!(android | ios)"
+      "platform": "windows"
     },
     {
       "name": "zlib",
-      "platform": "!(android | ios)"
-    },
-    {
-      "name": "sdl3-image",
-      "features": ["jpeg", "png"],
-      "platform": "!(windows | android | ios)"
-    },
-    {
-      "name": "sdl3-ttf",
-      "platform": "!(windows | android | ios)"
-    },
-    {
-      "name": "libjpeg-turbo",
-      "platform": "!(windows | android | ios)"
-    },
-    {
-      "name": "lcms",
-      "platform": "!(windows | android | ios)"
+      "platform": "windows"
     },
     {
       "name": "glad",
