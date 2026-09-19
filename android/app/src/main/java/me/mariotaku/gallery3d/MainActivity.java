@@ -82,6 +82,25 @@ public class MainActivity extends SDLActivity {
     }
 
     @Override
+    protected boolean sendCommand(int command, Object data) {
+        if (command == COMMAND_CHANGE_WINDOW_STYLE) {
+            // This activity owns the window decor. SDL's version of the same
+            // work sets the layout flags this app has already set a different
+            // way, and raises the cutout mode from SHORT_EDGES to ALWAYS.
+            //
+            // It also costs half a second. SDL asks for the style on the way
+            // out of SDL_CreateWindow, and leaving fullscreen makes SDLActivity
+            // wait for a surfaceChanged() that a layout already running edge to
+            // edge never sends, so the wait runs its full 500ms timeout. It
+            // holds SDL's activity mutex throughout, which blocks the ui thread
+            // as well, and the first frame lands after both.
+            runOnUiThread(this::drawUnderSystemBars);
+            return true;
+        }
+        return super.sendCommand(command, data);
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         // SDLActivity sets its own system ui visibility when focus returns,
