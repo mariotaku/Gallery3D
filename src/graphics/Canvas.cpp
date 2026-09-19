@@ -413,29 +413,50 @@ Bitmap blurredCoverage(const Bitmap &src, int radius) {
     const float norm = 1.0f / (float)(radius * 2 + 1);
     // Two box passes approximate a tent filter, which is close enough to the
     // blur the original asked Paint for.
+    //
+    // Each pass carries a running sum along its line: one sample joins the
+    // window and one leaves it, whatever the radius. A sample off the end of
+    // the line counts as nothing, the same as when the window was added up in
+    // full, so a halo still fades out at the edges.
     for (int pass = 0; pass < 2; ++pass) {
         for (int y = 0; y < height; ++y) {
+            const float *in = coverage.data() + (size_t)y * (size_t)width;
+            float *out = scratch.data() + (size_t)y * (size_t)width;
+            float sum = 0.0f;
+            for (int x = 0; x <= radius && x < width; ++x) {
+                sum += in[x];
+            }
             for (int x = 0; x < width; ++x) {
-                float sum = 0.0f;
-                for (int k = -radius; k <= radius; ++k) {
-                    int sx = x + k;
-                    if (sx >= 0 && sx < width) {
-                        sum += coverage[(size_t)y * (size_t)width + (size_t)sx];
-                    }
+                out[x] = sum * norm;
+                const int entering = x + radius + 1;
+                const int leaving = x - radius;
+                if (entering < width) {
+                    sum += in[entering];
                 }
-                scratch[(size_t)y * (size_t)width + (size_t)x] = sum * norm;
+                if (leaving >= 0) {
+                    sum -= in[leaving];
+                }
             }
         }
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                float sum = 0.0f;
-                for (int k = -radius; k <= radius; ++k) {
-                    int sy = y + k;
-                    if (sy >= 0 && sy < height) {
-                        sum += scratch[(size_t)sy * (size_t)width + (size_t)x];
-                    }
+        // Down each column, which is the same walk with the row stride between
+        // samples instead of one.
+        for (int x = 0; x < width; ++x) {
+            const float *in = scratch.data() + (size_t)x;
+            float *out = coverage.data() + (size_t)x;
+            float sum = 0.0f;
+            for (int y = 0; y <= radius && y < height; ++y) {
+                sum += in[(size_t)y * (size_t)width];
+            }
+            for (int y = 0; y < height; ++y) {
+                out[(size_t)y * (size_t)width] = sum * norm;
+                const int entering = y + radius + 1;
+                const int leaving = y - radius;
+                if (entering < height) {
+                    sum += in[(size_t)entering * (size_t)width];
                 }
-                coverage[(size_t)y * (size_t)width + (size_t)x] = sum * norm;
+                if (leaving >= 0) {
+                    sum -= in[(size_t)leaving * (size_t)width];
+                }
             }
         }
     }
