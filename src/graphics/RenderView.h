@@ -120,6 +120,9 @@ class RenderView {
     bool bind(const TexturePtr &texture);
     bool bindMixed(const TexturePtr &from, const TexturePtr &to, float ratio);
     void unbindMixed();
+    // Makes one texture unit current, and binds onto whichever is current.
+    void setActiveUnit(int unit);
+    bool bindOnActiveUnit(const TexturePtr &texture);
     void processAllTextures();
     void queueDeleteTexture(GLuint textureId);
     bool isLoadingExpensiveTextures() const;
@@ -236,7 +239,10 @@ class RenderView {
     GLuint mIndexVBO = 0;
     GLuint mQuad2DVBO = 0;
 
-    Texture *mBoundTexture = nullptr;
+    // What each texture unit holds, so a texture already on the unit that
+    // wants it is not bound again. Two entries because mixing samples both.
+    Texture *mBoundTextures[2] = {nullptr, nullptr};
+    int mActiveUnit = 0;
     // The texture on unit 1 while mixing, for the second set of coordinates.
     Texture *mBoundTextureMixed = nullptr;
 

@@ -684,6 +684,13 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     if (tracked) {
         glDeleteTextures(1, &texture->mId);
         texture->mId = 0;
+        // Deleting the name drops it from whatever unit still held it, so a
+        // unit recorded as carrying this texture now carries nothing.
+        for (Texture *&bound : mBoundTextures) {
+            if (bound == texture.get()) {
+                bound = nullptr;
+            }
+        }
     }
     GLuint textureId = 0;
     glGenTextures(1, &textureId);
@@ -728,7 +735,7 @@ void RenderView::uploadTexture(const TexturePtr &texture) {
     GLenum error = glGetError();
 
     texture->mBitmap = Bitmap();
-    mBoundTexture = nullptr;
+    mBoundTextures[mActiveUnit] = nullptr;
 
     if (error != GL_NO_ERROR) {
         if (error == GL_OUT_OF_MEMORY) {
@@ -765,6 +772,11 @@ void RenderView::processTextures(bool processAll) {
         if (!mPendingTextureDeletes.empty()) {
             glDeleteTextures((GLsizei)mPendingTextureDeletes.size(), mPendingTextureDeletes.data());
             mPendingTextureDeletes.clear();
+            // GL resets the binding of a deleted texture to zero on every unit,
+            // and the Texture those names belonged to is gone, so an address
+            // held here could be matched by a later texture allocated over it.
+            mBoundTextures[0] = nullptr;
+            mBoundTextures[1] = nullptr;
         }
     }
 
@@ -946,11 +958,24 @@ void RenderView::cancelLoads() {
 
 // Binding and colour
 
+void RenderView::setActiveUnit(int unit) {
+    if (mActiveUnit == unit) {
+        return;
+    }
+    glActiveTexture(unit == 0 ? GL_TEXTURE0 : GL_TEXTURE1);
+    mActiveUnit = unit;
+}
+
 bool RenderView::bind(const TexturePtr &texture) {
+    setActiveUnit(0);
+    return bindOnActiveUnit(texture);
+}
+
+bool RenderView::bindOnActiveUnit(const TexturePtr &texture) {
     if (!texture) {
         return false;
     }
-    if (texture.get() == mBoundTexture) {
+    if (texture.get() == mBoundTextures[mActiveUnit]) {
         return true;
     }
     switch (texture->mState) {
@@ -965,7 +990,7 @@ bool RenderView::bind(const TexturePtr &texture) {
         break;
     case Texture::STATE_LOADED:
         glBindTexture(GL_TEXTURE_2D, texture->mId);
-        mBoundTexture = texture.get();
+        mBoundTextures[mActiveUnit] = texture.get();
         texture->mLastUsedMs = SDL_GetTicks();
         return true;
     default:
@@ -975,17 +1000,12 @@ bool RenderView::bind(const TexturePtr &texture) {
 }
 
 bool RenderView::bindMixed(const TexturePtr &from, const TexturePtr &to, float ratio) {
-    bool bound = bind(from);
-    glActiveTexture(GL_TEXTURE1);
-    mBoundTexture = nullptr;
-    bound = bind(to) && bound;
-    glActiveTexture(GL_TEXTURE0);
-    mBoundTexture = nullptr;
+    setActiveUnit(0);
+    bool bound = bindOnActiveUnit(from);
+    setActiveUnit(1);
+    bound = bindOnActiveUnit(to) && bound;
+    setActiveUnit(0);
     if (!bound) {
-        return false;
-    }
-    // Re-bind unit 0 now that the active unit is back where it started.
-    if (!bind(from)) {
         return false;
     }
     mMixing = true;
@@ -1000,10 +1020,10 @@ void RenderView::unbindMixed() {
     mMixing = false;
     mBoundTextureMixed = nullptr;
     glDisableVertexAttribArray(2);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE0);
-    mBoundTexture = nullptr;
+    // Unit 1 keeps what it holds. Only the mixing program samples it, so what
+    // is left there is never read, and the next mix that wants the same
+    // texture finds it already bound.
+    setActiveUnit(0);
 }
 
 void RenderView::setAlpha(float alpha) {
@@ -1139,9 +1159,9 @@ void RenderView::draw2D(float x, float y, float z, float width, float height) {
     // because the attributes read from separate buffers.
     float u = 1.0f;
     float v = 1.0f;
-    if (mBoundTexture) {
-        u = mBoundTexture->getNormalizedWidth();
-        v = mBoundTexture->getNormalizedHeight();
+    if (mBoundTextures[0]) {
+        u = mBoundTextures[0]->getNormalizedWidth();
+        v = mBoundTextures[0]->getNormalizedHeight();
     }
     const float positions[] = {
         x,         y,          z,  // top left
