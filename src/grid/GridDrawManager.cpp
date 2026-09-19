@@ -925,7 +925,10 @@ void GridDrawManager::drawBlendedComponents(RenderView *view, float alpha, int s
             }
             DisplaySlot &displaySlot = displaySlots[i - firstBufferedVisibleSlot];
             TexturePtr textureString = displaySlot.getTitleImage(stringTextureTable);
-            view->prime(textureString, false);
+            // Ahead of the photos: a label costs a fraction of a thumbnail to
+            // draw, and a slot with no name under it reads as broken, while a
+            // photo still on its way reads as one still on its way.
+            view->prime(textureString, true);
             if (textureString) {
                 if (i < firstVisibleSlot || i > lastVisibleSlot) {
                     continue;
@@ -960,7 +963,7 @@ void GridDrawManager::drawBlendedComponents(RenderView *view, float alpha, int s
             DisplaySlot &displaySlot = displaySlots[i - firstBufferedVisibleSlot];
             TexturePtr textureString = displaySlot.getLocationImage(stringTextureTable);
             if (textureString) {
-                view->prime(textureString, false);
+                view->prime(textureString, true);
                 drawDisplayItem(view, displayItem, textureString, PASS_TEXT_LABEL, nullptr, 0.0f);
             }
         }
