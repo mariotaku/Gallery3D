@@ -850,7 +850,17 @@ void GridDrawManager::drawBlendedComponents(RenderView *view, float alpha, int s
             if (!slotIsAlive) {
                 DisplayItem *displayItem = displayItems[(i - firstBufferedVisibleSlot) * GridLayer::MAX_ITEMS_PER_SLOT];
                 if (displayItem != nullptr) {
-                    drawDisplayItem(view, displayItem, texturePlaceHolder, PASS_FRAME_PLACEHOLDER, nullptr, 0.0f);
+                    // The frame pass below draws only the items the thumbnail
+                    // pass drew, and an item whose thumbnail has not arrived is
+                    // not one of them. Without this the focused slot loses its
+                    // frame until the picture loads, which on a TV is the only
+                    // thing saying where the remote is pointing.
+                    TexturePtr frame = texturePlaceHolder;
+                    if (i == mCurrentFocusSlot) {
+                        frame = mCurrentFocusIsPressed ? mDrawables->mTextureFramePressed
+                                                       : mDrawables->mTextureFrameFocus;
+                    }
+                    drawDisplayItem(view, displayItem, frame, PASS_FRAME_PLACEHOLDER, nullptr, 0.0f);
                 }
             }
         }

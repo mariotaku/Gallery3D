@@ -81,10 +81,19 @@ class DisplayItem {
     bool mInAnimatables = false;
 
   private:
+    // Lifts the item out of its stack for focus, or a fraction of that for a
+    // hover, on top of wherever it rests. The caller sets the resting position
+    // first. Anything that recomputes that position calls this afterwards, or
+    // the item drops back into the stack while it still has the focus.
+    void applyEmphasis();
+
     Vector3f mStacktopPosition{-1.0f, -1.0f, -1.0f};
     Vector3f mJitteredPosition;
     bool mHasFocus = false;
     bool mHovered = false;
+    // How the item was told to lift, kept so that applyEmphasis can repeat it.
+    // A stack spreads its cards; a grid brings one forward.
+    bool mEmphasisPushDown = false;
     Vector3f mTargetPosition;
     float mTargetTheta = 0.0f;
     float mImageTheta = 0.0f;

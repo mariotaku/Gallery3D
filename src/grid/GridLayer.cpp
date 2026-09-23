@@ -494,6 +494,13 @@ void GridLayer::centerCameraForSlot(int slotIndex, float baseConvergence) {
     }
     mCameraManager->centerCameraForSlot(mLayoutInterface, slotIndex, baseConvergence, mDeltaAnchorPositionUncommited,
                                         mInputProcessor->getCurrentSelectedSlot(), mZoomValue, imageTheta, mState);
+    // Centring asks for whatever puts the slot in the middle, which for a slot
+    // near either end is past where the wall may go. update() clamps the camera
+    // back the next frame, so without clamping here the wall jumps at the slot
+    // and is pulled back, once for every press. A wall narrower than the window
+    // has nowhere to go at all: its range is the one centred point, and every
+    // press fought it.
+    keepWallInRange();
 }
 
 bool GridLayer::constrainCameraForSlot(int slotIndex) {
