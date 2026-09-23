@@ -2,6 +2,13 @@
 # per file and renormalises on every add, which it warns about each time.
 * text=auto eol=lf
 
+# A shell reads a carriage return as part of the command, so a script checked
+# out with CRLF fails on its first line with an error that names a character
+# nothing printed. Marked text outright rather than left to text=auto, which
+# decides per file and would leave a script it read as binary alone.
+*.sh text eol=lf
+gradlew text eol=lf
+
 # Binary, so never touched.
 *.png binary
 *.jpg binary

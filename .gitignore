@@ -12,7 +12,7 @@ android/local.properties
 # Gradle keeps the native build tree under the module, not the project root.
 android/app/build/
 android/app/.cxx/
-.claude/worktrees/
+.claude/
 out/
 vcpkg_installed/
 *.user
@@ -64,4 +64,8 @@ build-ios/
 # Picasso, for how it orients a MediaStore image:
 #   git clone --depth 1 --branch fix-media-exif-orientation \
 #     https://github.com/usuiat/picasso.git reference/picasso
+#
+# SDL's webOS fork, for what its video driver and public API offer a TV app:
+#   git clone --depth 1 --branch release-3.4.16-webos.2 \
+#     https://github.com/webosbrew/SDL-webOS.git reference/sdl-webos
 reference/

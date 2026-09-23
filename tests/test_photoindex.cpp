@@ -91,7 +91,7 @@ TEST(the_scope_names_every_folder_as_a_file_url) {
     CHECK(PhotoIndex::scopeClause({"C:\\Users\\someone\\Pictures", "D:/Dropbox/Photos"}) ==
           "(SCOPE='file:C:/Users/someone/Pictures' OR SCOPE='file:D:/Dropbox/Photos')");
     // A quote in a folder's name would end the string early.
-    CHECK(PhotoIndex::scopeClause({"D:/Mario's photos"}) == "(SCOPE='file:D:/Mario''s photos')");
+    CHECK(PhotoIndex::scopeClause({"D:/someone's photos"}) == "(SCOPE='file:D:/someone''s photos')");
 }
 
 TEST(a_scan_takes_what_the_index_knows_and_reads_the_rest) {
