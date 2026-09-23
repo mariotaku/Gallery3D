@@ -9,6 +9,11 @@
 *.sh text eol=lf
 gradlew text eol=lf
 
+# cmd.exe finds a goto's label by reading the file line by line, and with bare
+# LF endings it can miss one. gradlew.bat jumps between labels. Stored LF like
+# everything else, checked out CRLF.
+*.bat text eol=crlf
+
 # Binary, so never touched.
 *.png binary
 *.jpg binary
