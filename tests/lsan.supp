@@ -1,0 +1,6 @@
+# Leaks LeakSanitizer finds in libraries this project does not build.
+#
+# fontconfig parses fonts.conf through expat the first time FcInit runs, and
+# its parser loses two blocks on the way (320 bytes in Debian 13's 2.16.0).
+# Nothing points at them afterwards, so FcFini would not free them either.
+leak:FcInitLoadConfigAndFonts

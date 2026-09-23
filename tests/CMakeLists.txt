@@ -84,3 +84,14 @@ gallery3d_add_warnings(gallery3d_tests)
 gallery3d_add_symbols(gallery3d_tests)
 
 add_test(NAME gallery3d_tests COMMAND gallery3d_tests)
+# A sanitizer build reads leaks to ignore from here, and any other build
+# ignores the variable. Set on the test rather than in CI, so a local
+# linux-sanitize run gets the same answer.
+#
+# The slow unwinder, because the suppression names a fontconfig function and
+# the distro builds fontconfig without frame pointers: the fast one stops in
+# the library and never records the function, so nothing matches. Suppressing
+# all of libfontconfig instead would also hide a pattern this code forgets to
+# destroy, which is allocated inside the library too. It costs a second.
+set_tests_properties(gallery3d_tests PROPERTIES
+    ENVIRONMENT "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/lsan.supp:fast_unwind_on_malloc=0")
