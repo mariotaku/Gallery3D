@@ -113,14 +113,20 @@ gallery3d --window-size 320x320 --screenshot out.png
 
 ## Building
 
-Requires CMake 3.21+ and a C++17 compiler. Windows and Linux are the validated
-native platforms. Graphics require OpenGL ES 2.0 or the fallback desktop
-OpenGL 2.1 compatibility context.
+Requires CMake 3.21+ and a C++17 compiler. Graphics require OpenGL ES 2.0 or
+the fallback desktop OpenGL 2.1 compatibility context.
 
-`.github/workflows/build.yml` builds Linux (Debian 13), Windows, Android and
-iOS on every push, runs the tests on Linux and Windows, and keeps each
-build as an artifact. iOS builds there as an unsigned Xcode project on a
-macOS runner. The commands below are the ones it runs.
+`.github/workflows/build.yml` builds Linux (Debian 13), macOS, Windows, Android
+and iOS on every push, and keeps each build as an artifact. The tests run on
+Linux, macOS and Windows, again on Linux under AddressSanitizer and
+UndefinedBehaviorSanitizer, and on Android in an emulator. iOS builds there as
+an unsigned Xcode project on a macOS runner, and nothing runs it. webOS has no
+job, because the buildroot SDK is not on a runner. The commands below are the
+ones CI runs.
+
+Beyond CI, the app is run by hand on Windows, on Linux, on Android in an
+emulator, and on two webOS TVs: an LK5900 on webOS 4.4 and a UP7560 on
+webOS 6.5.
 
 All native builds use vcpkg for GLAD. Set `VCPKG_ROOT` to a bootstrapped vcpkg
 checkout before configuring. Windows takes its remaining dependencies from the
@@ -210,11 +216,13 @@ sh tools/webos/build.sh install    # also install on the TV with ares-install
 
 The SDK's sysroot carries SDL2, and upstream SDL3 has no webOS video driver, so
 SDL3 is the [SDL-webOS](https://github.com/webosbrew/SDL-webOS) build that
-`tools/webos/fetch-deps.sh` downloads. The ipk ships it in `lib/` beside the
-binary, which finds it through an `$ORIGIN/lib` rpath. SDL_image and SDL_ttf
-have no webOS release and build from source against it, static. libjpeg,
-libpng, freetype and zlib come from the sysroot; LittleCMS and GLAD from vcpkg,
-because buildroot packages neither.
+`tools/webos/fetch-deps.sh` downloads. It links static, so the ipk carries no
+SDL. SDL_image and SDL_ttf have no webOS release and build from source against
+it, static too. libjpeg, libpng, freetype and zlib come from the sysroot;
+LittleCMS and GLAD from vcpkg, because buildroot packages neither. The ipk
+carries libjpeg in `lib/`, which the binary finds through an `$ORIGIN/lib`
+rpath: a TV has the 6b ABI, `libjpeg.so.62`, and the SDK builds against
+libjpeg-turbo's `libjpeg.so.8`.
 
 libstdc++ and libgcc link statically. The SDK's GCC is far newer than the one a
 TV's firmware was built with, and a dynamic link asks for a GLIBCXX version the
@@ -232,7 +240,11 @@ else is listed and reads as empty. That rules out the internal storage, whose
 sample photos sit under another app's directory. `library.photos` names a
 directory instead.
 
-The window takes the size webOS gives the display and goes fullscreen. A TV
+A TV passes no options on the command line. SAM hands a native app its launch
+parameters as one JSON object, which the app skips, so settings come from a
+`gallery3d.ini` in the app's directory.
+
+The window takes the size webOS gives the display, which covers the screen. A TV
 hands an app 1280x720 and scales that to the panel, and even a 4K panel draws
 its UI at 1080p at most, so this is the size to draw at rather than the panel's.
 The window's shape has to match the panel's: a 16:10 window on a 16:9 screen is
