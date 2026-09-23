@@ -4,6 +4,20 @@ project(gallery3d LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# webOS is a Linux system and its buildroot toolchain impersonates one, so
+# CMake's own detection cannot tell a TV from a desktop. Key off the toolchain
+# triple, as SDL-webOS does. Without this the webOS SDK would configure and
+# build a generic Linux binary that finds no wayland-webos display on a TV.
+set(GALLERY3D_WEBOS OFF)
+foreach(hint IN ITEMS "${CMAKE_CXX_COMPILER_TARGET}" "${CMAKE_CXX_COMPILER}"
+                      "${CMAKE_SYSROOT}")
+    if(hint MATCHES "webos")
+        set(GALLERY3D_WEBOS ON)
+        break()
+    endif()
+endforeach()
+unset(hint)
+
 if(ANDROID)
     # SDL's own aar archives carry prefab modules, so the same find_package the
     # desktop uses works here too. android/fetch-deps.sh puts them in app/libs.
@@ -68,6 +82,57 @@ elseif(IOS)
     set_property(SOURCE "${sdl3_image_SOURCE_DIR}/src/IMG_ImageIO.m"
         DIRECTORY "${sdl3_image_SOURCE_DIR}"
         APPEND_STRING PROPERTY COMPILE_FLAGS " -x objective-c")
+elseif(GALLERY3D_WEBOS)
+    # An LG TV, cross-compiled from Linux or WSL with the openlgtv buildroot
+    # SDK. tools/webos/build.sh drives it.
+    #
+    # SDL3 is the prebuilt webOS build that tools/webos/fetch-deps.sh unpacks:
+    # the SDK's sysroot carries SDL2, and upstream SDL3 has no wayland-webos
+    # video driver. SDL_image and SDL_ttf have no webOS release, so they build
+    # from source against it, static, so the ipk ships SDL3 alone.
+    #
+    # libjpeg, libpng, freetype and zlib come from the sysroot. LittleCMS does
+    # not: buildroot leaves it out, so vcpkg builds it with GLAD.
+    find_package(SDL3 CONFIG REQUIRED)
+    include(FetchContent)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_VENDORED OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_AVIF OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_JXL OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_TIF OFF CACHE BOOL "" FORCE)
+    set(SDLIMAGE_WEBP OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_VENDORED OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_HARFBUZZ OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_PLUTOSVG OFF CACHE BOOL "" FORCE)
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+    # The versions the other ports take. GIT_SUBMODULES "" skips the vendored
+    # decoders: SDL_image carries libjxl, libavif, libtiff and libwebp as
+    # submodules, which clone before any option is read. That is over 800MB of
+    # sources this build never compiles, because those decoders are off and
+    # libjpeg and libpng come from the sysroot.
+    FetchContent_Declare(SDL3_image GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+                              GIT_TAG release-3.4.6 GIT_SHALLOW TRUE GIT_SUBMODULES "")
+    FetchContent_Declare(SDL3_ttf GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+                              GIT_TAG release-3.2.2 GIT_SHALLOW TRUE GIT_SUBMODULES "")
+    FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git
+                              GIT_TAG v3.11.3 GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(SDL3_image SDL3_ttf nlohmann_json)
+    find_package(JPEG REQUIRED)
+    find_package(lcms2 CONFIG REQUIRED)
+    # The webOS package carries a static SDL3 beside the shared one. Linking the
+    # static one keeps every library this app needs inside the binary, so the
+    # ipk ships no SDL of its own and the linker drops what the wall never
+    # calls.
+    set(GALLERY3D_SDL3 SDL3::SDL3-static)
+    # This sysroot's glibc still keeps the pthread functions in libpthread.
+    # glibc 2.34 merged them into libc, which is why no other Linux build here
+    # names a thread library.
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads REQUIRED)
 else()
     find_package(SDL3 CONFIG REQUIRED)
     # Windows decodes images through WIC and draws text through DirectWrite, so
@@ -137,13 +202,20 @@ else()
     add_library(gallery3d_core OBJECT)
 endif()
 target_include_directories(gallery3d_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
+# SDL3::SDL3 everywhere but webOS, which names the static build above.
+if(NOT GALLERY3D_SDL3)
+    set(GALLERY3D_SDL3 SDL3::SDL3)
+endif()
 target_link_libraries(gallery3d_core PUBLIC
-    SDL3::SDL3
+    ${GALLERY3D_SDL3}
     glad::glad
     nlohmann_json::nlohmann_json
     ZLIB::ZLIB)
 gallery3d_add_warnings(gallery3d_core)
 gallery3d_add_symbols(gallery3d_core)
+if(GALLERY3D_WEBOS)
+    target_link_libraries(gallery3d_core PUBLIC Threads::Threads)
+endif()
 if(WIN32)
     # Windows 7 is the oldest Windows this runs on. The SDK then hides anything
     # newer, so a call Windows 7 lacks fails to compile instead of stopping the
@@ -178,6 +250,19 @@ target_link_libraries(gallery3d PRIVATE gallery3d_core)
 gallery3d_add_warnings(gallery3d)
 gallery3d_add_symbols(gallery3d)
 
+if(GALLERY3D_WEBOS)
+    # A TV has no SDL3 of its own, so the ipk carries it in lib/ beside the
+    # binary. Without this rpath the loader looks in the system directories
+    # alone and the app does not start.
+    set_target_properties(gallery3d PROPERTIES
+        INSTALL_RPATH "$ORIGIN/lib"
+        BUILD_WITH_INSTALL_RPATH ON)
+    # The SDK's GCC is far newer than the one a TV's firmware was built with,
+    # so a dynamic link asks for GLIBCXX_3.4.30 that the TV does not have and
+    # the app does not start. Carry the two runtimes in the binary.
+    target_link_options(gallery3d PRIVATE -static-libstdc++ -static-libgcc)
+endif()
+
 add_subdirectory(src)
 
 if(ANDROID)
@@ -196,7 +281,7 @@ endif()
 # scripts/android-tests.sh runs them on a device.
 if(ANDROID AND GALLERY3D_TESTS)
     add_subdirectory(tests)
-elseif(NOT ANDROID AND NOT IOS)
+elseif(NOT ANDROID AND NOT IOS AND NOT GALLERY3D_WEBOS)
     enable_testing()
     add_subdirectory(tests)
 endif()

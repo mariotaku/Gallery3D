@@ -32,6 +32,7 @@ int BACKDROP_BLUR = BACKDROP_BLUR_GAUSSIAN;
 // Matches the standard deviation of a nine-tap box: sqrt((81 - 1) / 12).
 float BACKDROP_BLUR_SIGMA = 2.58f;
 SafeAreaInsets SAFE_AREA;
+bool SAFE_AREA_IS_MARGIN = false;
 std::string ASSET_ROOT = "assets";
 
 namespace {

@@ -40,6 +40,20 @@
       }
     },
     {
+      "name": "webos",
+      "displayName": "webOS TV, cross-compiled with the buildroot SDK",
+      "generator": "Ninja",
+      "binaryDir": "$env{HOME}/.cache/gallery3d/build-webos",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/webos/vcpkg-webos.toolchain.cmake",
+        "GALLERY3D_WEBOS_PREFIX": "$env{HOME}/.cache/gallery3d/webos-sysroot"
+      },
+      "environment": {
+        "WEBOS_SDK": "/opt/arm-webos-linux-gnueabi_sdk-buildroot"
+      }
+    },
+    {
       "name": "ios",
       "displayName": "iOS device, as an Xcode project on macOS",
       "generator": "Xcode",
@@ -62,6 +76,7 @@
     { "name": "linux", "configurePreset": "linux" },
     { "name": "linux-debug", "configurePreset": "linux-debug" },
     { "name": "linux-sanitize", "configurePreset": "linux-sanitize" },
+    { "name": "webos", "configurePreset": "webos" },
     { "name": "ios", "configurePreset": "ios", "configuration": "Release" }
   ]
 }

@@ -13,6 +13,7 @@
 #include <string>
 
 #include "app/App.h"
+#include "graphics/SystemFont.h"
 
 namespace {
 
@@ -27,38 +28,22 @@ bool sFontsReady = false;
 const char *const kShippedRegular = "Roboto-Regular.ttf";
 const char *const kShippedBold = "Roboto-Bold.ttf";
 
-const char *const kFontCandidates[] = {
-    "C:/Windows/Fonts/segoeui.ttf",
-    "C:/Windows/Fonts/arial.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/TTF/DejaVuSans.ttf",
-    "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
-    "/Library/Fonts/Arial.ttf",
-    "/System/Library/Fonts/Helvetica.ttc",
-    "/System/Library/Fonts/Supplemental/Arial.ttf",
-};
-
-const char *const kBoldFontCandidates[] = {
-    "C:/Windows/Fonts/segoeuib.ttf",
-    "C:/Windows/Fonts/arialbd.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
-    "/Library/Fonts/Arial Bold.ttf",
-    "/System/Library/Fonts/Helvetica.ttc",
-    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-};
-
-TTF_Font *openFirst(const char *shippedName, const char *const *candidates, size_t count, float size) {
-    std::string shipped = App::assetPath(std::string("fonts/") + shippedName);
-    if (TTF_Font *font = TTF_OpenFont(shipped.c_str(), size)) {
-        return font;
-    }
-    for (size_t i = 0; i < count; ++i) {
-        TTF_Font *font = TTF_OpenFont(candidates[i], size);
-        if (font) {
+// Asks the platform for its interface font, and falls back to the face the app
+// ships. No paths are written out here: which file holds a family, and what a
+// machine has installed, is what fontconfig and CoreText are for.
+TTF_Font *openFirst(const char *shippedName, float size, bool bold, std::string *openedPath) {
+    const std::string system = SystemFont::path(bold);
+    if (!system.empty()) {
+        if (TTF_Font *font = TTF_OpenFont(system.c_str(), size)) {
+            *openedPath = system;
             return font;
         }
+        SDL_Log("The system font at %s did not open, falling back", system.c_str());
+    }
+    std::string shipped = App::assetPath(std::string("fonts/") + shippedName);
+    if (TTF_Font *font = TTF_OpenFont(shipped.c_str(), size)) {
+        *openedPath = shipped;
+        return font;
     }
     return nullptr;
 }
@@ -110,16 +95,31 @@ bool init() {
         SDL_Log("TTF_Init failed: %s", SDL_GetError());
         return false;
     }
-    sFontRegular =
-        openFirst(kShippedRegular, kFontCandidates, sizeof(kFontCandidates) / sizeof(kFontCandidates[0]), 20.0f);
-    sFontBold = openFirst(kShippedBold, kBoldFontCandidates,
-                          sizeof(kBoldFontCandidates) / sizeof(kBoldFontCandidates[0]), 20.0f);
+    std::string regularPath;
+    sFontRegular = openFirst(kShippedRegular, 20.0f, false, &regularPath);
+    std::string boldPath;
+    sFontBold = openFirst(kShippedBold, 20.0f, true, &boldPath);
+    if (sFontBold != nullptr && !boldPath.empty() && boldPath == regularPath) {
+        // The platform named one file for both weights, which a font collection
+        // is. TTF_OpenFont reads its first face either way, so the bold is the
+        // regular until it is thickened here.
+        TTF_SetFontStyle(sFontBold, TTF_STYLE_BOLD);
+    }
     if (!sFontRegular) {
         SDL_Log("No usable font found; text will be blank");
         return false;
     }
     if (!sFontBold) {
-        sFontBold = sFontRegular;
+        // A system with one weight of its interface font, which is what a TV
+        // ships. Open that face a second time and let SDL_ttf thicken it: both
+        // names pointing at one font would draw every label bold, because the
+        // style belongs to the font rather than to the call that draws with it.
+        sFontBold = TTF_OpenFont(regularPath.c_str(), 20.0f);
+        if (sFontBold != nullptr) {
+            TTF_SetFontStyle(sFontBold, TTF_STYLE_BOLD);
+        } else {
+            sFontBold = sFontRegular;
+        }
     }
     sFontsReady = true;
     return true;

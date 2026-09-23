@@ -18,5 +18,11 @@
       "name": "glad",
       "features": ["gles2-api-20"]
     }
-  ]
+  ],
+  "features": {
+    "webos": {
+      "description": "LG webOS, where the buildroot sysroot has no LittleCMS",
+      "dependencies": ["lcms"]
+    }
+  }
 }

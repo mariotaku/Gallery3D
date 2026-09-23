@@ -4,6 +4,7 @@
 #
 #   windows/  Windows
 #   android/  Android
+#   webos/    LG webOS
 #   posix/    every platform that is not Windows
 #   desktop/  Linux and macOS: libjpeg and LittleCMS, where there is no WIC
 #   generic/  fallbacks for a platform without an implementation of its own
@@ -22,6 +23,12 @@ else()
 endif()
 if(ANDROID)
     add_subdirectory(android)
+endif()
+if(GALLERY3D_WEBOS)
+    add_subdirectory(webos)
+endif()
+if(IOS)
+    add_subdirectory(ios)
 endif()
 if(GALLERY3D_DESKTOP)
     add_subdirectory(desktop)

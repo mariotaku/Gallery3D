@@ -46,19 +46,30 @@ if((NOT GALLERY3D_DESKTOP AND NOT ANDROID) OR WIN32)
         SubsampledDecode.cpp)
 endif()
 
-# Text through SDL_ttf, where the platform draws none of its own.
+# Text through SDL_ttf, where the platform draws none of its own. It asks
+# SystemFont for the interface font first; iOS is the one platform here that
+# can name it, so the rest take the fallback.
 if(NOT WIN32 AND NOT ANDROID)
     target_sources(gallery3d_core PRIVATE
         TextBackend.cpp)
+    if(NOT GALLERY3D_HAVE_SYSTEM_FONT)
+        target_sources(gallery3d_core PRIVATE
+            SystemFont.cpp)
+    endif()
     target_link_libraries(gallery3d_core PUBLIC SDL3_ttf::SDL3_ttf)
 endif()
 
 # The Windows shell's library, its search index and its window frame have no
-# counterpart elsewhere.
+# counterpart elsewhere. webOS has a library of a kind: the TV's storage manager
+# names the volumes it has attached. It has no index a scan may read, so the
+# fallback stands there and the folders are walked.
 if(NOT WIN32)
+    if(NOT GALLERY3D_WEBOS)
+        target_sources(gallery3d_core PRIVATE
+            PhotoLibrary.cpp)
+    endif()
     target_sources(gallery3d_core PRIVATE
         PhotoIndex.cpp
-        PhotoLibrary.cpp
         WindowFrame.cpp)
 endif()
 

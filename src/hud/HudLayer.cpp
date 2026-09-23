@@ -139,9 +139,14 @@ void HudLayer::onSizeChanged() {
     // art is drawn to sit against the screen. Insetting it leaves a sliver of
     // wall between that flat edge and the screen, which reads as a mistake
     // rather than a margin. The inset still applies above and at the far end.
+    // Where the inset is a margin rather than an obstruction, as a TV's
+    // overscan is, the bar keeps running to the screen's edge: its flat left
+    // edge held a margin away reads as a bar that was cut off. Only its far end
+    // and the room it may use come in.
     float inset = 3.0f * App::UI_DENSITY;
-    mPathBar.setPosition(safeLeft, safeTop + inset);
-    mPathBar.setSize(safeWidth - inset, PathBarLayer::preferredHeight());
+    const float barLeft = App::SAFE_AREA_IS_MARGIN ? 0.0f : safeLeft;
+    mPathBar.setPosition(barLeft, safeTop + inset);
+    mPathBar.setSize(safeLeft + safeWidth - inset - barLeft, PathBarLayer::preferredHeight());
 
     // The menu bar runs along the bottom edge.
     mMenuBar.setPosition(safeLeft, safeBottom - MenuBar::preferredHeight());
@@ -183,8 +188,12 @@ void HudLayer::onSizeChanged() {
         captionButtonsWidth = CaptionButtons::preferredWidth();
     }
 
-    // And the mode button steps left to make room for them.
-    mTopRightButton.setPosition(safeRightEdge - TOP_RIGHT_WIDTH * App::UI_DENSITY - captionButtonsWidth, safeTop);
+    // And the mode button steps left to make room for them. It takes the same
+    // inset from the top as the path bar, so the two line up: both are drawn
+    // from their top edge down, and without it the button rides a few pixels
+    // high of the breadcrumb beside it.
+    mTopRightButton.setPosition(safeRightEdge - TOP_RIGHT_WIDTH * App::UI_DENSITY - captionButtonsWidth,
+                                safeTop + inset);
     computeBottomMenu();
 }
 

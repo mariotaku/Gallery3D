@@ -68,7 +68,12 @@ namespace {
 const float kWheelSettleSeconds = 0.75f;
 
 std::string defaultPhotoDirectory() {
-#if defined(SDL_PLATFORM_IOS)
+#if defined(__WEBOS__)
+    // A TV runs the app in a jail that holds /tmp, /usr, /var and /media, so
+    // the home folder SDL would name is both outside it and the app's own
+    // directory. USB storage mounts under /tmp/usb, one folder per partition.
+    return "/tmp/usb";
+#elif defined(SDL_PLATFORM_IOS)
     // The app's own Documents, which Info.plist shows in the Files app. The
     // sandbox reaches no other folder of photos without the Photos library.
     if (const char *documents = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS)) {
@@ -276,6 +281,19 @@ void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInset
         App::SAFE_AREA.right = (float)barRight;
         App::SAFE_AREA.bottom = (float)barBottom;
     }
+#endif
+#if defined(__WEBOS__)
+    // Overscan. A TV panel cuts off the edges of the picture by an amount that
+    // is the panel's business, not the app's, so LG asks that nothing needed
+    // sits within 20 pixels of the edge of a 1920x1080 screen. Half again as
+    // much as that, because the wall's controls are the only way around it and
+    // a remote is pointed from across a room.
+    //
+    // As a share of the window rather than a count of pixels: webOS hands this
+    // app 1280x720 today and the ratio is what the guidance is really about.
+    App::SAFE_AREA.left = App::SAFE_AREA.right = (float)windowWidth * (30.0f / 1920.0f);
+    App::SAFE_AREA.top = App::SAFE_AREA.bottom = (float)windowHeight * (30.0f / 1080.0f);
+    App::SAFE_AREA_IS_MARGIN = true;
 #endif
     if (overridden) {
         App::SAFE_AREA = overrideInsets;
@@ -563,6 +581,14 @@ int main(int argc, char **argv) {
     int windowHeight = 800;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
+#if defined(__WEBOS__)
+        // webOS hands a native app its launch parameters as one JSON object on
+        // the command line. Nothing here reads them, and the options below
+        // would reject the object and stop the app from starting.
+        if (!arg.empty() && arg.front() == '{') {
+            continue;
+        }
+#endif
         if (arg == "--screenshot" && i + 1 < argc) {
             screenshotPath = argv[++i];
         } else if (arg == "--frames" && i + 1 < argc) {
@@ -665,20 +691,6 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    // Without a directory named in settings, the platform's own library says
-    // where the photos are. On Windows that is the Pictures library, which can
-    // take in folders on other drives; elsewhere it is the one Pictures folder.
-    // The camera roll is marked whichever folders are walked.
-    const PhotoLibrary::Locations systemPhotos = PhotoLibrary::systemLocations();
-    std::vector<std::string> photoRoots;
-    if (!photoDirectory.empty()) {
-        photoRoots.push_back(photoDirectory);
-    } else if (!systemPhotos.folders.empty()) {
-        photoRoots = systemPhotos.folders;
-    } else {
-        photoRoots.push_back(defaultPhotoDirectory());
-    }
-
     // Again, because SDL_Init puts its own exception filter in during startup
     // and ours has to be the one on top.
     Backtrace::install();
@@ -709,6 +721,23 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // Without a directory named in settings, the platform's own library says
+    // where the photos are. On Windows that is the Pictures library, which can
+    // take in folders on other drives; elsewhere it is the one Pictures folder.
+    // The camera roll is marked whichever folders are walked.
+    //
+    // After SDL_Init, because webOS answers this from a system service and the
+    // bridge that carries the call is one SDL brings up.
+    const PhotoLibrary::Locations systemPhotos = PhotoLibrary::systemLocations();
+    std::vector<std::string> photoRoots;
+    if (!photoDirectory.empty()) {
+        photoRoots.push_back(photoDirectory);
+    } else if (!systemPhotos.folders.empty()) {
+        photoRoots = systemPhotos.folders;
+    } else {
+        photoRoots.push_back(defaultPhotoDirectory());
+    }
+
     // Ask for ES 2.0 first. Desktop drivers that refuse it still hand back a
     // context whose GL 2.0 core covers every call this port makes.
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
@@ -719,10 +748,41 @@ int main(int argc, char **argv) {
 
     // Extend content into the caption while retaining the system frame, snapping and shadow.
     SDL_WindowFlags windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#if defined(__WEBOS__)
+    // A TV fills its panel. The window's own size is the size the compositor
+    // scales to the panel, so the default 1280x800 would put a 16:10 picture on
+    // a 16:9 screen and stretch it a ninth wider than tall. Take the display's
+    // own size and go fullscreen, and the two shapes agree whatever the panel
+    // is.
+    //
+    // That size is the one webOS hands out, not the panel's: a TV gives an app
+    // 1280x720 here and scales it up, and even a 4K panel draws its UI at
+    // 1080p at most. appinfo.json's resolution field is for web apps and
+    // changes nothing for this one.
+    // No SDL_WINDOW_FULLSCREEN: the webOS shell has no toplevel for SDL to
+    // make fullscreen, and asks for it through a shell state of its own. A
+    // window the size of the display already covers the screen here.
+    if (const SDL_DisplayID display = SDL_GetPrimaryDisplay()) {
+        SDL_Rect bounds;
+        if (SDL_GetDisplayBounds(display, &bounds) && bounds.w > 0 && bounds.h > 0) {
+            windowWidth = bounds.w;
+            windowHeight = bounds.h;
+        }
+    }
+#endif
     SDL_Window *window = SDL_CreateWindow("Gallery3D", windowWidth, windowHeight, windowFlags);
     if (window == nullptr) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
+    }
+    {
+        int pixelWidth = 0;
+        int pixelHeight = 0;
+        int logicalWidth = 0;
+        int logicalHeight = 0;
+        SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+        SDL_GetWindowSize(window, &logicalWidth, &logicalHeight);
+        SDL_Log("Window %dx%d, drawable %dx%d", logicalWidth, logicalHeight, pixelWidth, pixelHeight);
     }
     applyMinimumSize(window);
 

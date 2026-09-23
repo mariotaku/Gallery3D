@@ -50,6 +50,13 @@ struct SafeAreaInsets {
 
 extern SafeAreaInsets SAFE_AREA;
 
+// Whether the insets are a margin rather than something in the way. A TV's
+// overscan is a margin: the panel trims the edges of the picture, so what
+// matters must not sit near one, but nothing is covering the screen. A display
+// cutout or a system bar is the other kind, and art drawn to run to the edge
+// has to move aside for it. Art that bleeds may keep bleeding past a margin.
+extern bool SAFE_AREA_IS_MARGIN;
+
 // Directory that holds assets/drawable and assets/fonts. Set once at startup.
 // Android packs only the fonts there. Its drawables are resources, which
 // DrawableLoad reads.

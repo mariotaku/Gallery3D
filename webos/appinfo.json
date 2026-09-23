@@ -1,0 +1,16 @@
+{
+  "id": "me.mariotaku.gallery3d",
+  "version": "1.0.0",
+  "vendor": "Mariotaku",
+  "type": "native",
+  "main": "gallery3d",
+  "title": "Gallery",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#000000",
+  "iconColor": "#000000",
+  "uiRevision": 2,
+  "nativeLifeCycleInterfaceVersion": 2,
+  "supportTouchMode": "full",
+  "handlesRelaunch": true
+}
