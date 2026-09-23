@@ -23,12 +23,16 @@ namespace {
 // The picture the service made for the photo at path, no smaller than maxEdge
 // on its long edge, or an empty string if it made none.
 std::string thumbnailFile(const std::string &path, int maxEdge) {
+    // SAM sets the app's id when it starts the app, and the service wants it.
     const char *appId = SDL_getenv("APPID");
+    if (appId == nullptr) {
+        return std::string();
+    }
     // "fit" keeps the picture's shape and puts its long edge on the larger of
     // the two lengths, so asking for a square asks for that edge. "crop", which
     // the TV's gallery asks for, would fill a 4:3 tile and cut the sides off.
     const nlohmann::json request{
-        {"appId", appId != nullptr ? appId : "me.mariotaku.gallery3d"},
+        {"appId", appId},
         {"sourceUri", path},
         {"mediaType", "image"},
         {"requestId", std::to_string(maxEdge) + "_" + path},
