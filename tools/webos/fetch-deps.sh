@@ -12,7 +12,7 @@
 # from source against this SDL3.
 set -e
 
-SDL_VERSION=3.4.16-webos.3
+SDL_VERSION=3.4.16-webos.4
 
 prefix="${1:-$HOME/.cache/gallery3d/webos-sysroot}"
 stamp="$prefix/.sdl3-version"

@@ -66,6 +66,6 @@ build-ios/
 #     https://github.com/usuiat/picasso.git reference/picasso
 #
 # SDL's webOS fork, for what its video driver and public API offer a TV app:
-#   git clone --depth 1 --branch release-3.4.16-webos.2 \
+#   git clone --depth 1 --branch release-3.4.16-webos.4 \
 #     https://github.com/webosbrew/SDL-webOS.git reference/sdl-webos
 reference/
