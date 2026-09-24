@@ -4,7 +4,7 @@
   "vendor": "Mariotaku",
   "type": "native",
   "main": "gallery3d",
-  "title": "Gallery",
+  "title": "Gallery3D",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "bgColor": "#000000",
