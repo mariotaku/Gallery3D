@@ -68,4 +68,9 @@ build-ios/
 # SDL's webOS fork, for what its video driver and public API offer a TV app:
 #   git clone --depth 1 --branch release-3.4.16-webos.4 \
 #     https://github.com/webosbrew/SDL-webOS.git reference/sdl-webos
+#
+# The webOS Homebrew repository's package rules, and the tools that write and
+# check the manifest it reads:
+#   git clone --depth 1 https://github.com/webosbrew/apps-repo reference/apps-repo
+#   git clone --depth 1 https://github.com/webosbrew/dev-toolbox-cli reference/dev-toolbox-cli
 reference/

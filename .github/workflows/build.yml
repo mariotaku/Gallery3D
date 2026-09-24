@@ -1,6 +1,6 @@
 # Builds every platform on each push and pull request, and runs the tests on
-# Linux, macOS, Windows and an Android emulator. Each build job keeps what it
-# built as an artifact.
+# Linux, macOS, Windows and an Android emulator. iOS and webOS are built and
+# not run. Each build job keeps what it built as an artifact.
 name: Build
 
 on:
@@ -224,3 +224,87 @@ jobs:
         with:
           name: gallery3d-ios
           path: gallery3d-ios.zip
+
+  webos:
+    name: webOS
+    # Cross-compiled for an LG TV with the openlgtv buildroot SDK. Nothing runs
+    # what it builds: the binary is for an ARM TV, and there is none here.
+    runs-on: ubuntu-24.04
+    # A tag makes a release, which the webOS Homebrew repository reads the
+    # manifest and the ipk from.
+    permissions:
+      contents: write
+    env:
+      WEBOS_SDK_RELEASE: 2026.08-webos
+      WEBOSBREW_TOOLBOX_RELEASE: v20260818-ea38b20
+      WEBOSBREW_TOOLBOX_VERSION: 0.9.0-1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        # Everything the build uses, rather than whatever the runner image
+        # happens to carry. file, because the SDK's relocation script asks it
+        # which files are text. python3 is how vcpkg generates GLAD.
+        # ares-package makes the ipk.
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config python3 file
+          npm install -g @webos-tools/cli
+      - name: Bootstrap vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          echo "WEBOS_SDK=$RUNNER_TEMP/arm-webos-linux-gnueabi_sdk-buildroot" >> "$GITHUB_ENV"
+      - name: Cache the SDK
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          # Kept relocated, so a restored SDK is already at home here.
+          path: ${{ runner.temp }}/arm-webos-linux-gnueabi_sdk-buildroot
+          key: webos-sdk-${{ env.WEBOS_SDK_RELEASE }}-x86_64
+      - name: Fetch the SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        # The SDK writes where it was built into its scripts and pkg-config
+        # files, and relocate-sdk.sh rewrites that for where it is now.
+        run: |
+          curl -sfL "https://github.com/openlgtv/buildroot-nc4/releases/download/$WEBOS_SDK_RELEASE/arm-webos-linux-gnueabi_sdk-buildroot-x86_64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          "$WEBOS_SDK/relocate-sdk.sh"
+      - name: Build
+        env:
+          BUILD_DIR: ${{ runner.temp }}/build-webos
+        run: sh tools/webos/build.sh package
+      - name: Write the manifest
+        # The Homebrew Channel reads the id, version and title from the ipk's
+        # appinfo.json, and the ipk's name, size and hash from the file. The
+        # ipk's URL in it is relative to the manifest's.
+        run: |
+          deb="webosbrew-toolbox-gen-manifest_${WEBOSBREW_TOOLBOX_VERSION}_amd64.deb"
+          curl -sfLO "https://github.com/webosbrew/dev-toolbox-cli/releases/download/$WEBOSBREW_TOOLBOX_RELEASE/$deb"
+          sudo apt-get install -y "./$deb"
+          webosbrew-gen-manifest \
+            --pkgfile "$(ls "$RUNNER_TEMP"/build-webos/*.ipk)" \
+            --output "$RUNNER_TEMP/build-webos/me.mariotaku.gallery3d.manifest.json" \
+            --icon "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/webos/largeIcon.png" \
+            --link "https://github.com/${{ github.repository }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gallery3d-webos
+          path: |
+            ${{ runner.temp }}/build-webos/*.ipk
+            ${{ runner.temp }}/build-webos/*.manifest.json
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        # The tag names the version appinfo.json carries, so the release and the
+        # ipk in it agree.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(python3 -c 'import json; print(json.load(open("webos/appinfo.json"))["version"])')"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "tag $GITHUB_REF_NAME does not match appinfo.json version $version" >&2
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
+            "$RUNNER_TEMP"/build-webos/*.ipk "$RUNNER_TEMP"/build-webos/*.manifest.json
