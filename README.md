@@ -43,8 +43,7 @@ For Linux and macOS, see [Building](docs/building.md).
 ## Credits
 
 - Cooliris and the Android Open Source Project, for the original Gallery3D
-- Based on AOSP `platform/packages/apps/Gallery3D`, tag `android-2.3.7_r1`;
-  Java reference sources are in `reference/gallery3d`
+- Based on AOSP `platform/packages/apps/Gallery3D`, tag `android-2.3.7_r1`.
 - Photos in the screenshots are from [Pixabay](https://pixabay.com/), under the
   [Pixabay Content License](https://pixabay.com/service/license-summary/).
 
