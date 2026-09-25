@@ -282,19 +282,6 @@ void applySafeArea(SDL_Window *window, bool overridden, const App::SafeAreaInset
         App::SAFE_AREA.bottom = (float)barBottom;
     }
 #endif
-#if defined(__WEBOS__)
-    // Overscan. A TV panel cuts off the edges of the picture by an amount that
-    // is the panel's business, not the app's, so LG asks that nothing needed
-    // sits within 20 pixels of the edge of a 1920x1080 screen. Half again as
-    // much as that, because the wall's controls are the only way around it and
-    // a remote is pointed from across a room.
-    //
-    // As a share of the window rather than a count of pixels: webOS hands this
-    // app 1280x720 today and the ratio is what the guidance is really about.
-    App::SAFE_AREA.left = App::SAFE_AREA.right = (float)windowWidth * (30.0f / 1920.0f);
-    App::SAFE_AREA.top = App::SAFE_AREA.bottom = (float)windowHeight * (30.0f / 1080.0f);
-    App::SAFE_AREA_IS_MARGIN = true;
-#endif
     if (overridden) {
         App::SAFE_AREA = overrideInsets;
     }
