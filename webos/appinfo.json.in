@@ -1,6 +1,6 @@
 {
   "id": "me.mariotaku.gallery3d",
-  "version": "1.0.0",
+  "version": "@PROJECT_VERSION@",
   "vendor": "Mariotaku",
   "type": "native",
   "main": "gallery3d",

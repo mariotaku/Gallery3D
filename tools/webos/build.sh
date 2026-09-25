@@ -54,7 +54,7 @@ cp -r "$BUILD_DIR/assets" "$app/"
 # A TV carries the font its own interface is drawn in, and the wall takes that
 # one, so the shipped face is weight the package does not need.
 rm -rf "$app/assets/fonts"
-cp "$root/webos/appinfo.json" "$app/"
+cp "$BUILD_DIR/appinfo.json" "$app/"
 cp "$root/webos/icon.png" "$root/webos/largeIcon.png" "$app/"
 # SDL is linked into the binary, so the one library left to carry is libjpeg:
 # a TV's is the 6b ABI (libjpeg.so.62) while the SDK builds against

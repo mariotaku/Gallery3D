@@ -101,6 +101,15 @@ val plainAssets = tasks.register<PlainAssets>("plainAssets") {
     outputDir.set(layout.buildDirectory.dir("generated/drawables/assets"))
 }
 
+// The version CMakeLists.txt gives project(), so every package carries the same
+// one. The version code packs it as MMmmpp: 1.2.3 is 10203.
+val projectVersion: String = Regex("""project\(gallery3d VERSION ([0-9]+\.[0-9]+\.[0-9]+)""")
+    .find(rootProject.file("../CMakeLists.txt").readText())
+    ?.groupValues?.get(1)
+    ?: error("No project(gallery3d VERSION x.y.z) in CMakeLists.txt")
+val projectVersionCode: Int = projectVersion.split(".").map(String::toInt)
+    .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
+
 android {
     namespace = "me.mariotaku.gallery3d"
     compileSdk = 35
@@ -112,8 +121,8 @@ android {
         // filesystem scan and no legacy storage path.
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = projectVersionCode
+        versionName = projectVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         externalNativeBuild {

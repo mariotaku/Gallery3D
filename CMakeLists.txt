@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
-project(gallery3d LANGUAGES CXX)
+# The version every package carries: the webOS appinfo.json and the iOS
+# Info.plist take it from here, and the Android Gradle build reads this line.
+project(gallery3d VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -241,8 +243,8 @@ elseif(IOS)
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/ios/Info.plist.in"
         MACOSX_BUNDLE_GUI_IDENTIFIER "me.mariotaku.gallery3d"
         MACOSX_BUNDLE_BUNDLE_NAME "Gallery"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
-        MACOSX_BUNDLE_BUNDLE_VERSION "1")
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
 else()
     add_executable(gallery3d)
 endif()
@@ -261,6 +263,10 @@ if(GALLERY3D_WEBOS)
     # so a dynamic link asks for GLIBCXX_3.4.30 that the TV does not have and
     # the app does not start. Carry the two runtimes in the binary.
     target_link_options(gallery3d PRIVATE -static-libstdc++ -static-libgcc)
+    # The ipk's manifest, with the project's version. tools/webos/build.sh
+    # packs it from the build tree.
+    configure_file("${CMAKE_SOURCE_DIR}/webos/appinfo.json.in"
+        "${CMAKE_BINARY_DIR}/appinfo.json" @ONLY)
 endif()
 
 add_subdirectory(src)
