@@ -12,9 +12,19 @@ Linux, macOS, Android, iOS and LG webOS TVs.
 
 ## Screenshots
 
-![Album view](docs/albums.png)
+### Desktop
 
-![Grid view](docs/grid.png)
+| | |
+|---|---|
+| ![Album wall](docs/desktop/albums.webp) | ![Album grid](docs/desktop/grid.webp) |
+| ![Timeline](docs/desktop/timeline.webp) | ![Full screen photo](docs/desktop/fullscreen.webp) |
+
+### webOS
+
+| | |
+|---|---|
+| ![Album wall](docs/webos/albums.webp) | ![Album grid](docs/webos/grid.webp) |
+| ![Timeline](docs/webos/timeline.webp) | ![Full screen photo](docs/webos/fullscreen.webp) |
 
 ## Download
 
@@ -35,5 +45,7 @@ For Linux and macOS, see [Building](docs/building.md).
 - Cooliris and the Android Open Source Project, for the original Gallery3D
 - Based on AOSP `platform/packages/apps/Gallery3D`, tag `android-2.3.7_r1`;
   Java reference sources are in `reference/gallery3d`
+- Photos in the screenshots are from [Pixabay](https://pixabay.com/), under the
+  [Pixabay Content License](https://pixabay.com/service/license-summary/).
 
 Licensed under [Apache 2.0](LICENSE).
