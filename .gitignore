@@ -1,4 +1,6 @@
 build/
+# Local secrets, such as PIXABAY_API_KEY for tools/sample-library.
+.env
 # A second build tree, for building while the app from the first one is open.
 build-verify/
 
